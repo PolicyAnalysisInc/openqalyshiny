@@ -1,0 +1,250 @@
+/* Formula Input - Single-line R code editor styles */
+/* Uses Ace Editor */
+
+.formula-input {
+  display: block;
+  width: 100%;
+  min-height: 38px;
+  margin-bottom: 10px;
+  position: relative;
+}
+
+/* Ace Editor container styling */
+.formula-input.ace_editor {
+  height: 38px !important;
+  min-height: 38px;
+  max-height: 38px;
+  background-color: #ffffff !important;
+  border: 1px solid #ced4da !important;
+  border-radius: 4px;
+  font-size: 14px;
+  font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, Courier, monospace;
+  line-height: 1.5;
+}
+
+/* Focus state */
+.formula-input.ace_editor.ace_focus {
+  outline: none !important;
+  border-color: #80bdff !important;
+  box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25) !important;
+}
+
+/* Content area padding */
+.formula-input .ace_scroller {
+  padding: 6px 12px;
+}
+
+.formula-input .ace_content {
+  padding: 0;
+}
+
+/* Hide scrollbars for single-line */
+.formula-input .ace_scrollbar {
+  display: none !important;
+}
+
+/* Cursor styling */
+.formula-input .ace_cursor {
+  border-left-color: #24292e !important;
+}
+
+/* Selection styling */
+.formula-input .ace_selection {
+  background-color: rgba(0, 123, 255, 0.2) !important;
+}
+
+/* Placeholder styling */
+.formula-input .ace_placeholder {
+  color: #6c757d !important;
+  font-style: italic;
+  font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, Courier, monospace;
+  padding: 6px 12px;
+}
+
+/* Active line - no highlight for single line */
+.formula-input .ace_marker-layer .ace_active-line {
+  background: transparent !important;
+}
+
+/* R Syntax Highlighting - Ace uses these classes */
+
+/* Keywords: if, else, for, while, function, etc. */
+.formula-input .ace_keyword {
+  color: #d73a49 !important;
+  font-weight: bold;
+}
+
+/* Operators */
+.formula-input .ace_keyword.ace_operator {
+  color: #d73a49 !important;
+  font-weight: normal;
+}
+
+/* Numbers */
+.formula-input .ace_constant.ace_numeric {
+  color: #005cc5 !important;
+}
+
+/* Strings */
+.formula-input .ace_string {
+  color: #22863a !important;
+}
+
+/* Comments */
+.formula-input .ace_comment {
+  color: #6a737d !important;
+  font-style: italic;
+}
+
+/* Variables/identifiers */
+.formula-input .ace_identifier {
+  color: #24292e !important;
+}
+
+/* Functions */
+.formula-input .ace_support.ace_function {
+  color: #6f42c1 !important;
+}
+
+/* Boolean constants: TRUE, FALSE */
+.formula-input .ace_constant.ace_language {
+  color: #005cc5 !important;
+}
+
+/* NULL, NA, etc. */
+.formula-input .ace_constant.ace_language.ace_boolean,
+.formula-input .ace_constant.ace_language.ace_null {
+  color: #005cc5 !important;
+}
+
+/* Brackets, parens, braces */
+.formula-input .ace_paren {
+  color: #24292e !important;
+}
+
+/* Matching bracket highlight */
+.formula-input .ace_bracket {
+  border: 1px solid #c8c8c8 !important;
+  background-color: rgba(0, 123, 255, 0.1) !important;
+}
+
+/* ============================================
+   Custom Token Types for openqaly terms
+   These styles are applied via markers, not tokens
+   ============================================ */
+
+/* Keywords - domain-specific keywords like cycle, day, state */
+.formula-input .ace_oq-keyword {
+  color: #d73a49 !important;
+  font-weight: bold;
+}
+
+/* Variables - model variables */
+.formula-input .ace_oq-variable {
+  color: #6f42c1 !important;
+}
+
+/* Tables - data frame / table names */
+.formula-input .ace_oq-table {
+  color: #005cc5 !important;
+  font-style: italic;
+}
+
+/* Values - named values or constants */
+.formula-input .ace_oq-value {
+  color: #22863a !important;
+}
+
+/* Script variables - variables assigned in scripts */
+.formula-input .ace_oq-script_variable {
+  color: #e36209 !important;
+}
+
+/* Trees - decision tree names */
+.formula-input .ace_oq-tree {
+  color: #b08800 !important;
+  font-weight: bold;
+}
+
+/* Generic custom token base - can be extended via JS */
+.formula-input [class*="ace_oq-"] {
+  /* Ensure markers render above base syntax highlighting */
+  position: relative;
+  z-index: 1;
+}
+
+/* ============================================
+   Autocomplete Popup Styles
+   ============================================ */
+
+/* Autocomplete popup dimensions */
+.formula-input .ace_autocomplete {
+  width: 300px;
+  max-height: 250px;
+  border: 1px solid #ced4da;
+  border-radius: 4px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+/* Autocomplete row styling */
+.formula-input .ace_autocomplete .ace_line {
+  padding: 4px 8px;
+}
+
+/* Selected item */
+.formula-input .ace_autocomplete .ace_marker-layer .ace_active-line {
+  background-color: #e8f0fe !important;
+}
+
+/* Completion text */
+.formula-input .ace_autocomplete .ace_completion-highlight {
+  font-weight: bold;
+}
+
+/* Meta text (category) - uniform style, no colors */
+.formula-input .ace_autocomplete .ace_meta {
+  color: #959da5;
+  font-size: 11px;
+  font-style: italic;
+}
+
+/* ============================================
+   Autocomplete Details Panel Styles
+   ============================================ */
+
+/* Details panel container */
+.formula-autocomplete-doc {
+  padding: 8px 12px;
+  max-width: 400px;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+/* Function signature */
+.formula-autocomplete-signature {
+  font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+  font-size: 12px;
+  background-color: #f6f8fa;
+  padding: 6px 8px;
+  border-radius: 3px;
+  margin-bottom: 8px;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+/* Description text */
+.formula-autocomplete-description {
+  color: #586069;
+  margin-bottom: 6px;
+  white-space: pre-wrap;
+}
+
+/* Source/package info */
+.formula-autocomplete-source {
+  color: #959da5;
+  font-size: 11px;
+  border-top: 1px solid #e1e4e8;
+  padding-top: 6px;
+  margin-top: 4px;
+}

@@ -1,0 +1,24 @@
+Package: openqalyshiny
+Title: Shiny Components for the Openqalyverse
+Version: 1.0.0
+Authors@R:
+    person("Jordan", "Amdahl", , "jamdahl@pai2.com", role = c("aut", "cre"))
+Maintainer: Jordan Amdahl <jamdahl@pai2.com>
+Description: Provides Shiny UI components for building openqalyverse applications, including formula input editors and override input controls.
+License: MIT + file LICENSE
+Encoding: UTF-8
+Roxygen: list(markdown = TRUE, roclets = c("namespace", "rd", "roxytest::testthat_roclet"))
+RoxygenNote: 7.3.3
+Imports:
+    bslib,
+    flextable,
+    ggplot2,
+    htmltools,
+    jsonlite,
+    openqaly,
+    shiny
+Suggests:
+    covr,
+    shinyFiles,
+    testthat (>= 3.0.0)
+Config/testthat/edition: 3

@@ -1,0 +1,94 @@
+/* Override Input - Tabbed override cards styles */
+
+/* Container */
+.override-input-container {
+  margin-bottom: 15px;
+}
+
+/* Base card styling */
+.override-card {
+  margin-bottom: 12px;
+}
+
+/* General category visual distinction */
+.override-card-general {
+  border-left: 3px solid #0d6efd;
+  background-color: #f8f9ff;
+}
+
+/* Card header layout */
+.override-card-header {
+  width: 100%;
+}
+
+.override-card-title-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+}
+
+.override-card-title {
+  font-weight: 600;
+  font-size: 14px;
+}
+
+.override-card-description {
+  color: #6c757d;
+  font-size: 13px;
+  margin-top: 4px;
+  margin-bottom: 0;
+}
+
+/* Reset button */
+.override-reset-btn {
+  font-size: 12px;
+  padding: 2px 8px;
+  line-height: 1.4;
+  flex-shrink: 0;
+}
+
+.override-reset-btn:hover {
+  background-color: #6c757d;
+  color: #fff;
+  border-color: #6c757d;
+}
+
+/* Timeframe input layout */
+.timeframe-input {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.timeframe-input .timeframe-number {
+  flex: 1;
+  max-width: 120px;
+}
+
+.timeframe-input .timeframe-unit {
+  flex: 1;
+  max-width: 150px;
+}
+
+/* Validation error feedback */
+.override-validation-error {
+  color: #dc3545;
+  font-size: 12px;
+  margin-top: 4px;
+}
+
+/* Card body spacing */
+.override-card .card-body {
+  padding: 12px 16px;
+}
+
+/* Card header spacing */
+.override-card .card-header {
+  padding: 10px 16px;
+}
+
+/* Formula input inside override card */
+.override-card .formula-input {
+  margin-bottom: 0;
+}

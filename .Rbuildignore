@@ -1,0 +1,7 @@
+^LICENSE\.md$
+^\.circleci$
+^\.circleci/config\.yml$
+^codecov\.yml$
+^README\.Rmd$
+^README\.html$
+^docs$
