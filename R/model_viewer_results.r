@@ -57,21 +57,21 @@ traceResultsServer <- function(id, results, metadata) {
       groups <- get_group_choices(meta)
       strategies <- get_strategy_choices(meta)
 
-      common <- shiny::tagList(
-        if (length(groups) > 1) shiny::selectInput(ns("groups"), "Groups", choices = groups, selected = "overall", multiple = TRUE),
-        if (length(strategies) > 1) shiny::selectInput(ns("strategies"), "Strategies", choices = strategies, selected = strategies, multiple = TRUE),
-        shiny::selectInput(ns("time_unit"), "Time Unit",
-          choices = c("cycle", "day", "week", "month", "year"),
-          selected = "cycle"
-        )
-      )
-
       extra <- switch(viz,
         "line" = shiny::checkboxInput(ns("by_state"), "By State", value = FALSE),
         NULL
       )
 
-      shiny::tagList(common, extra)
+      bslib::layout_columns(
+        col_widths = bslib::breakpoints(sm = 12, md = 6),
+        if (length(groups) > 1) shiny::selectInput(ns("groups"), "Groups", choices = groups, selected = "overall", multiple = TRUE),
+        if (length(strategies) > 1) shiny::selectInput(ns("strategies"), "Strategies", choices = strategies, selected = strategies, multiple = TRUE),
+        shiny::selectInput(ns("time_unit"), "Time Unit",
+          choices = c("cycle", "day", "week", "month", "year"),
+          selected = "cycle"
+        ),
+        extra
+      )
     })
 
     # Build args list from current inputs
@@ -270,7 +270,8 @@ outcomesResultsServer <- function(id, results, metadata) {
         )
       }
 
-      shiny::tagList(
+      bslib::layout_columns(
+        col_widths = bslib::breakpoints(sm = 12, md = 6),
         shiny::selectInput(ns("outcome"), "Outcome Summary",
           choices = outcome_choices,
           selected = if (length(outcome_choices) > 0) outcome_choices[1] else NULL
@@ -459,7 +460,18 @@ nmbResultsServer <- function(id, results, metadata) {
       outcome_choices <- get_outcome_summary_choices(meta)
       cost_choices <- get_cost_summary_choices(meta)
 
-      common <- shiny::tagList(
+      extra <- if (viz == "line") {
+        shiny::tagList(
+          shiny::selectInput(ns("time_unit"), "Time Unit",
+            choices = c("cycle", "day", "week", "month", "year"),
+            selected = "cycle"
+          ),
+          shiny::checkboxInput(ns("cumulative"), "Cumulative", value = TRUE)
+        )
+      }
+
+      bslib::layout_columns(
+        col_widths = bslib::breakpoints(sm = 12, md = 6),
         shiny::selectInput(ns("health_outcome"), "Health Outcome",
           choices = outcome_choices,
           selected = if (length(outcome_choices) > 0) outcome_choices[1] else NULL
@@ -477,20 +489,9 @@ nmbResultsServer <- function(id, results, metadata) {
         ),
         if (length(strategies) > 1) shiny::selectInput(ns("comparators"), "Comparators",
           choices = strategies, selected = strategies[1], multiple = TRUE
-        )
+        ),
+        extra
       )
-
-      extra <- if (viz == "line") {
-        shiny::tagList(
-          shiny::selectInput(ns("time_unit"), "Time Unit",
-            choices = c("cycle", "day", "week", "month", "year"),
-            selected = "cycle"
-          ),
-          shiny::checkboxInput(ns("cumulative"), "Cumulative", value = TRUE)
-        )
-      }
-
-      shiny::tagList(common, extra)
     })
 
     build_args <- function(res) {
@@ -676,7 +677,8 @@ pairwiseCeResultsServer <- function(id, results, metadata) {
       outcome_choices <- get_outcome_summary_choices(meta)
       cost_choices <- get_cost_summary_choices(meta)
 
-      shiny::tagList(
+      bslib::layout_columns(
+        col_widths = bslib::breakpoints(sm = 12, md = 6),
         shiny::selectInput(ns("outcome_summary"), "Outcome Summary",
           choices = outcome_choices,
           selected = if (length(outcome_choices) > 0) outcome_choices[1] else NULL
@@ -814,7 +816,8 @@ incrementalCeResultsServer <- function(id, results, metadata) {
       outcome_choices <- get_outcome_summary_choices(meta)
       cost_choices <- get_cost_summary_choices(meta)
 
-      shiny::tagList(
+      bslib::layout_columns(
+        col_widths = bslib::breakpoints(sm = 12, md = 6),
         shiny::selectInput(ns("outcome_summary"), "Outcome Summary",
           choices = outcome_choices,
           selected = if (length(outcome_choices) > 0) outcome_choices[1] else NULL

@@ -24,11 +24,10 @@
 #' @export
 #' @importFrom htmltools htmlDependency tags tagList
 overrideInput <- function(inputId, model, width = NULL) {
-  if (is.null(model$override_categories)) {
+  categories <- openqaly::get_override_categories(model)
+  if (length(categories) == 0) {
     stop("model must contain 'override_categories'")
   }
-
-  categories <- model$override_categories
 
   # Build nav panels for each category
   nav_panels <- lapply(categories, function(cat) {
@@ -58,15 +57,26 @@ overrideInput <- function(inputId, model, width = NULL) {
 
   # Build dependency list
   deps <- list(override_input_dependency())
+  deps <- c(deps, list(override_manager_dependency()))
   if (has_formula) {
     deps <- c(deps, formula_input_dependency())
   }
+
+  # Build gear icon button for management screen
+  gear_btn <- htmltools::tags$button(
+    type = "button",
+    class = "override-manage-btn",
+    `data-input-id` = inputId,
+    title = "Manage overrides",
+    "\u2699"
+  )
 
   # Wrap in container div
   container <- htmltools::tags$div(
     id = paste0(inputId, "-container"),
     class = "override-input-container",
     style = style,
+    gear_btn,
     tabset
   )
 
@@ -91,8 +101,10 @@ overrideInput <- function(inputId, model, width = NULL) {
 #' @seealso \code{\link{overrideInput}}
 #'
 #' @export
-updateOverrideInput <- function(session, inputId, override_name, value) {
-  override_id <- .build_override_id(inputId, override_name)
+updateOverrideInput <- function(session, inputId, override_name, value,
+                               strategy = "", group = "") {
+  override <- list(name = override_name, strategy = strategy, group = group)
+  override_id <- .build_override_id(inputId, override)
 
   session$sendCustomMessage("override-input-update", list(
     id = override_id,
@@ -102,16 +114,25 @@ updateOverrideInput <- function(session, inputId, override_name, value) {
 
 #' Build Override ID
 #'
-#' Sanitizes an override name and combines with the base input ID.
+#' Sanitizes an override name, strategy, and group, and combines with the
+#' base input ID to produce a unique Shiny input ID.
 #'
 #' @param base_id The base input ID.
-#' @param override_name The override name to sanitize.
+#' @param override The full override list (must have \code{name}, and
+#'   optionally \code{strategy} and \code{group}).
 #'
-#' @return A character string of the form \code{base_id_safe_name}.
+#' @return A character string of the form
+#'   \code{base_id_name_strategy_group}.
 #' @keywords internal
-.build_override_id <- function(base_id, override_name) {
-  safe_name <- gsub("[^a-zA-Z0-9_]", "_", override_name)
-  paste0(base_id, "_", safe_name)
+.build_override_id <- function(base_id, override) {
+  sanitize <- function(x) gsub("[^a-zA-Z0-9_]", "_", x %||% "")
+  parts <- c(
+    base_id,
+    sanitize(override$name),
+    sanitize(override$strategy),
+    sanitize(override$group)
+  )
+  paste(parts, collapse = "_")
 }
 
 #' Build Override Card
@@ -128,7 +149,7 @@ updateOverrideInput <- function(session, inputId, override_name, value) {
 #' @return A bslib card element.
 #' @keywords internal
 .build_override_card <- function(inputId, override, model, is_general = FALSE) {
-  override_id <- .build_override_id(inputId, override$name)
+  override_id <- .build_override_id(inputId, override)
 
   # Determine CSS class
   card_class <- "override-card"

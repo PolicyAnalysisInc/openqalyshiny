@@ -1,0 +1,453 @@
+/* Override Manager - Kanban-style CRUD modal */
+
+/* Modal body: horizontal scrollable flex container */
+.override-manager-body {
+  display: flex;
+  gap: 16px;
+  overflow-x: auto;
+  min-height: 400px;
+  padding: 16px;
+  align-items: flex-start;
+}
+
+/* Category column */
+.override-manager-column {
+  min-width: 280px;
+  max-width: 350px;
+  flex-shrink: 0;
+  background-color: #f1f3f5;
+  border-radius: 8px;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+/* Column header with title and actions */
+.override-manager-column-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 4px 4px 8px 4px;
+  border-bottom: 1px solid #dee2e6;
+  margin-bottom: 4px;
+}
+
+.override-manager-column-title {
+  font-weight: 600;
+  font-size: 15px;
+  cursor: text;
+}
+
+.override-manager-column-title:hover {
+  background-color: #e9ecef;
+  border-radius: 4px;
+}
+
+.override-manager-column-actions {
+  display: flex;
+  gap: 4px;
+}
+
+.override-manager-column-actions button {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 2px 6px;
+  font-size: 14px;
+  color: #6c757d;
+  border-radius: 4px;
+}
+
+.override-manager-column-actions button:hover {
+  background-color: #dee2e6;
+  color: #212529;
+}
+
+/* Card list inside column */
+.override-manager-card-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-height: 40px;
+}
+
+/* Override card */
+.override-manager-card {
+  background-color: #fff;
+  border: 1px solid #dee2e6;
+  border-radius: 6px;
+  padding: 10px 12px;
+  cursor: grab;
+  position: relative;
+}
+
+.override-manager-card:hover {
+  border-color: #adb5bd;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+}
+
+.override-manager-card-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+}
+
+.override-manager-card-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.override-manager-card-name {
+  font-weight: 600;
+  font-size: 13px;
+  word-break: break-word;
+}
+
+.override-manager-card-title {
+  font-size: 12px;
+  color: #6c757d;
+  margin-top: 2px;
+}
+
+.override-manager-card-type {
+  font-size: 11px;
+  color: #868e96;
+  margin-top: 2px;
+}
+
+/* Card "..." menu button */
+.override-manager-card-menu-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 2px 6px;
+  font-size: 16px;
+  line-height: 1;
+  color: #6c757d;
+  border-radius: 4px;
+  flex-shrink: 0;
+}
+
+.override-manager-card-menu-btn:hover {
+  background-color: #e9ecef;
+  color: #212529;
+}
+
+/* Dropdown menu for card actions */
+.override-manager-card-menu {
+  display: none;
+  position: absolute;
+  right: 8px;
+  top: 32px;
+  background: #fff;
+  border: 1px solid #dee2e6;
+  border-radius: 6px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  z-index: 100;
+  min-width: 120px;
+  overflow: hidden;
+}
+
+.override-manager-card-menu.show {
+  display: block;
+}
+
+.override-manager-card-menu button {
+  display: block;
+  width: 100%;
+  background: none;
+  border: none;
+  padding: 8px 14px;
+  text-align: left;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.override-manager-card-menu button:hover {
+  background-color: #f1f3f5;
+}
+
+.override-manager-card-menu button.danger {
+  color: #dc3545;
+}
+
+.override-manager-card-menu button.danger:hover {
+  background-color: #fff5f5;
+}
+
+/* SortableJS drag states */
+.override-manager-ghost {
+  opacity: 0.4;
+  background-color: #e7f5ff;
+  border-color: #74c0fc;
+}
+
+.override-manager-chosen {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+/* SortableJS forceFallback clone that follows the cursor */
+.override-manager-fallback {
+  opacity: 0.9;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
+}
+
+/* Card in edit mode */
+.override-manager-card.editing {
+  cursor: default;
+  border-color: #339af0;
+  border-width: 2px;
+  padding: 9px 11px;
+}
+
+/* Edit form inside card */
+.override-manager-edit-form {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.override-manager-edit-form label {
+  font-size: 12px;
+  font-weight: 600;
+  color: #495057;
+  margin-bottom: 2px;
+}
+
+.override-manager-edit-form input,
+.override-manager-edit-form select,
+.override-manager-edit-form textarea {
+  font-size: 13px;
+  padding: 4px 8px;
+  border: 1px solid #ced4da;
+  border-radius: 4px;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.override-manager-edit-form textarea {
+  resize: vertical;
+  min-height: 48px;
+}
+
+.override-manager-edit-form input:focus,
+.override-manager-edit-form select:focus,
+.override-manager-edit-form textarea:focus {
+  outline: none;
+  border-color: #339af0;
+  box-shadow: 0 0 0 2px rgba(51, 154, 240, 0.2);
+}
+
+/* Config fields section */
+.override-manager-config-fields {
+  border-top: 1px solid #e9ecef;
+  padding-top: 8px;
+  margin-top: 4px;
+}
+
+/* Options list for dropdown type */
+.override-manager-options-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.override-manager-option-row {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+}
+
+.override-manager-option-row input {
+  flex: 1;
+}
+
+.override-manager-option-row button {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: #dc3545;
+  font-size: 16px;
+  padding: 2px 4px;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.override-manager-add-option-btn {
+  background: none;
+  border: 1px dashed #ced4da;
+  border-radius: 4px;
+  padding: 4px 8px;
+  font-size: 12px;
+  color: #6c757d;
+  cursor: pointer;
+  width: 100%;
+  text-align: center;
+}
+
+.override-manager-add-option-btn:hover {
+  border-color: #339af0;
+  color: #339af0;
+}
+
+/* Timeframe units checkboxes */
+.override-manager-units-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.override-manager-units-list label {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-weight: 400;
+  cursor: pointer;
+}
+
+/* Edit form action buttons */
+.override-manager-edit-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+  margin-top: 4px;
+}
+
+.override-manager-edit-actions button {
+  font-size: 12px;
+  padding: 4px 12px;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.override-manager-edit-actions .btn-save {
+  background-color: #339af0;
+  color: #fff;
+  border: none;
+}
+
+.override-manager-edit-actions .btn-save:hover {
+  background-color: #228be6;
+}
+
+.override-manager-edit-actions .btn-cancel {
+  background-color: #fff;
+  color: #495057;
+  border: 1px solid #ced4da;
+}
+
+.override-manager-edit-actions .btn-cancel:hover {
+  background-color: #f1f3f5;
+}
+
+/* Add override button at bottom of column */
+.override-manager-add-btn {
+  background: none;
+  border: 2px dashed #ced4da;
+  border-radius: 6px;
+  padding: 8px;
+  font-size: 13px;
+  color: #6c757d;
+  cursor: pointer;
+  text-align: center;
+  width: 100%;
+  transition: border-color 0.15s, color 0.15s;
+}
+
+.override-manager-add-btn:hover {
+  border-color: #339af0;
+  color: #339af0;
+}
+
+/* Add category column */
+.override-manager-add-column {
+  min-width: 200px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: flex-start;
+  padding-top: 12px;
+}
+
+.override-manager-add-column-btn {
+  background: none;
+  border: 2px dashed #ced4da;
+  border-radius: 8px;
+  padding: 16px;
+  font-size: 13px;
+  color: #6c757d;
+  cursor: pointer;
+  text-align: center;
+  width: 100%;
+  transition: border-color 0.15s, color 0.15s;
+}
+
+.override-manager-add-column-btn:hover {
+  border-color: #339af0;
+  color: #339af0;
+}
+
+/* Category rename input */
+.override-manager-column-rename {
+  font-size: 15px;
+  font-weight: 600;
+  padding: 2px 6px;
+  border: 1px solid #339af0;
+  border-radius: 4px;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+/* Field group */
+.override-manager-field-group {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+/* Card badges (type, strategy, group) */
+.override-manager-card-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 4px;
+}
+
+.override-manager-badge {
+  display: inline-block;
+  font-size: 10px;
+  font-weight: 600;
+  padding: 1px 6px;
+  border-radius: 3px;
+  line-height: 1.4;
+}
+
+.override-manager-badge-variable {
+  background-color: #e7f5ff;
+  color: #1971c2;
+}
+
+.override-manager-badge-setting {
+  background-color: #fff3bf;
+  color: #e67700;
+}
+
+.override-manager-badge-target {
+  background-color: #f3f0ff;
+  color: #7048e8;
+}
+
+/* Validation error message */
+.override-manager-error {
+  font-size: 11px;
+  color: #dc3545;
+  margin-top: 2px;
+}
+
+/* Modal footer */
+.override-manager-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}

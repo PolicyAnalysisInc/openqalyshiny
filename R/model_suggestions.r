@@ -360,10 +360,7 @@ get_model_suggestions <- function(model, context, include_r_functions = TRUE,
 #' Get model type from model object
 #' @keywords internal
 .get_model_type <- function(model) {
-  if (!is.null(model$settings$model_type)) {
-    return(model$settings$model_type)
-  }
-  "markov"  # default
+  openqaly::get_model_type(model)
 }
 
 #' Get keywords for a specific context and model type
@@ -405,53 +402,36 @@ get_model_suggestions <- function(model, context, include_r_functions = TRUE,
 #' Extract variable names from model
 #' @keywords internal
 .extract_variable_names <- function(model) {
-  if (is.null(model$variables) || !is.data.frame(model$variables) ||
-      nrow(model$variables) == 0 || !"name" %in% names(model$variables)) {
-    return(character(0))
-  }
-  unique(model$variables$name[!is.na(model$variables$name)])
+  openqaly::get_variable_names(model)
 }
 
 #' Extract table names from model
 #' @keywords internal
 .extract_table_names <- function(model) {
-  if (is.null(model$tables) || !is.list(model$tables) ||
-      length(model$tables) == 0) {
-    return(character(0))
-  }
-  names(model$tables)
+  openqaly::get_table_names(model)
 }
 
 #' Extract value names from model
 #' @keywords internal
 .extract_value_names <- function(model) {
-  if (is.null(model$values) || !is.data.frame(model$values) ||
-      nrow(model$values) == 0 || !"name" %in% names(model$values)) {
-    return(character(0))
-  }
-  unique(model$values$name[!is.na(model$values$name)])
+  openqaly::get_model_value_names(model)
 }
 
 #' Extract tree names from model
 #' @keywords internal
 .extract_tree_names <- function(model) {
-  if (is.null(model$trees) || !is.data.frame(model$trees) ||
-      nrow(model$trees) == 0 || !"name" %in% names(model$trees)) {
-    return(character(0))
-  }
-  unique(model$trees$name[!is.na(model$trees$name)])
+  openqaly::get_tree_names(model)
 }
 
 #' Build variable suggestions with strategy/group-specific display
 #' @keywords internal
 .build_variable_suggestions <- function(model) {
-  if (is.null(model$variables) || !is.data.frame(model$variables) ||
-      nrow(model$variables) == 0 || !"name" %in% names(model$variables)) {
+  vars <- openqaly::get_variables(model)
+  if (nrow(vars) == 0) {
     return(.empty_suggestions_df())
   }
 
-  vars <- model$variables
-  var_names <- unique(vars$name[!is.na(vars$name)])
+  var_names <- openqaly::get_variable_names(model)
 
   if (length(var_names) == 0) {
     return(.empty_suggestions_df())
@@ -554,15 +534,15 @@ get_model_suggestions <- function(model, context, include_r_functions = TRUE,
 #' Build table suggestions
 #' @keywords internal
 .build_table_suggestions <- function(model) {
-  if (is.null(model$tables) || !is.list(model$tables) ||
-      length(model$tables) == 0) {
+  tables <- openqaly::get_tables(model)
+  if (length(tables) == 0) {
     return(.empty_suggestions_df())
   }
 
-  table_names <- names(model$tables)
+  table_names <- names(tables)
 
   do.call(rbind, lapply(table_names, function(tname) {
-    tbl_entry <- model$tables[[tname]]
+    tbl_entry <- tables[[tname]]
 
     # Get table data - handle both list format and direct data.frame
     tbl_data <- NULL
@@ -613,13 +593,12 @@ get_model_suggestions <- function(model, context, include_r_functions = TRUE,
 #' Build value suggestions
 #' @keywords internal
 .build_value_suggestions <- function(model) {
-  if (is.null(model$values) || !is.data.frame(model$values) ||
-      nrow(model$values) == 0 || !"name" %in% names(model$values)) {
+  vals <- openqaly::get_model_values(model)
+  if (nrow(vals) == 0) {
     return(.empty_suggestions_df())
   }
 
-  vals <- model$values
-  value_names <- unique(vals$name[!is.na(vals$name)])
+  value_names <- openqaly::get_model_value_names(model)
 
   if (length(value_names) == 0) {
     return(.empty_suggestions_df())
@@ -669,13 +648,12 @@ get_model_suggestions <- function(model, context, include_r_functions = TRUE,
 #' Build tree suggestions
 #' @keywords internal
 .build_tree_suggestions <- function(model) {
-  if (is.null(model$trees) || !is.data.frame(model$trees) ||
-      nrow(model$trees) == 0 || !"name" %in% names(model$trees)) {
+  trees <- openqaly::get_trees(model)
+  if (is.null(trees) || !is.data.frame(trees) || nrow(trees) == 0) {
     return(.empty_suggestions_df())
   }
 
-  trees <- model$trees
-  tree_names <- unique(trees$name[!is.na(trees$name)])
+  tree_names <- openqaly::get_tree_names(model)
 
   if (length(tree_names) == 0) {
     return(.empty_suggestions_df())

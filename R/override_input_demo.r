@@ -24,7 +24,7 @@ run_override_input_demo <- function() {
   }
 
   # Build a mock model with override_categories
-  model <- list(
+  model <- structure(list(
     override_categories = list(
       list(
         name = "Economic Parameters",
@@ -110,7 +110,7 @@ run_override_input_demo <- function() {
         )
       )
     )
-  )
+  ), class = "oq_model")
 
   # Define UI
   ui <- shiny::fluidPage(
@@ -150,7 +150,7 @@ run_override_input_demo <- function() {
   # Define server
   server <- function(input, output, session) {
     output$all_values <- shiny::renderPrint({
-      # Collect all override values
+      # Collect all override values using the same ID builder as overrideInput
       override_names <- c(
         "discount_rate", "time_horizon", "currency",
         "treatment_efficacy", "mortality_rate",
@@ -158,7 +158,8 @@ run_override_input_demo <- function() {
       )
 
       values <- lapply(override_names, function(name) {
-        id <- paste0("overrides_", name)
+        override <- list(name = name, strategy = "", group = "")
+        id <- .build_override_id("overrides", override)
         input[[id]]
       })
       names(values) <- override_names

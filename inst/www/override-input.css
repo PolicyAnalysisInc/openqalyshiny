@@ -3,6 +3,28 @@
 /* Container */
 .override-input-container {
   margin-bottom: 15px;
+  position: relative;
+}
+
+/* Gear button for override management */
+.override-manage-btn {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  z-index: 10;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 18px;
+  color: #6c757d;
+  padding: 2px 6px;
+  border-radius: 4px;
+  line-height: 1;
+}
+
+.override-manage-btn:hover {
+  background-color: #e9ecef;
+  color: #212529;
 }
 
 /* Base card styling */

@@ -201,6 +201,16 @@
       }
     });
 
+    // =========================================================================
+    // Gear button click handler - opens override manager
+    // =========================================================================
+    $(document).on("click", ".override-manage-btn", function() {
+      var btn = $(this);
+      var inputId = btn.data("input-id");
+      if (!inputId) return;
+      Shiny.setInputValue(inputId + "-manage_click", Date.now(), {priority: "event"});
+    });
+
     // Rebind to pick up any existing elements
     Shiny.bindAll(document.body);
 

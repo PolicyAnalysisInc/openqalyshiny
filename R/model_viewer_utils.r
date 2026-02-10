@@ -138,6 +138,23 @@ enforce_exclusive_strategies <- function(changed_new, other_current, changed_pre
   list(changed = changed_prev, other = other_current)
 }
 
+#' Get Variable Choices
+#'
+#' Extract unique variable names from a model object, filtered to only include
+#' global (unsegmented) variables — those not defined for a specific strategy
+#' or group. This is used for VBP price variable selection, which requires
+#' variables that apply across all strategies and groups.
+#'
+#' @param model An openqaly model object.
+#'
+#' @return A character vector of variable names.
+#' @keywords internal
+get_variable_choices <- function(model) {
+  global_vars <- openqaly::get_global_variables(model)
+  if (nrow(global_vars) == 0) return(character(0))
+  unique(global_vars$name)
+}
+
 #' Render Flextable as HTML
 #'
 #' Converts a flextable object to an HTML widget suitable for Shiny renderUI.
@@ -149,4 +166,42 @@ enforce_exclusive_strategies <- function(changed_new, other_current, changed_pre
 render_flextable_html <- function(ft) {
   html_str <- flextable::htmltools_value(ft)
   html_str
+}
+
+#' Get DSA Setting Choices
+#'
+#' Returns a named character vector of valid model settings for DSA analysis.
+#'
+#' @return A named character vector where names are display labels and values
+#'   are setting identifiers.
+#' @keywords internal
+get_dsa_setting_choices <- function() {
+  c(
+    "Discount Rate (Cost)" = "discount_cost",
+    "Discount Rate (Outcomes)" = "discount_outcomes",
+    "Timeframe" = "timeframe",
+    "Cycle Length" = "cycle_length",
+    "Timeframe Unit" = "timeframe_unit",
+    "Cycle Length Unit" = "cycle_length_unit",
+    "Half-Cycle Method" = "half_cycle_method",
+    "Reduce State Cycle" = "reduce_state_cycle",
+    "Days Per Year" = "days_per_year"
+  )
+}
+
+#' DSA Params Table Dependency
+#'
+#' Returns the HTML dependency for the DSA parameter table JS and CSS assets.
+#'
+#' @return An htmltools htmlDependency object.
+#' @keywords internal
+dsa_params_dependency <- function() {
+  htmltools::htmlDependency(
+    name = "dsa-params",
+    version = "2.0.0",
+    src = c(file = system.file("www", package = "openqalyshiny")),
+    script = "dsa-params.js",
+    stylesheet = "dsa-params.css",
+    all_files = FALSE
+  )
 }

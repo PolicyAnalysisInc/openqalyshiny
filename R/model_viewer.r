@@ -54,6 +54,9 @@ modelViewerServer <- function(id, model = shiny::reactive(NULL)) {
   shiny::moduleServer(id, function(input, output, session) {
     ns <- session$ns
 
+    # Make transition probability violations raise errors instead of warnings
+    options(openqaly.error_mode = "checkpoint")
+
     rv <- shiny::reactiveValues(
       model = NULL,
       results = NULL,
@@ -89,7 +92,8 @@ modelViewerServer <- function(id, model = shiny::reactive(NULL)) {
           "No model loaded."
         ))
       }
-      if (is.null(m$override_categories) || length(m$override_categories) == 0) {
+      cats <- openqaly::get_override_categories(m)
+      if (length(cats) == 0) {
         return(shiny::tags$div(
           class = "text-muted p-3",
           "This model has no overrides."
@@ -98,18 +102,24 @@ modelViewerServer <- function(id, model = shiny::reactive(NULL)) {
       overrideInput(ns("overrides"), m)
     })
 
-    # Collect all override values into a reactive list
+    # Collect all override values into a reactive list of lists with targeting
     override_values <- shiny::reactive({
       m <- rv$model
-      if (is.null(m) || is.null(m$override_categories)) return(NULL)
+      cats <- openqaly::get_override_categories(m)
+      if (is.null(m) || length(cats) == 0) return(NULL)
 
       values <- list()
-      for (cat in m$override_categories) {
+      for (cat in cats) {
         for (override in cat$overrides) {
-          input_id <- paste0("overrides_", gsub("[^a-zA-Z0-9_]", "_", override$name))
+          input_id <- .build_override_id("overrides", override)
           val <- input[[input_id]]
           if (!is.null(val)) {
-            values[[override$name]] <- val
+            values <- c(values, list(list(
+              name = override$name,
+              expression = as.character(val),
+              strategy = override$strategy %||% "",
+              group = override$group %||% ""
+            )))
           }
         }
       }
@@ -126,20 +136,8 @@ modelViewerServer <- function(id, model = shiny::reactive(NULL)) {
       if (is.null(m) || is.null(vals)) return()
 
       tryCatch({
-        # Deep copy the model
-        updated_model <- m
-
-        # Update overridden_expression for each override
-        for (i in seq_along(updated_model$override_categories)) {
-          cat <- updated_model$override_categories[[i]]
-          for (j in seq_along(cat$overrides)) {
-            override <- cat$overrides[[j]]
-            if (override$name %in% names(vals)) {
-              updated_model$override_categories[[i]]$overrides[[j]]$overridden_expression <-
-                as.character(vals[[override$name]])
-            }
-          }
-        }
+        # Apply overrides via API
+        updated_model <- openqaly::set_override_expressions(m, vals)
 
         # Run the model
         res <- openqaly::run_model(updated_model)
@@ -160,6 +158,15 @@ modelViewerServer <- function(id, model = shiny::reactive(NULL)) {
       !is.null(rv$results)
     })
     shiny::outputOptions(output, "has_results", suspendWhenHidden = FALSE)
+
+    # Override manager module
+    overrideManagerServer(
+      "overrides",
+      model = shiny::reactive(rv$model),
+      on_apply = function(new_cats) {
+        rv$model <- openqaly::set_override_categories(rv$model, new_cats)
+      }
+    )
 
     # Result sub-module servers
     results_reactive <- shiny::reactive(rv$results)

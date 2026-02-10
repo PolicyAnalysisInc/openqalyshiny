@@ -43,54 +43,568 @@ run_model_viewer <- function(model = NULL, model_dir = NULL, example = FALSE) {
     model <- openqaly::read_model(model_dir)
   }
 
-  ui <- bslib::page_fluid(
+  # --- UI ---
+  ui <- bslib::page_navbar(
+    title = "Model Viewer",
     theme = bslib::bs_theme(version = 5),
-    shiny::tags$h3("Model Viewer", class = "mb-3 mt-2"),
-
-    # File browser section (only if no model provided)
-    if (is.null(model)) {
-      shiny::tagList(
-        bslib::card(
-          bslib::card_body(
-            bslib::layout_columns(
-              col_widths = c(8, 4),
-              shiny::textInput("model_path", "Model Directory", placeholder = "Enter path to model directory..."),
-              shiny::actionButton("load_model", "Load Model", class = "btn-primary mt-auto mb-3")
+    sidebar = bslib::sidebar(
+      width = "33%",
+      # File browser (only if no model provided at launch)
+      if (is.null(model)) {
+        shiny::tagList(
+          bslib::card(
+            bslib::card_body(
+              shiny::textInput("model_path", "Model Directory",
+                placeholder = "Enter path to model directory..."
+              ),
+              shiny::actionButton("load_model", "Load Model",
+                class = "btn-primary mt-2"
+              )
             )
           )
         )
-      )
-    },
+      },
+      shiny::uiOutput("override_panel")
+    ),
 
-    modelViewerUI("viewer")
+    # Base Case page
+    bslib::nav_panel(
+      "Base Case",
+      shiny::conditionalPanel(
+        condition = "!output.has_base_results",
+        shiny::tags$div(
+          class = "text-muted p-3",
+          "No model loaded."
+        )
+      ),
+      shiny::conditionalPanel(
+        condition = "output.has_base_results",
+        bslib::navset_card_tab(
+          bslib::nav_panel("Trace", traceResultsUI("trace")),
+          bslib::nav_panel("Outcomes", outcomesResultsUI("outcomes")),
+          bslib::nav_panel("NMB", nmbResultsUI("nmb")),
+          bslib::nav_panel("Pairwise CE", pairwiseCeResultsUI("pairwise_ce")),
+          bslib::nav_panel("Incremental CE", incrementalCeResultsUI("incremental_ce"))
+        )
+      )
+    ),
+
+    # VBP page
+    bslib::nav_panel(
+      "VBP",
+      shiny::conditionalPanel(
+        condition = "!output.has_base_results",
+        shiny::tags$div(
+          class = "text-muted p-3",
+          "No model loaded. Load a model to configure VBP analysis."
+        )
+      ),
+      shiny::conditionalPanel(
+        condition = "output.has_base_results",
+        bslib::navset_card_tab(
+          bslib::nav_panel("Configuration",
+            shiny::uiOutput("vbp_config"),
+            shiny::actionButton("run_vbp", "Run VBP Analysis",
+              class = "btn-primary mt-2"
+            )
+          ),
+          bslib::nav_panel("Results", vbpResultsUI("vbp"))
+        )
+      )
+    ),
+
+    # DSA page
+    bslib::nav_panel(
+      "DSA",
+      shiny::conditionalPanel(
+        condition = "!output.has_base_results",
+        shiny::tags$div(
+          class = "text-muted p-3",
+          "No model loaded. Load a model to configure DSA analysis."
+        )
+      ),
+      shiny::conditionalPanel(
+        condition = "output.has_base_results",
+        bslib::navset_card_tab(
+          bslib::nav_panel("Inputs",
+            shiny::uiOutput("dsa_inputs"),
+            shiny::actionButton("run_dsa", "Run DSA Analysis",
+              class = "btn-primary mt-2"
+            )
+          ),
+          bslib::nav_panel("Results", dsaResultsUI("dsa"))
+        )
+      )
+    ),
+
+    # Model Diff page
+    bslib::nav_panel(
+      "Model Diff",
+      shiny::conditionalPanel(
+        condition = "!output.has_base_results",
+        shiny::tags$div(
+          class = "text-muted p-3",
+          "No model loaded."
+        )
+      ),
+      shiny::conditionalPanel(
+        condition = "output.has_base_results",
+        diffResultsUI("diff")
+      )
+    )
   )
 
+  # --- Server ---
   server <- function(input, output, session) {
-    loaded_model <- shiny::reactiveVal(model)
 
-    # File browser: load model from text input path
+    # Make transition probability violations raise errors instead of warnings
+    options(openqaly.error_mode = "checkpoint")
+
+    # Shared state
+    model_rv <- shiny::reactiveVal(model)
+    original_model_rv <- shiny::reactiveVal(model)
+
+    base_case_rv <- shiny::reactiveValues(
+      results = NULL,
+      metadata = NULL
+    )
+
+    vbp_rv <- shiny::reactiveValues(
+      results = NULL
+    )
+
+    dsa_rv <- shiny::reactiveValues(
+      results = NULL,
+      parameters = list()
+    )
+
+    # ---- File browser: load model from text input ----
     if (is.null(model)) {
       shiny::observeEvent(input$load_model, {
         path <- input$model_path
         if (is.null(path) || nchar(trimws(path)) == 0) {
-          shiny::showNotification("Please enter a model directory path.", type = "warning")
+          shiny::showNotification("Please enter a model directory path.",
+            type = "warning"
+          )
           return()
         }
         tryCatch({
           m <- openqaly::read_model(trimws(path))
-          loaded_model(m)
+          model_rv(m)
+          original_model_rv(m)
           shiny::showNotification("Model loaded successfully.", type = "message")
         }, error = function(e) {
           shiny::showNotification(
             paste("Failed to load model:", conditionMessage(e)),
-            type = "error",
-            duration = 10
+            type = "error", duration = 10
           )
         })
       })
     }
 
-    modelViewerServer("viewer", model = loaded_model)
+    # ---- Override panel ----
+    output$override_panel <- shiny::renderUI({
+      m <- model_rv()
+      if (is.null(m)) return(NULL)
+      cats <- openqaly::get_override_categories(m)
+      if (length(cats) == 0) {
+        return(shiny::tags$div(
+          class = "text-muted p-3",
+          "This model has no overrides."
+        ))
+      }
+      overrideInput("overrides", m)
+    })
+
+    # ---- Override manager module ----
+    overrideManagerServer(
+      "overrides",
+      model = shiny::reactive(model_rv()),
+      on_apply = function(new_cats) {
+        m <- model_rv()
+        m <- openqaly::set_override_categories(m, new_cats)
+        model_rv(m)
+      }
+    )
+
+    # ---- Collect override values ----
+    override_values <- shiny::reactive({
+      m <- model_rv()
+      cats <- openqaly::get_override_categories(m)
+      if (is.null(m) || length(cats) == 0) return(NULL)
+
+      values <- list()
+      for (cat in cats) {
+        for (override in cat$overrides) {
+          input_id <- .build_override_id("overrides", override)
+          val <- input[[input_id]]
+          if (!is.null(val)) {
+            values <- c(values, list(list(
+              name = override$name,
+              expression = as.character(val),
+              strategy = override$strategy %||% "",
+              group = override$group %||% ""
+            )))
+          }
+        }
+      }
+      values
+    })
+
+    override_values_debounced <- shiny::debounce(override_values, 1000)
+
+    # ---- Helper: normalize DSA params from Shiny input ----
+    # Shiny/jsonlite can deserialize a JS array of objects as:
+    #   - a data frame (simplifyDataFrame)
+    #   - a flat named list (single-element array)
+    #   - a list of named character vectors (instead of lists)
+    # Normalize all cases to a list of proper R lists.
+    normalize_dsa_params <- function(params) {
+      if (is.null(params) || length(params) == 0) return(list())
+      # Data frame → split into one list per row
+      if (is.data.frame(params)) {
+        return(lapply(seq_len(nrow(params)), function(i) as.list(params[i, , drop = FALSE])))
+      }
+      # Single named param (named list or named vector) → wrap and coerce
+      if (!is.null(names(params)) && "type" %in% names(params)) {
+        return(list(as.list(params)))
+      }
+      # List of params — ensure each element is a proper list (not atomic vector)
+      lapply(params, as.list)
+    }
+
+    # ---- Helper: add DSA parameters to a model ----
+    apply_dsa_params <- function(model, params) {
+      params <- normalize_dsa_params(params)
+      for (p in params) {
+        if (is.null(p$low) || is.null(p$high) ||
+            nchar(trimws(p$low)) == 0 || nchar(trimws(p$high)) == 0) {
+          next
+        }
+        if (p$type == "variable") {
+          low_expr <- rlang::parse_expr(p$low)
+          high_expr <- rlang::parse_expr(p$high)
+          model <- rlang::inject(openqaly::add_dsa_variable(
+            model,
+            variable = p$name,
+            low = !!low_expr,
+            high = !!high_expr,
+            strategy = p$strategy %||% "",
+            group = p$group %||% "",
+            display_name = p$display_name
+          ))
+        } else {
+          model <- openqaly::add_dsa_setting(
+            model,
+            setting = p$name,
+            low = p$low,
+            high = p$high,
+            display_name = p$display_name
+          )
+        }
+      }
+      model
+    }
+
+    # ---- Helper: build model with current overrides applied ----
+    build_overridden_model <- function() {
+      m <- model_rv()
+      vals <- override_values_debounced()
+      if (is.null(m)) return(NULL)
+
+      if (!is.null(vals) && length(vals) > 0) {
+        m <- openqaly::set_override_expressions(m, vals)
+      }
+      m
+    }
+
+    current_model_reactive <- shiny::reactive({
+      m <- build_overridden_model()
+      if (is.null(m)) return(NULL)
+      # Include DSA parameters so they appear in model diff
+      params <- dsa_rv$parameters
+      if (length(params) > 0) {
+        m <- apply_dsa_params(m, params)
+      }
+      m
+    })
+
+    # ---- Initial model run (on load) ----
+    shiny::observeEvent(model_rv(), {
+      m <- model_rv()
+      if (is.null(m)) return()
+      base_case_rv$results <- NULL
+      base_case_rv$metadata <- NULL
+      vbp_rv$results <- NULL
+      dsa_rv$results <- NULL
+
+      # Pre-populate DSA parameters from model if defined
+      dsa_params <- openqaly::get_dsa_parameters(m)
+      if (length(dsa_params) > 0) {
+        dsa_rv$parameters <- dsa_params
+      } else {
+        dsa_rv$parameters <- list()
+      }
+
+      tryCatch({
+        res <- openqaly::run_model(m)
+        base_case_rv$results <- res
+        base_case_rv$metadata <- res$metadata
+      }, error = function(e) {
+        shiny::showNotification(
+          paste("Initial model run failed:", conditionMessage(e)),
+          type = "error", duration = 10
+        )
+      })
+    })
+
+    # ---- Base case auto-run on override change ----
+    shiny::observeEvent(override_values_debounced(), {
+      m <- model_rv()
+      vals <- override_values_debounced()
+      if (is.null(m) || is.null(vals)) return()
+
+      tryCatch({
+        updated_model <- build_overridden_model()
+        res <- openqaly::run_model(updated_model)
+        base_case_rv$results <- res
+        base_case_rv$metadata <- res$metadata
+      }, error = function(e) {
+        base_case_rv$results <- NULL
+        shiny::showNotification(
+          paste("Model run failed:", conditionMessage(e)),
+          type = "error", duration = 10
+        )
+      })
+    }, ignoreNULL = TRUE)
+
+    # ---- VBP config panel ----
+    output$vbp_config <- shiny::renderUI({
+      meta <- base_case_rv$metadata
+      m <- model_rv()
+      if (is.null(meta) || is.null(m)) return(NULL)
+
+      var_choices <- get_variable_choices(m)
+      strategy_choices <- get_strategy_choices(meta)
+      outcome_choices <- get_outcome_summary_choices(meta)
+      cost_choices <- get_cost_summary_choices(meta)
+
+      shiny::tagList(
+        shiny::selectInput("vbp_price_variable", "Price Variable",
+          choices = var_choices,
+          selected = if (length(var_choices) > 0) var_choices[1] else NULL
+        ),
+        shiny::selectInput("vbp_intervention", "Intervention Strategy",
+          choices = strategy_choices,
+          selected = if (length(strategy_choices) > 1) strategy_choices[2] else
+            if (length(strategy_choices) > 0) strategy_choices[1] else NULL
+        ),
+        shiny::selectInput("vbp_outcome_summary", "Outcome Summary",
+          choices = outcome_choices,
+          selected = if (length(outcome_choices) > 0) outcome_choices[1] else NULL
+        ),
+        shiny::selectInput("vbp_cost_summary", "Cost Summary",
+          choices = cost_choices,
+          selected = if (length(cost_choices) > 0) cost_choices[1] else NULL
+        )
+      )
+    })
+
+    # ---- VBP manual run ----
+    shiny::observeEvent(input$run_vbp, {
+      shiny::req(
+        input$vbp_price_variable,
+        input$vbp_intervention,
+        input$vbp_outcome_summary,
+        input$vbp_cost_summary
+      )
+
+      tryCatch({
+        updated_model <- build_overridden_model()
+        if (is.null(updated_model)) {
+          shiny::showNotification("No model loaded.", type = "warning")
+          return()
+        }
+
+        vbp_res <- openqaly::run_vbp(
+          updated_model,
+          price_variable = input$vbp_price_variable,
+          intervention_strategy = input$vbp_intervention,
+          outcome_summary = input$vbp_outcome_summary,
+          cost_summary = input$vbp_cost_summary
+        )
+        vbp_rv$results <- vbp_res
+
+        shiny::showNotification("VBP analysis complete.", type = "message")
+      }, error = function(e) {
+        vbp_rv$results <- NULL
+        shiny::showNotification(
+          paste("VBP analysis failed:", conditionMessage(e)),
+          type = "error", duration = 10
+        )
+      })
+    })
+
+    # ---- DSA inputs panel ----
+    output$dsa_inputs <- shiny::renderUI({
+      meta <- base_case_rv$metadata
+      m <- model_rv()
+      if (is.null(meta) || is.null(m)) return(NULL)
+
+      var_choices <- openqaly::get_variable_names(m)
+      var_targeting <- openqaly::get_variable_targeting(m)
+      strategy_choices <- get_strategy_choices(meta)
+      group_choices <- get_group_choices(meta)
+      # Filter out aggregate group options for DSA
+      individual_groups <- group_choices[
+        !group_choices %in% c("overall", "all", "all_groups")
+      ]
+      setting_choices <- get_dsa_setting_choices()
+
+      # Serialize current parameters for JS initialization (isolate to break
+      # feedback loop: renderUI should not re-fire when dsa_rv$parameters changes)
+      params <- shiny::isolate(dsa_rv$parameters)
+      initial_json <- if (length(params) > 0) {
+        jsonlite::toJSON(params, auto_unbox = TRUE)
+      } else {
+        "[]"
+      }
+
+      # Build the AG Grid container
+      param_table <- shiny::tags$div(
+        dsa_params_dependency(),
+        formula_input_dependency(),
+        shiny::tags$div(
+          id = "dsa_params_grid",
+          class = "dsa-params-container ag-theme-quartz",
+          `data-input-id` = "dsa_params",
+          `data-variables` = jsonlite::toJSON(var_choices, auto_unbox = TRUE),
+          `data-settings` = jsonlite::toJSON(
+            as.list(setting_choices), auto_unbox = TRUE
+          ),
+          `data-strategies` = jsonlite::toJSON(
+            as.list(strategy_choices), auto_unbox = TRUE
+          ),
+          `data-groups` = jsonlite::toJSON(
+            as.list(individual_groups), auto_unbox = TRUE
+          ),
+          `data-variable-targeting` = jsonlite::toJSON(
+            var_targeting, auto_unbox = TRUE
+          ),
+          `data-initial` = initial_json,
+          `data-terms` = jsonlite::toJSON(
+            get_model_terms(m, "dsa_bound"), auto_unbox = TRUE
+          ),
+          `data-suggestions` = jsonlite::toJSON(
+            get_model_suggestions(m, "dsa_bound"), auto_unbox = TRUE
+          )
+        ),
+        shiny::tags$button(
+          type = "button",
+          class = "btn btn-sm btn-outline-secondary dsa-add-row-btn",
+          "+ Add Parameter"
+        )
+      )
+
+      # VBP configuration (collapsed)
+      vbp_config <- bslib::accordion(
+        bslib::accordion_panel(
+          "VBP Configuration (for DSA+VBP analysis)",
+          shiny::checkboxInput("dsa_include_vbp", "Include VBP Analysis", value = FALSE),
+          shiny::conditionalPanel(
+            condition = "input.dsa_include_vbp == true",
+            shiny::selectInput("dsa_vbp_price_variable", "Price Variable",
+              choices = var_choices,
+              selected = if (length(var_choices) > 0) var_choices[1] else NULL
+            ),
+            shiny::selectInput("dsa_vbp_intervention", "Intervention Strategy",
+              choices = strategy_choices,
+              selected = if (length(strategy_choices) > 1) strategy_choices[2] else
+                if (length(strategy_choices) > 0) strategy_choices[1] else NULL
+            ),
+            shiny::selectInput("dsa_vbp_outcome", "Outcome Summary",
+              choices = get_outcome_summary_choices(meta),
+              selected = NULL
+            ),
+            shiny::selectInput("dsa_vbp_cost", "Cost Summary",
+              choices = get_cost_summary_choices(meta),
+              selected = NULL
+            )
+          )
+        ),
+        open = FALSE
+      )
+
+      shiny::tagList(param_table, vbp_config)
+    })
+
+    # ---- DSA params sync from JS ----
+    shiny::observeEvent(input$dsa_params, {
+      dsa_rv$parameters <- normalize_dsa_params(input$dsa_params)
+    })
+
+    # ---- DSA run ----
+    shiny::observeEvent(input$run_dsa, {
+      params <- normalize_dsa_params(input$dsa_params)
+      if (length(params) == 0) {
+        shiny::showNotification("Please add at least one parameter.", type = "warning")
+        return()
+      }
+
+      tryCatch({
+        updated_model <- build_overridden_model()
+        if (is.null(updated_model)) {
+          shiny::showNotification("No model loaded.", type = "warning")
+          return()
+        }
+
+        # Add DSA parameters to model
+        updated_model <- apply_dsa_params(updated_model, params)
+
+        # Build run_dsa args
+        dsa_args <- list(updated_model)
+
+        # Add VBP params if enabled
+        if (isTRUE(input$dsa_include_vbp)) {
+          dsa_args$vbp_price_variable <- input$dsa_vbp_price_variable
+          dsa_args$vbp_intervention <- input$dsa_vbp_intervention
+          dsa_args$vbp_outcome_summary <- input$dsa_vbp_outcome
+          dsa_args$vbp_cost_summary <- input$dsa_vbp_cost
+        }
+
+        dsa_res <- do.call(openqaly::run_dsa, dsa_args)
+        dsa_rv$results <- dsa_res
+
+        shiny::showNotification("DSA analysis complete.", type = "message")
+      }, error = function(e) {
+        dsa_rv$results <- NULL
+        shiny::showNotification(
+          paste("DSA analysis failed:", conditionMessage(e)),
+          type = "error", duration = 10
+        )
+      })
+    })
+
+    # ---- Conditional panel flags ----
+    output$has_base_results <- shiny::reactive({
+      !is.null(base_case_rv$results)
+    })
+    shiny::outputOptions(output, "has_base_results", suspendWhenHidden = FALSE)
+
+    # ---- Result sub-module servers ----
+    results_reactive <- shiny::reactive(base_case_rv$results)
+    metadata_reactive <- shiny::reactive(base_case_rv$metadata)
+    vbp_results_reactive <- shiny::reactive(vbp_rv$results)
+
+    traceResultsServer("trace", results_reactive, metadata_reactive)
+    outcomesResultsServer("outcomes", results_reactive, metadata_reactive)
+    nmbResultsServer("nmb", results_reactive, metadata_reactive)
+    pairwiseCeResultsServer("pairwise_ce", results_reactive, metadata_reactive)
+    incrementalCeResultsServer("incremental_ce", results_reactive, metadata_reactive)
+    vbpResultsServer("vbp", vbp_results_reactive, metadata_reactive)
+    dsa_results_reactive <- shiny::reactive(dsa_rv$results)
+    dsaResultsServer("dsa", dsa_results_reactive, metadata_reactive)
+    diffResultsServer("diff", shiny::reactive(original_model_rv()), current_model_reactive)
   }
 
   shiny::shinyApp(ui = ui, server = server)

@@ -4,17 +4,20 @@
 \alias{.build_override_id}
 \title{Build Override ID}
 \usage{
-.build_override_id(base_id, override_name)
+.build_override_id(base_id, override)
 }
 \arguments{
 \item{base_id}{The base input ID.}
 
-\item{override_name}{The override name to sanitize.}
+\item{override}{The full override list (must have \code{name}, and
+optionally \code{strategy} and \code{group}).}
 }
 \value{
-A character string of the form \code{base_id_safe_name}.
+A character string of the form
+\code{base_id_name_strategy_group}.
 }
 \description{
-Sanitizes an override name and combines with the base input ID.
+Sanitizes an override name, strategy, and group, and combines with the
+base input ID to produce a unique Shiny input ID.
 }
 \keyword{internal}

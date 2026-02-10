@@ -11,11 +11,13 @@ Roxygen: list(markdown = TRUE, roclets = c("namespace", "rd", "roxytest::testtha
 RoxygenNote: 7.3.3
 Imports:
     bslib,
+    diffobj,
     flextable,
     ggplot2,
     htmltools,
     jsonlite,
-    openqaly,
+    openqaly (>= 0.1.3),
+    rlang,
     shiny
 Suggests:
     covr,

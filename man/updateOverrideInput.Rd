@@ -4,7 +4,14 @@
 \alias{updateOverrideInput}
 \title{Update Override Input}
 \usage{
-updateOverrideInput(session, inputId, override_name, value)
+updateOverrideInput(
+  session,
+  inputId,
+  override_name,
+  value,
+  strategy = "",
+  group = ""
+)
 }
 \arguments{
 \item{session}{The session object passed to the Shiny server function.}
