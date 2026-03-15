@@ -1,314 +1,51 @@
-/* DSA Parameter Table — AG Grid Community Edition */
+/* DSA Parameter Table — Tabulator */
 (function() {
   "use strict";
+  console.log("[DSA Params] JS version 3.0.0 loaded");
 
   // =========================================================================
-  // AG Grid CDN loader (same pattern as override-manager.js SortableJS loader)
+  // Tabulator CDN loader
   // =========================================================================
-  var AG_GRID_CDN = "https://cdn.jsdelivr.net/npm/ag-grid-community@32.3.3/dist/ag-grid-community.min.js";
-  var AG_GRID_CSS = "https://cdn.jsdelivr.net/npm/ag-grid-community@32.3.3/styles/ag-grid.min.css";
-  var AG_GRID_THEME_CSS = "https://cdn.jsdelivr.net/npm/ag-grid-community@32.3.3/styles/ag-theme-quartz.min.css";
-  var _agGridCallbacks = [];
-  var _agGridLoading = false;
+  var TABULATOR_CDN = "https://cdn.jsdelivr.net/npm/tabulator-tables@6.3.1/dist/js/tabulator.min.js";
+  var TABULATOR_CSS = "https://cdn.jsdelivr.net/npm/tabulator-tables@6.3.1/dist/css/tabulator_bootstrap5.min.css";
+  var _tabulatorCallbacks = [];
+  var _tabulatorLoading = false;
 
-  function ensureAgGrid(callback) {
-    if (typeof agGrid !== "undefined") {
+  function ensureTabulator(callback) {
+    if (typeof Tabulator !== "undefined") {
       callback();
       return;
     }
-    _agGridCallbacks.push(callback);
-    if (_agGridLoading) return;
-    _agGridLoading = true;
+    _tabulatorCallbacks.push(callback);
+    if (_tabulatorLoading) return;
+    _tabulatorLoading = true;
 
-    // Inject theme CSS
+    // Inject CSS
     var cssLink = document.createElement("link");
     cssLink.rel = "stylesheet";
-    cssLink.href = AG_GRID_CSS;
+    cssLink.href = TABULATOR_CSS;
     document.head.appendChild(cssLink);
-
-    var themeCssLink = document.createElement("link");
-    themeCssLink.rel = "stylesheet";
-    themeCssLink.href = AG_GRID_THEME_CSS;
-    document.head.appendChild(themeCssLink);
 
     // Load JS
     var script = document.createElement("script");
-    script.src = AG_GRID_CDN;
+    script.src = TABULATOR_CDN;
     script.onload = function() {
-      console.log("[DSA Params] AG Grid loaded");
-      var cbs = _agGridCallbacks.slice();
-      _agGridCallbacks = [];
+      console.log("[DSA Params] Tabulator loaded");
+      var cbs = _tabulatorCallbacks.slice();
+      _tabulatorCallbacks = [];
       for (var i = 0; i < cbs.length; i++) cbs[i]();
     };
     script.onerror = function() {
-      console.error("[DSA Params] Failed to load AG Grid from CDN");
+      console.error("[DSA Params] Failed to load Tabulator from CDN");
     };
     document.head.appendChild(script);
   }
 
   // =========================================================================
-  // FormulaEditor — popup cell editor wrapping Ace
-  // =========================================================================
-  function FormulaEditor() {}
-
-  FormulaEditor.prototype.init = function(params) {
-    this.params = params;
-    this.value = params.value || "";
-
-    // Container div
-    this.container = document.createElement("div");
-    this.container.className = "dsa-formula-editor";
-
-    // Ace editor div
-    this.editorDiv = document.createElement("div");
-    this.editorDiv.style.width = "100%";
-    this.editorDiv.style.height = "100%";
-    this.container.appendChild(this.editorDiv);
-  };
-
-  FormulaEditor.prototype.getGui = function() {
-    return this.container;
-  };
-
-  FormulaEditor.prototype.afterGuiAttached = function() {
-    var self = this;
-
-    // Check if Ace is available
-    if (typeof ace === "undefined") {
-      // Fallback: just show a text input
-      this.container.innerHTML = "";
-      var inp = document.createElement("input");
-      inp.type = "text";
-      inp.value = this.value;
-      inp.style.width = "100%";
-      inp.style.height = "100%";
-      inp.style.border = "none";
-      inp.style.outline = "none";
-      inp.style.fontSize = "0.85rem";
-      this.fallbackInput = inp;
-      this.container.appendChild(inp);
-      inp.focus();
-      inp.select();
-
-      inp.addEventListener("keydown", function(e) {
-        if (e.key === "Enter") {
-          self.value = inp.value;
-          self.params.stopEditing(false);
-          e.preventDefault();
-          e.stopPropagation();
-        } else if (e.key === "Escape") {
-          self.params.stopEditing(true);
-          e.preventDefault();
-          e.stopPropagation();
-        }
-      });
-      return;
-    }
-
-    // Load language tools extension
-    ace.require("ace/ext/language_tools");
-
-    var editor = ace.edit(this.editorDiv);
-    this.editor = editor;
-    editor.setTheme("ace/theme/chrome");
-    editor.session.setMode("ace/mode/r");
-
-    editor.setOptions({
-      showGutter: false,
-      showPrintMargin: false,
-      highlightActiveLine: false,
-      showFoldWidgets: false,
-      displayIndentGuides: false,
-      scrollPastEnd: 0,
-      useSoftTabs: true,
-      tabSize: 2,
-      enableBasicAutocompletion: true,
-      enableLiveAutocompletion: true,
-      enableSnippets: false
-    });
-
-    editor.setValue(this.value, -1);
-
-    // Custom highlighting
-    if (typeof FormulaInputMode !== "undefined" && this.params.colDef.cellEditorParams) {
-      var editorParams = typeof this.params.colDef.cellEditorParams === "function"
-        ? this.params.colDef.cellEditorParams(this.params)
-        : this.params.colDef.cellEditorParams;
-      if (editorParams && editorParams.terms) {
-        try {
-          FormulaInputMode.injectDefaultStyles();
-          var highlighter = new FormulaInputMode.FormulaHighlighter(editor);
-          highlighter.setTerms(editorParams.terms);
-          this._highlighter = highlighter;
-        } catch (e) {
-          // Graceful degradation
-        }
-      }
-
-      // Custom autocomplete
-      if (typeof FormulaInputAutocomplete !== "undefined" && editorParams && editorParams.suggestions) {
-        try {
-          var completer = new FormulaInputAutocomplete.FormulaCompleter(editor, editorParams.suggestions);
-          editor.completers = [completer];
-          this._completer = completer;
-        } catch (e) {
-          // Graceful degradation
-        }
-      }
-    }
-
-    // Handle Enter → commit
-    editor.commands.addCommand({
-      name: "commitCell",
-      bindKey: { win: "Enter", mac: "Enter" },
-      exec: function() {
-        if (editor.completer && editor.completer.popup && editor.completer.popup.isOpen) {
-          editor.completer.detach();
-        }
-        self.value = editor.getValue();
-        self.params.stopEditing(false);
-      }
-    });
-
-    // Shift+Enter also commits
-    editor.commands.addCommand({
-      name: "commitCellShift",
-      bindKey: { win: "Shift-Enter", mac: "Shift-Enter" },
-      exec: function() {
-        if (editor.completer && editor.completer.popup && editor.completer.popup.isOpen) {
-          editor.completer.detach();
-        }
-        self.value = editor.getValue();
-        self.params.stopEditing(false);
-      }
-    });
-
-    // Escape → cancel
-    editor.commands.addCommand({
-      name: "cancelEdit",
-      bindKey: { win: "Escape", mac: "Escape" },
-      exec: function() {
-        self.params.stopEditing(true);
-      }
-    });
-
-    // Tab accepts autocomplete
-    editor.commands.addCommand({
-      name: "acceptCompletion",
-      bindKey: { win: "Tab", mac: "Tab" },
-      exec: function(ed) {
-        if (ed.completer && ed.completer.popup && ed.completer.popup.isOpen) {
-          ed.completer.insertMatch();
-          return true;
-        }
-        return false;
-      }
-    });
-
-    // Stop arrow key propagation so grid doesn't navigate
-    this.container.addEventListener("keydown", function(e) {
-      if (["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"].indexOf(e.key) !== -1) {
-        e.stopPropagation();
-      }
-    }, true);
-
-    // Handle paste — strip newlines
-    editor.container.addEventListener("paste", function(e) {
-      e.preventDefault();
-      e.stopPropagation();
-      var text = (e.clipboardData || window.clipboardData).getData("text");
-      text = text.replace(/[\r\n]+/g, " ");
-      editor.insert(text);
-    }, true);
-
-    editor.focus();
-    editor.selectAll();
-  };
-
-  FormulaEditor.prototype.getValue = function() {
-    if (this.editor) {
-      return this.editor.getValue();
-    }
-    if (this.fallbackInput) {
-      return this.fallbackInput.value;
-    }
-    return this.value;
-  };
-
-  FormulaEditor.prototype.isPopup = function() {
-    return true;
-  };
-
-  FormulaEditor.prototype.destroy = function() {
-    if (this.editor) {
-      this.editor.destroy();
-      this.editor = null;
-    }
-    this._highlighter = null;
-    this._completer = null;
-  };
-
-  // =========================================================================
-  // DynamicSelectEditor — custom select editor with runtime options
-  // =========================================================================
-  function DynamicSelectEditor() {}
-
-  DynamicSelectEditor.prototype.init = function(params) {
-    this.params = params;
-    this.value = params.value;
-
-    this.select = document.createElement("select");
-    this.select.className = "dsa-select-editor";
-
-    // Get options from cellEditorParams (may be a function)
-    var editorParams = typeof params.colDef.cellEditorParams === "function"
-      ? params.colDef.cellEditorParams(params)
-      : (params.colDef.cellEditorParams || {});
-    var options = editorParams.options || [];
-
-    for (var i = 0; i < options.length; i++) {
-      var opt = document.createElement("option");
-      opt.value = options[i].value;
-      opt.textContent = options[i].label;
-      if (options[i].value === this.value) opt.selected = true;
-      this.select.appendChild(opt);
-    }
-
-    var self = this;
-    this.select.addEventListener("change", function() {
-      self.value = self.select.value;
-      self.params.stopEditing(false);
-    });
-
-    this.select.addEventListener("keydown", function(e) {
-      if (e.key === "Escape") {
-        self.params.stopEditing(true);
-        e.preventDefault();
-      }
-    });
-  };
-
-  DynamicSelectEditor.prototype.getGui = function() {
-    return this.select;
-  };
-
-  DynamicSelectEditor.prototype.afterGuiAttached = function() {
-    this.select.focus();
-  };
-
-  DynamicSelectEditor.prototype.getValue = function() {
-    return this.value;
-  };
-
-  DynamicSelectEditor.prototype.destroy = function() {
-    this.select = null;
-  };
-
-  // =========================================================================
-  // Grid configuration factory
+  // Helpers
   // =========================================================================
 
-  // Reverse-lookup map: settings value → display name
+  // Reverse-lookup map: settings value -> display name
   function buildSettingsDisplayMap(settingsObj) {
     var map = {};
     var keys = Object.keys(settingsObj);
@@ -318,13 +55,13 @@
     return map;
   }
 
-  // Helper: get targeting info for a variable name
+  // Get targeting info for a variable name
   function getTargeting(choices, name) {
     var t = choices.variableTargeting || {};
     return t[name] || { strategies: null, groups: null };
   }
 
-  // Helper: set strategy/group on row data based on variable targeting
+  // Set strategy/group on row data based on variable targeting
   function applyTargetingDefaults(data, choices) {
     var targeting = getTargeting(choices, data.name);
     if (targeting.strategies) {
@@ -339,104 +76,355 @@
     }
   }
 
-  function buildColumnDefs(choices, formulaEditorParams) {
+  // =========================================================================
+  // Custom editors
+  // =========================================================================
+
+  // Factory: returns a Tabulator custom editor that renders an Ace formula editor
+  // as a fixed-position overlay on document.body, positioned over the cell.
+  // This isolates the Ace editor from Tabulator's DOM and event handling,
+  // avoiding focus theft and height collapse issues with inline editors.
+  function formulaEditor(terms, suggestions) {
+    return function(cell, onRendered, success, cancel) {
+      // Placeholder returned to Tabulator — keeps editing state active
+      var placeholder = document.createElement("div");
+      placeholder.className = "dsa-formula-placeholder";
+      placeholder.addEventListener("focusout", function(e) { e.stopPropagation(); });
+
+      var currentValue = cell.getValue() || "";
+      var committed = false;
+      var overlay = null;
+      var aceEditor = null;
+      var onDocMouseDown = null;
+      var cellFocusRedirect = null;
+      var editCellEl = null;
+
+      // Capture cell dimensions BEFORE Tabulator modifies the cell for editing.
+      // Inside onRendered, the cell may have expanded due to the placeholder.
+      var cellEl = cell.getElement();
+      var cellRect = cellEl.getBoundingClientRect();
+
+      function commit(val) {
+        if (committed) return;
+        committed = true;
+        cleanup();
+        try { success(val); } catch (e) {}
+      }
+      function doCancel() {
+        if (committed) return;
+        committed = true;
+        cleanup();
+        try { cancel(); } catch (e) {}
+      }
+      function cleanup() {
+        if (onDocMouseDown) {
+          document.removeEventListener("mousedown", onDocMouseDown, true);
+          onDocMouseDown = null;
+        }
+        if (cellFocusRedirect && editCellEl) {
+          editCellEl.removeEventListener("focus", cellFocusRedirect, true);
+          cellFocusRedirect = null;
+        }
+        if (aceEditor) {
+          try { aceEditor.destroy(); } catch (e) {}
+          aceEditor = null;
+        }
+        if (overlay && overlay.parentNode) {
+          overlay.parentNode.removeChild(overlay);
+          overlay = null;
+        }
+      }
+
+      onRendered(function() {
+        // Guard: if Ace isn't loaded, fall back to plain input
+        if (typeof ace === "undefined") {
+          var input = document.createElement("input");
+          input.type = "text";
+          input.className = "dsa-input-editor";
+          input.value = currentValue;
+          input.addEventListener("keydown", function(e) {
+            if (e.key === "Enter") { commit(input.value); e.preventDefault(); }
+            if (e.key === "Escape") { doCancel(); e.preventDefault(); }
+          });
+          input.addEventListener("blur", function() { commit(input.value); });
+          placeholder.appendChild(input);
+          input.focus();
+          input.select();
+          return;
+        }
+
+        // Position overlay over cell (using pre-captured rect).
+        // Ace always puts its first line ~2px from the container top.
+        // To vertically center text, we create a wrapper inside the overlay
+        // with top padding that pushes Ace's content to the center.
+        var lineH = 18; // approximate line height at 0.85rem
+        var innerH = cellRect.height - 4; // subtract 2px border each side
+        var vPad = Math.max(0, Math.round((innerH - lineH) / 2));
+
+        overlay = document.createElement("div");
+        overlay.className = "dsa-formula-overlay";
+        overlay.style.position = "fixed";
+        overlay.style.left = cellRect.left + "px";
+        overlay.style.top = cellRect.top + "px";
+        overlay.style.width = cellRect.width + "px";
+        overlay.style.height = cellRect.height + "px";
+        overlay.style.zIndex = "10000";
+
+        var aceContainer = document.createElement("div");
+        aceContainer.className = "dsa-ace-container";
+        aceContainer.style.position = "absolute";
+        aceContainer.style.left = "0";
+        aceContainer.style.right = "0";
+        aceContainer.style.top = vPad + "px";
+        aceContainer.style.bottom = "0";
+        overlay.appendChild(aceContainer);
+        document.body.appendChild(overlay);
+
+        // Click outside overlay → commit (registered early for safety)
+        onDocMouseDown = function(e) {
+          if (!overlay || committed) {
+            document.removeEventListener("mousedown", onDocMouseDown, true);
+            return;
+          }
+          var isAce = overlay.contains(e.target);
+          var isAutocomplete = false;
+          try { isAutocomplete = e.target.closest && e.target.closest(".ace_autocomplete"); } catch (x) {}
+          if (!isAce && !isAutocomplete) {
+            var val = currentValue;
+            try { if (aceEditor) val = aceEditor.getValue(); } catch (x) {}
+            commit(val);
+          }
+        };
+        document.addEventListener("mousedown", onDocMouseDown, true);
+
+        // Block all events from reaching Tabulator
+        ["mousedown", "pointerdown", "click", "mouseup", "pointerup", "focusin"].forEach(function(evt) {
+          overlay.addEventListener(evt, function(e) { e.stopPropagation(); });
+        });
+
+        // Initialize Ace with same config as standalone formulaInput
+        ace.require("ace/ext/language_tools");
+        aceEditor = ace.edit(aceContainer);
+        aceEditor.setTheme("ace/theme/chrome");
+        aceEditor.session.setMode("ace/mode/r");
+        aceEditor.setOptions({
+          showGutter: false,
+          showPrintMargin: false,
+          highlightActiveLine: false,
+          showFoldWidgets: false,
+          displayIndentGuides: false,
+          scrollPastEnd: 0,
+          useSoftTabs: true,
+          tabSize: 2,
+          enableBasicAutocompletion: true,
+          enableLiveAutocompletion: true,
+          enableSnippets: false
+        });
+        aceEditor.setValue(currentValue, -1);
+
+        // Term highlighting + autocomplete (same as standalone)
+        try {
+          if (terms && typeof FormulaInputMode !== "undefined") {
+            FormulaInputMode.injectDefaultStyles();
+            var hl = new FormulaInputMode.FormulaHighlighter(aceEditor);
+            hl.setTerms(terms);
+          }
+          if (suggestions && typeof FormulaInputAutocomplete !== "undefined") {
+            var cmp = new FormulaInputAutocomplete.FormulaCompleter(aceEditor, suggestions);
+            aceEditor.completers = [cmp];
+          }
+        } catch (e) {
+          console.warn("[DSA Params] Term highlighting/autocomplete init failed:", e.message);
+        }
+
+        // Enter/Escape at capture phase — must fire before Ace's autocomplete
+        // popup intercepts these keys. Ace's completer adds its own keyBinding
+        // that handles Enter (to accept completion) at higher priority than
+        // editor commands, so we catch it at the DOM level.
+        overlay.addEventListener("keydown", function(e) {
+          if (committed || !aceEditor) return;
+          if (e.key === "Enter") {
+            e.preventDefault();
+            e.stopPropagation();
+            if (aceEditor.completer && aceEditor.completer.popup &&
+                aceEditor.completer.popup.isOpen) {
+              aceEditor.completer.detach();
+            }
+            commit(aceEditor.getValue());
+          } else if (e.key === "Escape") {
+            e.preventDefault();
+            e.stopPropagation();
+            if (aceEditor.completer && aceEditor.completer.popup &&
+                aceEditor.completer.popup.isOpen) {
+              aceEditor.completer.detach();
+              return;
+            }
+            doCancel();
+          }
+        }, true);
+
+        // Tab accepts autocomplete completion
+        aceEditor.commands.addCommand({
+          name: "acceptCompletion",
+          bindKey: { win: "Tab", mac: "Tab" },
+          exec: function(ed) {
+            if (ed.completer && ed.completer.popup &&
+                ed.completer.popup.isOpen) {
+              ed.completer.insertMatch();
+              return true;
+            }
+            return false;
+          }
+        });
+
+        // Paste: strip newlines to keep single-line
+        aceEditor.container.addEventListener("paste", function(e) {
+          e.preventDefault();
+          e.stopPropagation();
+          var text = (e.clipboardData || window.clipboardData).getData("text");
+          aceEditor.insert(text.replace(/[\r\n]+/g, " "));
+        }, true);
+
+        // Blur: commit after delay (allows autocomplete clicks)
+        aceEditor.on("blur", function() {
+          setTimeout(function() {
+            if (!committed && aceEditor && !aceEditor.isFocused()) {
+              commit(aceEditor.getValue());
+            }
+          }, 300);
+        });
+
+        aceEditor.resize();
+        // Tabulator's selectableRange actively re-focuses the cell element via tabindex.
+        // Temporarily make the cell non-focusable and redirect any focus attempts to Ace.
+        editCellEl = cellEl;
+        var savedTabindex = cellEl.getAttribute("tabindex");
+        cellEl.setAttribute("tabindex", "-1");
+        cellEl.style.pointerEvents = "none";
+        cellFocusRedirect = function() {
+          if (committed || !aceEditor) return;
+          aceEditor.focus();
+        };
+        cellEl.addEventListener("focus", cellFocusRedirect, true);
+
+        // Restore cell focusability on cleanup
+        var origCleanup = cleanup;
+        cleanup = function() {
+          if (editCellEl) {
+            editCellEl.removeEventListener("focus", cellFocusRedirect, true);
+            if (savedTabindex !== null) {
+              editCellEl.setAttribute("tabindex", savedTabindex);
+            } else {
+              editCellEl.removeAttribute("tabindex");
+            }
+            editCellEl.style.pointerEvents = "";
+          }
+          origCleanup();
+        };
+
+        // Force focus to Ace
+        cellEl.blur();
+        aceEditor.focus();
+        // Retry in case Tabulator re-asserts before our changes take effect
+        var focusTimer = setInterval(function() {
+          if (committed || !aceEditor) { clearInterval(focusTimer); return; }
+          aceEditor.focus();
+        }, 30);
+        setTimeout(function() { clearInterval(focusTimer); }, 300);
+      });
+
+      return placeholder;
+    };
+  }
+
+  // =========================================================================
+  // Shiny sync
+  // =========================================================================
+
+  function syncToShiny(table, inputId) {
+    var data = table.getData().map(function(d) {
+      return {
+        type: d.type,
+        name: d.name,
+        display_name: d.display_name || d.name,
+        strategy: d.strategy || "",
+        group: d.group || "",
+        low: d.low || "",
+        high: d.high || ""
+      };
+    });
+    if (typeof Shiny !== "undefined") {
+      Shiny.setInputValue(inputId, data, { priority: "event" });
+    }
+  }
+
+  // =========================================================================
+  // Column definitions
+  // =========================================================================
+
+  function buildColumnDefs(choices, inputId, terms, suggestions) {
     var settingsDisplay = buildSettingsDisplayMap(choices.settings);
-
-    // Build options arrays
-    var typeOptions = [
-      { value: "variable", label: "Variable" },
-      { value: "setting", label: "Setting" }
-    ];
-
     var strategyKeys = Object.keys(choices.strategies);
-
     var groupKeys = Object.keys(choices.groups);
 
     return [
+      // Type column
       {
-        headerName: "Type",
+        title: "Type",
         field: "type",
         width: 100,
-        cellEditor: DynamicSelectEditor,
-        cellEditorParams: { options: typeOptions },
-        valueFormatter: function(params) {
-          if (params.value === "variable") return "Variable";
-          if (params.value === "setting") return "Setting";
-          return params.value || "";
+        editor: "list",
+        editorParams: {
+          values: [
+            { label: "Variable", value: "variable" },
+            { label: "Setting", value: "setting" }
+          ]
         },
-        valueSetter: function(params) {
-          if (params.newValue === params.oldValue) return false;
-          params.data.type = params.newValue;
-          // Reset name to first option for new type
-          if (params.newValue === "variable") {
-            params.data.name = choices.variables[0] || "";
-            params.data.display_name = params.data.name;
-            applyTargetingDefaults(params.data, choices);
-          } else {
-            var settingKeys = Object.keys(choices.settings);
-            params.data.name = settingKeys.length > 0 ? choices.settings[settingKeys[0]] : "";
-            params.data.display_name = settingKeys.length > 0 ? settingKeys[0] : "";
-            params.data.strategy = "";
-            params.data.group = "";
-          }
-          // Refresh all cells in this row
-          params.api.refreshCells({ rowNodes: [params.node], force: true });
-          return true;
+        formatter: function(cell) {
+          var val = cell.getValue();
+          if (val === "variable") return "Variable";
+          if (val === "setting") return "Setting";
+          return val || "";
         }
       },
+
+      // Name column
       {
-        headerName: "Name",
+        title: "Name",
         field: "name",
-        flex: 1,
+        widthGrow: 1,
         minWidth: 120,
-        cellEditor: DynamicSelectEditor,
-        cellEditorParams: function(params) {
-          var opts = [];
-          if (params.data.type === "variable") {
-            for (var vi = 0; vi < choices.variables.length; vi++) {
-              opts.push({ value: choices.variables[vi], label: choices.variables[vi] });
-            }
+        editor: "list",
+        editorParams: function(cell) {
+          var data = cell.getRow().getData();
+          if (data.type === "variable") {
+            return { values: choices.variables.map(function(v) { return { label: v, value: v }; }) };
           } else {
             var sKeys = Object.keys(choices.settings);
-            for (var ski = 0; ski < sKeys.length; ski++) {
-              opts.push({ value: choices.settings[sKeys[ski]], label: sKeys[ski] });
-            }
+            return { values: sKeys.map(function(k) { return { label: k, value: choices.settings[k] }; }) };
           }
-          return { options: opts };
         },
-        valueFormatter: function(params) {
-          if (params.data.type === "setting") {
-            return settingsDisplay[params.value] || params.value || "";
+        formatter: function(cell) {
+          var data = cell.getRow().getData();
+          if (data.type === "setting") {
+            return settingsDisplay[cell.getValue()] || cell.getValue() || "";
           }
-          return params.value || "";
-        },
-        valueSetter: function(params) {
-          if (params.newValue === params.oldValue) return false;
-          params.data.name = params.newValue;
-          // Update display_name
-          if (params.data.type === "setting") {
-            params.data.display_name = settingsDisplay[params.newValue] || params.newValue;
-          } else {
-            params.data.display_name = params.newValue;
-            // Update strategy/group based on new variable's targeting
-            applyTargetingDefaults(params.data, choices);
-          }
-          params.api.refreshCells({ rowNodes: [params.node], force: true });
-          return true;
+          return cell.getValue() || "";
         }
       },
+
+      // Strategy column
       {
-        headerName: "Strategy",
+        title: "Strategy",
         field: "strategy",
         width: 110,
-        cellEditor: DynamicSelectEditor,
-        cellEditorParams: function(params) {
-          var targeting = getTargeting(choices, params.data.name);
-          var opts = [];
-          if (targeting.strategies) {
-            for (var si = 0; si < targeting.strategies.length; si++) {
-              var sVal = targeting.strategies[si];
-              // Find display name
+        editor: "list",
+        editorParams: function(cell) {
+          var data = cell.getRow().getData();
+          var targeting = getTargeting(choices, data.name);
+          if (!targeting.strategies) return { values: [] };
+          return {
+            values: targeting.strategies.map(function(sVal) {
               var sLabel = sVal;
               for (var sk = 0; sk < strategyKeys.length; sk++) {
                 if (choices.strategies[strategyKeys[sk]] === sVal) {
@@ -444,52 +432,52 @@
                   break;
                 }
               }
-              opts.push({ value: sVal, label: sLabel });
-            }
-          }
-          return { options: opts };
+              return { label: sLabel, value: sVal };
+            })
+          };
         },
-        editable: function(params) {
-          if (params.data.type === "setting") return false;
-          var targeting = getTargeting(choices, params.data.name);
+        editable: function(cell) {
+          var data = cell.getRow().getData();
+          if (data.type === "setting") return false;
+          var targeting = getTargeting(choices, data.name);
           return targeting.strategies !== null;
         },
-        valueFormatter: function(params) {
-          if (params.data.type === "setting") return "\u2014";
-          var targeting = getTargeting(choices, params.data.name);
+        formatter: function(cell) {
+          var data = cell.getRow().getData();
+          if (data.type === "setting") return "\u2014";
+          var targeting = getTargeting(choices, data.name);
           if (!targeting.strategies) return "\u2014";
-          if (!params.value || params.value === "") return "";
-          // Look up display name from strategies
+          var val = cell.getValue();
+          if (!val || val === "") return "";
           for (var sk = 0; sk < strategyKeys.length; sk++) {
-            if (choices.strategies[strategyKeys[sk]] === params.value) {
+            if (choices.strategies[strategyKeys[sk]] === val) {
               return strategyKeys[sk];
             }
           }
-          return params.value;
+          return val;
         },
-        cellStyle: function(params) {
-          if (params.data.type === "setting") {
-            return { color: "var(--bs-secondary, #6c757d)", fontStyle: "italic" };
+        cellClick: function(e, cell) {
+          // Style disabled cells
+          var data = cell.getRow().getData();
+          if (data.type === "setting" || !getTargeting(choices, data.name).strategies) {
+            cell.getElement().style.color = "var(--bs-secondary, #6c757d)";
+            cell.getElement().style.fontStyle = "italic";
           }
-          var targeting = getTargeting(choices, params.data.name);
-          if (!targeting.strategies) {
-            return { color: "var(--bs-secondary, #6c757d)", fontStyle: "italic" };
-          }
-          return null;
         }
       },
+
+      // Group column
       {
-        headerName: "Group",
+        title: "Group",
         field: "group",
         width: 110,
-        cellEditor: DynamicSelectEditor,
-        cellEditorParams: function(params) {
-          var targeting = getTargeting(choices, params.data.name);
-          var opts = [];
-          if (targeting.groups) {
-            for (var gi = 0; gi < targeting.groups.length; gi++) {
-              var gVal = targeting.groups[gi];
-              // Find display name
+        editor: "list",
+        editorParams: function(cell) {
+          var data = cell.getRow().getData();
+          var targeting = getTargeting(choices, data.name);
+          if (!targeting.groups) return { values: [] };
+          return {
+            values: targeting.groups.map(function(gVal) {
               var gLabel = gVal;
               for (var gk = 0; gk < groupKeys.length; gk++) {
                 if (choices.groups[groupKeys[gk]] === gVal) {
@@ -497,74 +485,75 @@
                   break;
                 }
               }
-              opts.push({ value: gVal, label: gLabel });
-            }
-          }
-          return { options: opts };
+              return { label: gLabel, value: gVal };
+            })
+          };
         },
-        editable: function(params) {
-          if (params.data.type === "setting") return false;
-          var targeting = getTargeting(choices, params.data.name);
+        editable: function(cell) {
+          var data = cell.getRow().getData();
+          if (data.type === "setting") return false;
+          var targeting = getTargeting(choices, data.name);
           return targeting.groups !== null;
         },
-        valueFormatter: function(params) {
-          if (params.data.type === "setting") return "\u2014";
-          var targeting = getTargeting(choices, params.data.name);
+        formatter: function(cell) {
+          var data = cell.getRow().getData();
+          if (data.type === "setting") return "\u2014";
+          var targeting = getTargeting(choices, data.name);
           if (!targeting.groups) return "\u2014";
-          if (!params.value || params.value === "") return "";
-          // Look up display name from groups
+          var val = cell.getValue();
+          if (!val || val === "") return "";
           for (var gk = 0; gk < groupKeys.length; gk++) {
-            if (choices.groups[groupKeys[gk]] === params.value) {
+            if (choices.groups[groupKeys[gk]] === val) {
               return groupKeys[gk];
             }
           }
-          return params.value;
+          return val;
         },
-        cellStyle: function(params) {
-          if (params.data.type === "setting") {
-            return { color: "var(--bs-secondary, #6c757d)", fontStyle: "italic" };
+        cellClick: function(e, cell) {
+          var data = cell.getRow().getData();
+          if (data.type === "setting" || !getTargeting(choices, data.name).groups) {
+            cell.getElement().style.color = "var(--bs-secondary, #6c757d)";
+            cell.getElement().style.fontStyle = "italic";
           }
-          var targeting = getTargeting(choices, params.data.name);
-          if (!targeting.groups) {
-            return { color: "var(--bs-secondary, #6c757d)", fontStyle: "italic" };
-          }
-          return null;
         }
       },
+
+      // Low column
       {
-        headerName: "Low",
+        title: "Low",
         field: "low",
-        flex: 1,
+        widthGrow: 1,
         minWidth: 100,
-        cellEditor: FormulaEditor,
-        cellEditorPopup: true,
-        cellEditorParams: formulaEditorParams
+        editor: formulaEditor(terms, suggestions)
       },
+
+      // High column
       {
-        headerName: "High",
+        title: "High",
         field: "high",
-        flex: 1,
+        widthGrow: 1,
         minWidth: 100,
-        cellEditor: FormulaEditor,
-        cellEditorPopup: true,
-        cellEditorParams: formulaEditorParams
+        editor: formulaEditor(terms, suggestions)
       },
+
+      // Delete column
       {
-        headerName: "",
+        title: "",
         field: "_delete",
         width: 45,
-        editable: false,
-        sortable: false,
-        filter: false,
-        cellRenderer: function(params) {
+        hozAlign: "center",
+        headerSort: false,
+        editor: false,
+        clipboard: false,
+        formatter: function(cell) {
           var btn = document.createElement("button");
           btn.type = "button";
           btn.className = "dsa-delete-btn";
           btn.textContent = "\u00d7";
           btn.addEventListener("click", function(e) {
             e.stopPropagation();
-            params.api.applyTransaction({ remove: [params.node.data] });
-            syncToShiny(params.api, params.context.inputId);
+            cell.getRow().delete();
+            syncToShiny(cell.getTable(), inputId);
           });
           return btn;
         }
@@ -573,43 +562,20 @@
   }
 
   // =========================================================================
-  // Shiny sync
-  // =========================================================================
-
-  function syncToShiny(api, inputId) {
-    var data = [];
-    api.forEachNode(function(node) {
-      var d = node.data;
-      data.push({
-        type: d.type,
-        name: d.name,
-        display_name: d.display_name || d.name,
-        strategy: d.strategy || "",
-        group: d.group || "",
-        low: d.low || "",
-        high: d.high || ""
-      });
-    });
-    if (typeof Shiny !== "undefined") {
-      Shiny.setInputValue(inputId, data, { priority: "event" });
-    }
-  }
-
-  // =========================================================================
   // Grid initialization
   // =========================================================================
 
-  // Track active grid instances so we can destroy on re-render
-  var _activeGrids = {};
+  // Track active table instances so we can destroy on re-render
+  var _activeTables = {};
 
   function initGrid(containerDiv) {
     var inputId = containerDiv.dataset.inputId;
     if (!inputId) return;
 
-    // Destroy previous grid for this inputId if it exists
-    if (_activeGrids[inputId]) {
-      try { _activeGrids[inputId].destroy(); } catch (e) {}
-      delete _activeGrids[inputId];
+    // Destroy previous table for this inputId if it exists
+    if (_activeTables[inputId]) {
+      try { _activeTables[inputId].destroy(); } catch (e) {}
+      delete _activeTables[inputId];
     }
 
     // Parse data attributes
@@ -626,24 +592,22 @@
       variableTargeting: variableTargeting
     };
 
+    // Parse formula editor terms and suggestions for Low/High columns
+    var terms = null;
+    var suggestions = null;
+    try {
+      terms = JSON.parse(containerDiv.dataset.terms || "null");
+    } catch (e) {}
+    try {
+      suggestions = JSON.parse(containerDiv.dataset.suggestions || "null");
+    } catch (e) {}
+
     var initialData = [];
     try {
       initialData = JSON.parse(containerDiv.dataset.initial || "[]");
     } catch (e) {
       initialData = [];
     }
-
-    var terms = null;
-    try { terms = JSON.parse(containerDiv.dataset.terms || "null"); } catch (e) {}
-
-    var suggestions = null;
-    try { suggestions = JSON.parse(containerDiv.dataset.suggestions || "null"); } catch (e) {}
-
-    var formulaEditorParams = {};
-    if (terms) formulaEditorParams.terms = terms;
-    if (suggestions) formulaEditorParams.suggestions = suggestions;
-
-    var columnDefs = buildColumnDefs(choices, formulaEditorParams);
 
     // Ensure display_name is set on initial data
     var settingsDisplay = buildSettingsDisplayMap(choices.settings);
@@ -658,28 +622,135 @@
       }
     }
 
-    var gridOptions = {
-      columnDefs: columnDefs,
-      rowData: initialData,
-      singleClickEdit: true,
-      stopEditingWhenCellsLoseFocus: true,
-      domLayout: "autoHeight",
-      defaultColDef: {
-        editable: true,
-        resizable: false,
-        suppressMovable: true
-      },
-      context: {
-        inputId: inputId,
-        choices: choices
-      },
-      onCellValueChanged: function(event) {
-        syncToShiny(event.api, inputId);
-      }
-    };
+    var columnDefs = buildColumnDefs(choices, inputId, terms, suggestions);
 
-    var api = agGrid.createGrid(containerDiv, gridOptions);
-    _activeGrids[inputId] = api;
+    var table = new Tabulator(containerDiv, {
+      data: initialData,
+      columns: columnDefs,
+      layout: "fitColumns",
+      height: "auto",
+
+      // Cell range selection
+      selectableRange: true,
+      selectableRangeColumns: true,
+      selectableRangeRows: true,
+      selectableRangeClearCells: true,
+
+      // Editing — double-click only
+      editTriggerEvent: "dblclick",
+
+      // Clipboard — built-in
+      clipboard: true,
+      clipboardCopyRowRange: "range",
+      clipboardPasteParser: "range",
+      clipboardPasteAction: "range",
+      clipboardCopyConfig: { rowHeaders: false, columnHeaders: false },
+      clipboardCopyStyled: false,
+
+      // Sort by header icon only (prevents conflict with column selection)
+      headerSortClickElement: "icon",
+
+      // Row formatter to style disabled strategy/group cells
+      rowFormatter: function(row) {
+        var data = row.getData();
+        var cells = row.getCells();
+        for (var ci = 0; ci < cells.length; ci++) {
+          var field = cells[ci].getColumn().getField();
+          if (field === "strategy" || field === "group") {
+            var el = cells[ci].getElement();
+            if (data.type === "setting") {
+              el.style.color = "var(--bs-secondary, #6c757d)";
+              el.style.fontStyle = "italic";
+            } else {
+              var targeting = getTargeting(choices, data.name);
+              var isDisabled = (field === "strategy" && !targeting.strategies) ||
+                               (field === "group" && !targeting.groups);
+              if (isDisabled) {
+                el.style.color = "var(--bs-secondary, #6c757d)";
+                el.style.fontStyle = "italic";
+              } else {
+                el.style.color = "";
+                el.style.fontStyle = "";
+              }
+            }
+          }
+        }
+      }
+    });
+
+    _activeTables[inputId] = table;
+
+    // Event: cell edited — handle type/name cascading + sync
+    table.on("cellEdited", function(cell) {
+      var field = cell.getField();
+      var data = cell.getRow().getData();
+
+      if (field === "type") {
+        // Type changed: reset name, strategy, group
+        if (data.type === "variable") {
+          var firstName = choices.variables[0] || "";
+          cell.getRow().update({
+            name: firstName,
+            display_name: firstName,
+            strategy: "",
+            group: ""
+          });
+          // Apply targeting defaults for the new variable
+          var rowData = cell.getRow().getData();
+          applyTargetingDefaults(rowData, choices);
+          cell.getRow().update({
+            strategy: rowData.strategy,
+            group: rowData.group
+          });
+        } else {
+          var settingKeys = Object.keys(choices.settings);
+          var firstSetting = settingKeys.length > 0 ? choices.settings[settingKeys[0]] : "";
+          var firstSettingDisplay = settingKeys.length > 0 ? settingKeys[0] : "";
+          cell.getRow().update({
+            name: firstSetting,
+            display_name: firstSettingDisplay,
+            strategy: "",
+            group: ""
+          });
+        }
+      } else if (field === "name") {
+        // Name changed: update display_name and targeting defaults
+        if (data.type === "setting") {
+          cell.getRow().update({
+            display_name: settingsDisplay[data.name] || data.name
+          });
+        } else {
+          cell.getRow().update({
+            display_name: data.name
+          });
+          // Update strategy/group based on new variable's targeting
+          var updatedData = cell.getRow().getData();
+          applyTargetingDefaults(updatedData, choices);
+          cell.getRow().update({
+            strategy: updatedData.strategy,
+            group: updatedData.group
+          });
+        }
+      }
+
+      syncToShiny(table, inputId);
+    });
+
+    // Event: clipboard paste — sync pasted data to Shiny
+    table.on("clipboardPasted", function(clipboard, rowData, rows) {
+      var pasteSettingsDisplay = buildSettingsDisplayMap(choices.settings);
+      rows.forEach(function(row) {
+        var d = row.getData();
+        if (!d.display_name) {
+          if (d.type === "setting") {
+            row.update({ display_name: pasteSettingsDisplay[d.name] || d.name });
+          } else {
+            row.update({ display_name: d.name || "" });
+          }
+        }
+      });
+      syncToShiny(table, inputId);
+    });
 
     // Wire up the add-row button (sibling of container)
     var addBtn = containerDiv.parentElement
@@ -702,14 +773,34 @@
           high: ""
         };
         applyTargetingDefaults(newRow, choices);
-        api.applyTransaction({ add: [newRow] });
-        syncToShiny(api, inputId);
+        table.addRow(newRow);
+        syncToShiny(table, inputId);
       });
     }
 
-    // Initial sync so Shiny has the data from pre-populated rows
-    if (initialData.length > 0) {
-      syncToShiny(api, inputId);
+    // Always sync so Shiny has data (even if empty array)
+    syncToShiny(table, inputId);
+
+    // Bundle grid data with run trigger — eliminates race condition
+    var runBtn = document.querySelector(".dsa-run-btn");
+    if (runBtn) {
+      runBtn.addEventListener("click", function() {
+        var data = table.getData().map(function(d) {
+          return {
+            type: d.type,
+            name: d.name,
+            display_name: d.display_name || d.name,
+            strategy: d.strategy || "",
+            group: d.group || "",
+            low: d.low || "",
+            high: d.high || ""
+          };
+        });
+        Shiny.setInputValue("run_dsa_action", {
+          nonce: Date.now(),
+          params: data
+        }, { priority: "event" });
+      });
     }
 
     containerDiv.setAttribute("data-initialized", "true");
@@ -722,7 +813,7 @@
   function initAllGrids() {
     var containers = document.querySelectorAll(".dsa-params-container:not([data-initialized])");
     if (containers.length === 0) return;
-    ensureAgGrid(function() {
+    ensureTabulator(function() {
       containers.forEach(initGrid);
     });
   }

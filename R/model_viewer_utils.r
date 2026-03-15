@@ -198,10 +198,61 @@ get_dsa_setting_choices <- function() {
 dsa_params_dependency <- function() {
   htmltools::htmlDependency(
     name = "dsa-params",
-    version = "2.0.0",
+    version = "3.0.0",
     src = c(file = system.file("www", package = "openqalyshiny")),
     script = "dsa-params.js",
     stylesheet = "dsa-params.css",
+    all_files = FALSE
+  )
+}
+
+#' Variables Table Dependency
+#'
+#' Returns the HTML dependency for the variables table JS and CSS assets.
+#'
+#' @return An htmltools htmlDependency object.
+#' @keywords internal
+variables_table_dependency <- function() {
+  htmltools::htmlDependency(
+    name = "variables-table",
+    version = "1.0.0",
+    src = c(file = system.file("www", package = "openqalyshiny")),
+    script = "variables-table.js",
+    stylesheet = "variables-table.css",
+    all_files = FALSE
+  )
+}
+
+#' Groups Table Dependency
+#'
+#' Returns the HTML dependency for the groups table JS and CSS assets.
+#'
+#' @return An htmltools htmlDependency object.
+#' @keywords internal
+groups_table_dependency <- function() {
+  htmltools::htmlDependency(
+    name = "groups-table",
+    version = "1.0.0",
+    src = c(file = system.file("www", package = "openqalyshiny")),
+    script = "groups-table.js",
+    stylesheet = "groups-table.css",
+    all_files = FALSE
+  )
+}
+
+#' Strategies Table Dependency
+#'
+#' Returns the HTML dependency for the strategies table JS and CSS assets.
+#'
+#' @return An htmltools htmlDependency object.
+#' @export
+strategies_table_dependency <- function() {
+  htmltools::htmlDependency(
+    name = "strategies-table",
+    version = "1.0.0",
+    src = c(file = system.file("www", package = "openqalyshiny")),
+    script = "strategies-table.js",
+    stylesheet = "strategies-table.css",
     all_files = FALSE
   )
 }

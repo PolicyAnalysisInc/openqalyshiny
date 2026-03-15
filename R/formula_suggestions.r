@@ -55,26 +55,32 @@ get_r_function_suggestions <- function(packages = NULL, include_internal = FALSE
         fn_names <- fn_names[!grepl("^\\.", fn_names)]
       }
 
-      # Filter to functions only
-      fn_names <- fn_names[vapply(fn_names, function(n) {
-        is.function(tryCatch(get(n, envir = ns), error = function(e) NULL))
-      }, logical(1))]
+      # Filter to functions only using mget (faster than per-name tryCatch)
+      objs <- mget(fn_names, envir = ns, ifnotfound = list(NULL))
+      is_fn <- vapply(objs, is.function, logical(1))
+      fn_names <- fn_names[is_fn]
 
       if (length(fn_names) == 0) {
         return(NULL)
       }
 
-      do.call(rbind, lapply(fn_names, function(fn_name) {
-        fn <- get(fn_name, envir = ns)
-        data.frame(
-          name = fn_name,
-          label = paste0(fn_name, "()"),
-          description = .extract_help_description(fn_name, pkg),
-          signature = .build_signature(fn_name, fn),
-          package = pkg,
-          stringsAsFactors = FALSE
-        )
-      }))
+      # Batch-fetch descriptions via aliases + fetchRdDB
+      descriptions <- .extract_descriptions_batch(fn_names, pkg)
+
+      # Build signatures in a vectorized vapply
+      signatures <- vapply(fn_names, function(fn_name) {
+        .build_signature(fn_name, objs[[fn_name]])
+      }, character(1), USE.NAMES = FALSE)
+
+      # Construct a single data.frame (no per-row rbind)
+      data.frame(
+        name = fn_names,
+        label = paste0(fn_names, "()"),
+        description = descriptions,
+        signature = signatures,
+        package = pkg,
+        stringsAsFactors = FALSE
+      )
     }, error = function(e) NULL)
   })
 
@@ -121,6 +127,60 @@ get_r_function_suggestions <- function(packages = NULL, include_internal = FALSE
   paste0(fn_name, "(", paste(arg_strs, collapse = ", "), ")")
 }
 
+#' Batch-extract descriptions for multiple functions from a package
+#'
+#' Uses aliases.rds to map function names to help topics, then fetches
+#' only unique Rd objects via tools:::fetchRdDB for efficiency.
+#'
+#' @param fn_names Character vector of function names
+#' @param pkg Package name
+#'
+#' @return Character vector of descriptions (NA_character_ where unavailable)
+#' @keywords internal
+.extract_descriptions_batch <- function(fn_names, pkg) {
+  descriptions <- rep(NA_character_, length(fn_names))
+
+  help_dir <- system.file("help", package = pkg)
+  if (help_dir == "") return(descriptions)
+
+  aliases_file <- file.path(help_dir, "aliases.rds")
+  RdDB <- file.path(help_dir, pkg)
+  if (!file.exists(aliases_file) || !file.exists(paste0(RdDB, ".rdb"))) {
+    return(descriptions)
+  }
+
+  aliases <- readRDS(aliases_file)
+
+  # Map fn_names to topics via aliases
+  topics <- aliases[fn_names]
+  has_topic <- !is.na(topics)
+
+  # Fetch Rd for unique topics only
+  unique_topics <- unique(topics[has_topic])
+  topic_descs <- vapply(unique_topics, function(topic) {
+    tryCatch({
+      Rd <- tools:::fetchRdDB(RdDB, topic)
+      desc_tags <- Rd[vapply(Rd, function(x) {
+        attr(x, "Rd_tag") == "\\description"
+      }, logical(1))]
+
+      if (length(desc_tags) > 0) {
+        txt <- paste(unlist(desc_tags[[1]]), collapse = " ")
+        txt <- gsub("\\s+", " ", trimws(txt))
+        if (nchar(txt) > 200) {
+          txt <- paste0(substr(txt, 1, 197), "...")
+        }
+        return(txt)
+      }
+      NA_character_
+    }, error = function(e) NA_character_)
+  }, character(1), USE.NAMES = TRUE)
+
+  # Map topic descriptions back to fn_names
+  descriptions[has_topic] <- topic_descs[topics[has_topic]]
+  descriptions
+}
+
 #' Extract description from help file
 #'
 #' @param fn_name Function name
@@ -129,26 +189,5 @@ get_r_function_suggestions <- function(packages = NULL, include_internal = FALSE
 #' @return Character string of function description or NA_character_
 #' @keywords internal
 .extract_help_description <- function(fn_name, pkg) {
-  tryCatch({
-    help_file <- utils::help(fn_name, package = (pkg))
-    if (length(help_file) == 0) {
-      return(NA_character_)
-    }
-
-    # Use utils::.getHelpFile to parse the Rd file
-    Rd <- utils:::.getHelpFile(as.character(help_file))
-    desc_tags <- Rd[vapply(Rd, function(x) {
-      attr(x, "Rd_tag") == "\\description"
-    }, logical(1))]
-
-    if (length(desc_tags) > 0) {
-      txt <- paste(unlist(desc_tags[[1]]), collapse = " ")
-      txt <- gsub("\\s+", " ", trimws(txt))
-      if (nchar(txt) > 200) {
-        txt <- paste0(substr(txt, 1, 197), "...")
-      }
-      return(txt)
-    }
-    NA_character_
-  }, error = function(e) NA_character_)
+  .extract_descriptions_batch(fn_name, pkg)
 }

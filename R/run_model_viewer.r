@@ -82,6 +82,7 @@ run_model_viewer <- function(model = NULL, model_dir = NULL, example = FALSE) {
         bslib::navset_card_tab(
           bslib::nav_panel("Trace", traceResultsUI("trace")),
           bslib::nav_panel("Outcomes", outcomesResultsUI("outcomes")),
+          bslib::nav_panel("Costs", costsResultsUI("costs")),
           bslib::nav_panel("NMB", nmbResultsUI("nmb")),
           bslib::nav_panel("Pairwise CE", pairwiseCeResultsUI("pairwise_ce")),
           bslib::nav_panel("Incremental CE", incrementalCeResultsUI("incremental_ce"))
@@ -128,11 +129,17 @@ run_model_viewer <- function(model = NULL, model_dir = NULL, example = FALSE) {
         bslib::navset_card_tab(
           bslib::nav_panel("Inputs",
             shiny::uiOutput("dsa_inputs"),
-            shiny::actionButton("run_dsa", "Run DSA Analysis",
-              class = "btn-primary mt-2"
+            shiny::tags$button(
+              type = "button",
+              class = "btn btn-primary mt-2 w-100 dsa-run-btn",
+              "Run DSA Analysis"
             )
           ),
-          bslib::nav_panel("Results", dsaResultsUI("dsa"))
+          bslib::nav_panel("Outcomes", dsaResultTabUI("dsa_outcomes")),
+          bslib::nav_panel("Costs", dsaResultTabUI("dsa_costs")),
+          bslib::nav_panel("NMB", dsaResultTabUI("dsa_nmb")),
+          bslib::nav_panel("Cost-Effectiveness", dsaResultTabUI("dsa_ce")),
+          bslib::nav_panel("DSA + VBP", dsaResultTabUI("dsa_vbp"))
         )
       )
     ),
@@ -265,12 +272,33 @@ run_model_viewer <- function(model = NULL, model_dir = NULL, example = FALSE) {
       if (is.data.frame(params)) {
         return(lapply(seq_len(nrow(params)), function(i) as.list(params[i, , drop = FALSE])))
       }
-      # Single named param (named list or named vector) → wrap and coerce
-      if (!is.null(names(params)) && "type" %in% names(params)) {
+      # Named list with "type" key — could be a single param (scalars) or
+      # multiple params flattened column-wise (vectors of length > 1)
+      if (is.list(params) && !is.null(names(params)) && "type" %in% names(params)) {
+        if (length(params$type) > 1) {
+          # Column-wise list of vectors → convert to row-wise list of lists
+          n <- length(params$type)
+          return(lapply(seq_len(n), function(i) {
+            lapply(params, function(col) col[[i]])
+          }))
+        }
         return(list(as.list(params)))
       }
       # List of params — ensure each element is a proper list (not atomic vector)
-      lapply(params, as.list)
+      if (is.list(params)) {
+        return(lapply(params, as.list))
+      }
+      # Named atomic vector (Shiny deserializes JS array of objects as a flat
+      # character vector with repeated names: type,name,...,type,name,...)
+      if (is.atomic(params) && !is.null(names(params)) && "type" %in% names(params)) {
+        type_idx <- which(names(params) == "type")
+        boundaries <- c(type_idx, length(params) + 1L)
+        return(lapply(seq_along(type_idx), function(i) {
+          as.list(params[boundaries[i]:(boundaries[i + 1L] - 1L)])
+        }))
+      }
+      # Other unexpected type — cannot normalize
+      list()
     }
 
     # ---- Helper: add DSA parameters to a model ----
@@ -322,7 +350,7 @@ run_model_viewer <- function(model = NULL, model_dir = NULL, example = FALSE) {
       m <- build_overridden_model()
       if (is.null(m)) return(NULL)
       # Include DSA parameters so they appear in model diff
-      params <- dsa_rv$parameters
+      params <- dsa_params_reactive()
       if (length(params) > 0) {
         m <- apply_dsa_params(m, params)
       }
@@ -476,7 +504,7 @@ run_model_viewer <- function(model = NULL, model_dir = NULL, example = FALSE) {
         formula_input_dependency(),
         shiny::tags$div(
           id = "dsa_params_grid",
-          class = "dsa-params-container ag-theme-quartz",
+          class = "dsa-params-container",
           `data-input-id` = "dsa_params",
           `data-variables` = jsonlite::toJSON(var_choices, auto_unbox = TRUE),
           `data-settings` = jsonlite::toJSON(
@@ -493,10 +521,10 @@ run_model_viewer <- function(model = NULL, model_dir = NULL, example = FALSE) {
           ),
           `data-initial` = initial_json,
           `data-terms` = jsonlite::toJSON(
-            get_model_terms(m, "dsa_bound"), auto_unbox = TRUE
+            get_model_terms(m, "dsa_bound"), auto_unbox = FALSE
           ),
           `data-suggestions` = jsonlite::toJSON(
-            get_model_suggestions(m, "dsa_bound"), auto_unbox = TRUE
+            get_model_suggestions(m, "dsa_bound"), auto_unbox = FALSE
           )
         ),
         shiny::tags$button(
@@ -538,14 +566,21 @@ run_model_viewer <- function(model = NULL, model_dir = NULL, example = FALSE) {
       shiny::tagList(param_table, vbp_config)
     })
 
-    # ---- DSA params sync from JS ----
-    shiny::observeEvent(input$dsa_params, {
-      dsa_rv$parameters <- normalize_dsa_params(input$dsa_params)
+    # ---- DSA params reactive (direct dependency for model diff) ----
+    dsa_params_reactive <- shiny::reactive({
+      raw <- input$dsa_params
+      js_params <- normalize_dsa_params(raw)
+      if (length(js_params) > 0) return(js_params)
+      # Before grid renders, use model-loaded defaults
+      dsa_rv$parameters
     })
 
     # ---- DSA run ----
-    shiny::observeEvent(input$run_dsa, {
-      params <- normalize_dsa_params(input$dsa_params)
+    shiny::observeEvent(input$run_dsa_action, {
+      params <- normalize_dsa_params(input$run_dsa_action$params)
+      if (length(params) == 0) {
+        params <- dsa_params_reactive()
+      }
       if (length(params) == 0) {
         shiny::showNotification("Please add at least one parameter.", type = "warning")
         return()
@@ -598,12 +633,17 @@ run_model_viewer <- function(model = NULL, model_dir = NULL, example = FALSE) {
 
     traceResultsServer("trace", results_reactive, metadata_reactive)
     outcomesResultsServer("outcomes", results_reactive, metadata_reactive)
+    costsResultsServer("costs", results_reactive, metadata_reactive)
     nmbResultsServer("nmb", results_reactive, metadata_reactive)
     pairwiseCeResultsServer("pairwise_ce", results_reactive, metadata_reactive)
     incrementalCeResultsServer("incremental_ce", results_reactive, metadata_reactive)
     vbpResultsServer("vbp", vbp_results_reactive, metadata_reactive)
     dsa_results_reactive <- shiny::reactive(dsa_rv$results)
-    dsaResultsServer("dsa", dsa_results_reactive, metadata_reactive)
+    dsaResultTabServer("dsa_outcomes", "outcomes", dsa_results_reactive, metadata_reactive)
+    dsaResultTabServer("dsa_costs", "costs", dsa_results_reactive, metadata_reactive)
+    dsaResultTabServer("dsa_nmb", "nmb", dsa_results_reactive, metadata_reactive)
+    dsaResultTabServer("dsa_ce", "ce", dsa_results_reactive, metadata_reactive)
+    dsaResultTabServer("dsa_vbp", "vbp", dsa_results_reactive, metadata_reactive)
     diffResultsServer("diff", shiny::reactive(original_model_rv()), current_model_reactive)
   }
 

@@ -1,24 +1,13 @@
 # =============================================================================
-# DSA Results Sub-Module
+# DSA Result Tab Sub-Module (one instance per analysis type)
 # =============================================================================
 
-#' DSA Results UI
+#' DSA Result Tab UI
 #' @param id Module namespace ID.
 #' @keywords internal
-dsaResultsUI <- function(id) {
+dsaResultTabUI <- function(id) {
   ns <- shiny::NS(id)
   shiny::tagList(
-    shiny::selectInput(ns("analysis_type"), "Analysis Type",
-      choices = c(
-        "Outcomes" = "outcomes",
-        "NMB" = "nmb",
-        "Cost-Effectiveness" = "ce",
-        "DSA + VBP" = "vbp"
-      )
-    ),
-    shiny::selectInput(ns("viz_type"), "Output Format",
-      choices = c("Plot" = "plot", "Table" = "table")
-    ),
     shiny::uiOutput(ns("controls")),
     shiny::conditionalPanel(
       condition = sprintf("input['%s'] != 'table'", ns("viz_type")),
@@ -32,12 +21,13 @@ dsaResultsUI <- function(id) {
   )
 }
 
-#' DSA Results Server
+#' DSA Result Tab Server
 #' @param id Module namespace ID.
+#' @param analysis_type Fixed string: "outcomes", "nmb", "ce", or "vbp".
 #' @param dsa_results Reactive containing DSA results.
 #' @param metadata Reactive containing model metadata.
 #' @keywords internal
-dsaResultsServer <- function(id, dsa_results, metadata) {
+dsaResultTabServer <- function(id, analysis_type, dsa_results, metadata) {
   shiny::moduleServer(id, function(input, output, session) {
     ns <- session$ns
 
@@ -59,90 +49,88 @@ dsaResultsServer <- function(id, dsa_results, metadata) {
     }, ignoreNULL = FALSE, ignoreInit = TRUE)
 
     # ---- Strategy enforcement (interventions/comparators) ----
-    prev_interventions <- shiny::reactiveVal(NULL)
-    prev_comparators <- shiny::reactiveVal(NULL)
+    if (analysis_type %in% c("nmb", "ce")) {
+      prev_interventions <- shiny::reactiveVal(NULL)
+      prev_comparators <- shiny::reactiveVal(NULL)
 
-    shiny::observeEvent(input$interventions, {
-      if (is.null(prev_interventions()) ||
-          is.null(prev_comparators())) {
-        prev_interventions(input$interventions)
-        return()
-      }
-      result <- enforce_exclusive_strategies(
-        input$interventions,
-        prev_comparators(),
-        prev_interventions()
-      )
-      prev_interventions(result$changed)
-      prev_comparators(result$other)
-      if (!identical(input$interventions, result$changed)) {
-        shiny::freezeReactiveValue(input, "interventions")
-        shiny::updateSelectInput(
-          session, "interventions",
-          selected = result$changed
+      shiny::observeEvent(input$interventions, {
+        if (is.null(prev_interventions()) ||
+            is.null(prev_comparators())) {
+          prev_interventions(input$interventions)
+          return()
+        }
+        result <- enforce_exclusive_strategies(
+          input$interventions,
+          prev_comparators(),
+          prev_interventions()
         )
-      }
-      if (!identical(input$comparators, result$other)) {
-        shiny::freezeReactiveValue(input, "comparators")
-        shiny::updateSelectInput(
-          session, "comparators",
-          selected = result$other
-        )
-      }
-    }, ignoreNULL = FALSE, ignoreInit = TRUE)
+        prev_interventions(result$changed)
+        prev_comparators(result$other)
+        if (!identical(input$interventions, result$changed)) {
+          shiny::freezeReactiveValue(input, "interventions")
+          shiny::updateSelectInput(
+            session, "interventions",
+            selected = result$changed
+          )
+        }
+        if (!identical(input$comparators, result$other)) {
+          shiny::freezeReactiveValue(input, "comparators")
+          shiny::updateSelectInput(
+            session, "comparators",
+            selected = result$other
+          )
+        }
+      }, ignoreNULL = FALSE, ignoreInit = TRUE)
 
-    shiny::observeEvent(input$comparators, {
-      if (is.null(prev_comparators()) ||
-          is.null(prev_interventions())) {
-        prev_comparators(input$comparators)
-        return()
-      }
-      result <- enforce_exclusive_strategies(
-        input$comparators,
-        prev_interventions(),
-        prev_comparators()
-      )
-      prev_comparators(result$changed)
-      prev_interventions(result$other)
-      if (!identical(input$comparators, result$changed)) {
-        shiny::freezeReactiveValue(input, "comparators")
-        shiny::updateSelectInput(
-          session, "comparators",
-          selected = result$changed
+      shiny::observeEvent(input$comparators, {
+        if (is.null(prev_comparators()) ||
+            is.null(prev_interventions())) {
+          prev_comparators(input$comparators)
+          return()
+        }
+        result <- enforce_exclusive_strategies(
+          input$comparators,
+          prev_interventions(),
+          prev_comparators()
         )
-      }
-      if (!identical(input$interventions, result$other)) {
-        shiny::freezeReactiveValue(input, "interventions")
-        shiny::updateSelectInput(
-          session, "interventions",
-          selected = result$other
-        )
-      }
-    }, ignoreNULL = FALSE, ignoreInit = TRUE)
-
-    # Reset strategy tracking when analysis type changes
-    shiny::observeEvent(input$analysis_type, {
-      prev_interventions(NULL)
-      prev_comparators(NULL)
-    }, ignoreInit = TRUE)
+        prev_comparators(result$changed)
+        prev_interventions(result$other)
+        if (!identical(input$comparators, result$changed)) {
+          shiny::freezeReactiveValue(input, "comparators")
+          shiny::updateSelectInput(
+            session, "comparators",
+            selected = result$changed
+          )
+        }
+        if (!identical(input$interventions, result$other)) {
+          shiny::freezeReactiveValue(input, "interventions")
+          shiny::updateSelectInput(
+            session, "interventions",
+            selected = result$other
+          )
+        }
+      }, ignoreNULL = FALSE, ignoreInit = TRUE)
+    }
 
     # ---- Dynamic controls ----
     output$controls <- shiny::renderUI({
       meta <- metadata()
       res <- dsa_results()
       if (is.null(meta) || is.null(res)) return(NULL)
-      atype <- input$analysis_type
-      if (is.null(atype)) return(NULL)
 
       groups <- get_group_choices(meta)
       strategies <- get_strategy_choices(meta)
       outcome_choices <- get_outcome_summary_choices(meta)
       cost_choices <- get_cost_summary_choices(meta)
 
-      inputs <- list()
+      inputs <- list(
+        shiny::selectInput(ns("viz_type"), "Output Format",
+          choices = c("Plot" = "plot", "Table" = "table")
+        )
+      )
 
-      if (atype == "outcomes") {
-        inputs <- list(
+      if (analysis_type == "outcomes") {
+        inputs <- c(inputs, list(
           shiny::selectInput(ns("outcome"), "Outcome Summary",
             choices = outcome_choices,
             selected = if (length(outcome_choices) > 0) outcome_choices[1] else NULL
@@ -153,9 +141,22 @@ dsaResultsServer <- function(id, dsa_results, metadata) {
           shiny::checkboxInput(ns("discounted"), "Discounted", value = TRUE),
           shiny::checkboxInput(ns("show_parameter_values"), "Show Parameter Values", value = TRUE),
           shiny::checkboxInput(ns("drop_zero_impact"), "Drop Zero Impact", value = TRUE)
-        )
-      } else if (atype == "nmb") {
-        inputs <- list(
+        ))
+      } else if (analysis_type == "costs") {
+        inputs <- c(inputs, list(
+          shiny::selectInput(ns("outcome"), "Cost Summary",
+            choices = cost_choices,
+            selected = if (length(cost_choices) > 0) cost_choices[1] else NULL
+          ),
+          shiny::selectInput(ns("strategies"), "Strategies",
+            choices = strategies, selected = strategies, multiple = TRUE
+          ),
+          shiny::checkboxInput(ns("discounted"), "Discounted", value = TRUE),
+          shiny::checkboxInput(ns("show_parameter_values"), "Show Parameter Values", value = TRUE),
+          shiny::checkboxInput(ns("drop_zero_impact"), "Drop Zero Impact", value = TRUE)
+        ))
+      } else if (analysis_type == "nmb") {
+        inputs <- c(inputs, list(
           shiny::selectInput(ns("health_outcome"), "Health Outcome",
             choices = outcome_choices,
             selected = if (length(outcome_choices) > 0) outcome_choices[1] else NULL
@@ -177,9 +178,9 @@ dsaResultsServer <- function(id, dsa_results, metadata) {
           ),
           shiny::checkboxInput(ns("show_parameter_values"), "Show Parameter Values", value = TRUE),
           shiny::checkboxInput(ns("drop_zero_impact"), "Drop Zero Impact", value = TRUE)
-        )
-      } else if (atype == "ce") {
-        inputs <- list(
+        ))
+      } else if (analysis_type == "ce") {
+        inputs <- c(inputs, list(
           shiny::selectInput(ns("health_outcome"), "Health Outcome",
             choices = outcome_choices,
             selected = if (length(outcome_choices) > 0) outcome_choices[1] else NULL
@@ -198,9 +199,8 @@ dsaResultsServer <- function(id, dsa_results, metadata) {
           ),
           shiny::checkboxInput(ns("show_parameter_values"), "Show Parameter Values", value = TRUE),
           shiny::checkboxInput(ns("drop_zero_impact"), "Drop Zero Impact", value = TRUE)
-        )
-      } else if (atype == "vbp") {
-        # VBP comparator choices: exclude intervention, add aggregate options
+        ))
+      } else if (analysis_type == "vbp") {
         all_strategies <- get_strategy_choices(meta)
         vbp_spec <- res$vbp_spec
         if (!is.null(vbp_spec)) {
@@ -216,7 +216,7 @@ dsaResultsServer <- function(id, dsa_results, metadata) {
           individual_comparators
         )
 
-        inputs <- list(
+        inputs <- c(inputs, list(
           shiny::numericInput(ns("wtp"), "Willingness to Pay",
             value = 100000, min = 0, step = 10000
           ),
@@ -226,7 +226,7 @@ dsaResultsServer <- function(id, dsa_results, metadata) {
             multiple = FALSE
           ),
           shiny::checkboxInput(ns("show_parameter_values"), "Show Parameter Values", value = TRUE)
-        )
+        ))
       }
 
       # Add groups input for all types when model has multiple groups
@@ -249,12 +249,11 @@ dsaResultsServer <- function(id, dsa_results, metadata) {
     # ---- Plot rendering ----
     output$result_plot <- shiny::renderPlot({
       res <- dsa_results()
-      shiny::req(res, input$viz_type, input$analysis_type, input$viz_type != "table")
-      atype <- input$analysis_type
+      shiny::req(res, input$viz_type, input$viz_type != "table")
       error_msg(NULL)
 
       tryCatch({
-        if (atype == "outcomes") {
+        if (analysis_type == "outcomes") {
           shiny::req(input$outcome)
           args <- list(res, summary_name = input$outcome)
           if (!is.null(input$groups)) args$groups <- input$groups
@@ -264,7 +263,17 @@ dsaResultsServer <- function(id, dsa_results, metadata) {
           if (!is.null(input$drop_zero_impact)) args$drop_zero_impact <- input$drop_zero_impact
           do.call(openqaly::dsa_outcomes_plot, args)
 
-        } else if (atype == "nmb") {
+        } else if (analysis_type == "costs") {
+          shiny::req(input$outcome)
+          args <- list(res, summary_name = input$outcome)
+          if (!is.null(input$groups)) args$groups <- input$groups
+          if (!is.null(input$strategies)) args$strategies <- input$strategies
+          if (!is.null(input$discounted)) args$discounted <- input$discounted
+          if (!is.null(input$show_parameter_values)) args$show_parameter_values <- input$show_parameter_values
+          if (!is.null(input$drop_zero_impact)) args$drop_zero_impact <- input$drop_zero_impact
+          do.call(openqaly::dsa_costs_plot, args)
+
+        } else if (analysis_type == "nmb") {
           shiny::req(input$health_outcome, input$cost_outcome, input$interventions, input$comparators)
           args <- list(res,
             health_outcome = input$health_outcome,
@@ -278,7 +287,7 @@ dsaResultsServer <- function(id, dsa_results, metadata) {
           if (!is.null(input$drop_zero_impact)) args$drop_zero_impact <- input$drop_zero_impact
           do.call(openqaly::dsa_nmb_plot, args)
 
-        } else if (atype == "ce") {
+        } else if (analysis_type == "ce") {
           shiny::req(input$health_outcome, input$cost_outcome, input$interventions, input$comparators)
           args <- list(res,
             health_outcome = input$health_outcome,
@@ -291,7 +300,7 @@ dsaResultsServer <- function(id, dsa_results, metadata) {
           if (!is.null(input$drop_zero_impact)) args$drop_zero_impact <- input$drop_zero_impact
           do.call(openqaly::dsa_ce_plot, args)
 
-        } else if (atype == "vbp") {
+        } else if (analysis_type == "vbp") {
           args <- list(res)
           if (!is.null(input$wtp)) args$wtp <- input$wtp
           if (!is.null(input$vbp_comparators)) args$comparators <- input$vbp_comparators
@@ -308,12 +317,11 @@ dsaResultsServer <- function(id, dsa_results, metadata) {
     # ---- Table rendering ----
     output$result_table <- shiny::renderUI({
       res <- dsa_results()
-      shiny::req(res, input$viz_type == "table", input$analysis_type)
-      atype <- input$analysis_type
+      shiny::req(res, input$viz_type == "table")
       error_msg(NULL)
 
       tryCatch({
-        ft <- if (atype == "outcomes") {
+        ft <- if (analysis_type == "outcomes") {
           shiny::req(input$outcome)
           args <- list(res, outcome = input$outcome)
           if (!is.null(input$groups)) args$groups <- input$groups
@@ -321,7 +329,15 @@ dsaResultsServer <- function(id, dsa_results, metadata) {
           if (!is.null(input$discounted)) args$discounted <- input$discounted
           do.call(openqaly::dsa_outcomes_table, args)
 
-        } else if (atype == "nmb") {
+        } else if (analysis_type == "costs") {
+          shiny::req(input$outcome)
+          args <- list(res, outcome = input$outcome)
+          if (!is.null(input$groups)) args$groups <- input$groups
+          if (!is.null(input$strategies)) args$strategies <- input$strategies
+          if (!is.null(input$discounted)) args$discounted <- input$discounted
+          do.call(openqaly::dsa_costs_table, args)
+
+        } else if (analysis_type == "nmb") {
           shiny::req(input$health_outcome, input$cost_outcome, input$interventions, input$comparators)
           args <- list(res,
             health_outcome = input$health_outcome,
@@ -333,7 +349,7 @@ dsaResultsServer <- function(id, dsa_results, metadata) {
           if (!is.null(input$comparators)) args$comparators <- input$comparators
           do.call(openqaly::dsa_nmb_table, args)
 
-        } else if (atype == "ce") {
+        } else if (analysis_type == "ce") {
           shiny::req(input$health_outcome, input$cost_outcome, input$interventions, input$comparators)
           args <- list(res,
             health_outcome = input$health_outcome,
@@ -344,7 +360,7 @@ dsaResultsServer <- function(id, dsa_results, metadata) {
           if (!is.null(input$comparators)) args$comparators <- input$comparators
           do.call(openqaly::dsa_ce_table, args)
 
-        } else if (atype == "vbp") {
+        } else if (analysis_type == "vbp") {
           args <- list(res)
           if (!is.null(input$wtp)) args$wtp <- input$wtp
           if (!is.null(input$vbp_comparators)) args$comparators <- input$vbp_comparators

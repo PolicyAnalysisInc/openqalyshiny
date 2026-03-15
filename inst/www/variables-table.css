@@ -1,0 +1,130 @@
+/* Variables Table — Tabulator styles */
+
+.variables-table-container {
+  width: 100%;
+  margin-bottom: 0.25rem;
+}
+
+/* Compact row sizing */
+.variables-table-container .tabulator-row {
+  min-height: 32px;
+}
+
+.variables-table-container .tabulator-cell {
+  font-size: 0.85rem;
+  padding: 0 6px;
+}
+
+.variables-table-container .tabulator-col-title {
+  font-size: 0.85rem;
+}
+
+/* Delete button in grid cell */
+.var-delete-btn {
+  border: none;
+  background: none;
+  color: var(--bs-danger, #dc3545);
+  font-size: 1.1rem;
+  line-height: 1;
+  padding: 0.15rem 0.4rem;
+  cursor: pointer;
+  opacity: 0.6;
+}
+
+.var-delete-btn:hover {
+  opacity: 1;
+}
+
+/* Add Variable button above the table */
+.var-add-btn {
+  border: 1px solid var(--bs-border-color, #dee2e6);
+  background: var(--bs-body-bg, #fff);
+  color: var(--bs-body-color, #212529);
+  font-size: 0.8rem;
+  padding: 0.25rem 0.6rem;
+  border-radius: 4px;
+  cursor: pointer;
+  margin-bottom: 0.4rem;
+}
+
+.var-add-btn:hover {
+  background: var(--bs-tertiary-bg, #f8f9fa);
+}
+
+/* Confirm button (✓) for new rows */
+.var-confirm-btn {
+  border: none;
+  background: none;
+  color: var(--bs-success, #198754);
+  font-size: 1.1rem;
+  line-height: 1;
+  padding: 0.15rem 0.25rem;
+  cursor: pointer;
+  opacity: 0.7;
+}
+
+.var-confirm-btn:hover {
+  opacity: 1;
+}
+
+/* Cancel button (×) for new rows */
+.var-cancel-btn {
+  border: none;
+  background: none;
+  color: var(--bs-danger, #dc3545);
+  font-size: 1.1rem;
+  line-height: 1;
+  padding: 0.15rem 0.25rem;
+  cursor: pointer;
+  opacity: 0.7;
+}
+
+.var-cancel-btn:hover {
+  opacity: 1;
+}
+
+/* Fallback plain text input editor in grid cells */
+.var-input-editor {
+  width: 100%;
+  height: 100%;
+  border: none;
+  font-size: 0.85rem;
+  padding: 0 6px;
+  outline: none;
+}
+
+/* Formula editor — Ace overlay positioned over cell */
+.var-formula-overlay {
+  background: #fff;
+  border: 2px solid var(--bs-primary, #0d6efd);
+  border-radius: 3px;
+  box-sizing: border-box;
+  overflow: visible;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+
+.var-formula-overlay .ace_editor {
+  font-size: 0.85rem !important;
+}
+
+.var-formula-overlay .ace_scroller {
+  padding: 0 4px;
+}
+
+.var-ace-container {
+  overflow: visible;
+}
+
+.var-formula-overlay .ace_content {
+  padding: 0;
+}
+
+.var-formula-overlay .ace_scrollbar {
+  display: none !important;
+}
+
+/* Placeholder inside editing cell — invisible */
+.var-formula-placeholder {
+  width: 100%;
+  height: 100%;
+}

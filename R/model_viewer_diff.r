@@ -61,6 +61,7 @@ diffResultsServer <- function(id, model, current_model) {
           original_lines,
           current_lines,
           format = "html",
+          context = 7L,
           style = list(html.output = "diff.w.style"),
           mode = mode,
           tar.banner = "Original Model",

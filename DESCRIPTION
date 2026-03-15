@@ -17,10 +17,11 @@ Imports:
     htmltools,
     jsonlite,
     openqaly (>= 0.1.3),
+    rhandsontable,
     rlang,
-    shiny
+    shiny,
+    shinyFiles
 Suggests:
     covr,
-    shinyFiles,
     testthat (>= 3.0.0)
 Config/testthat/edition: 3
