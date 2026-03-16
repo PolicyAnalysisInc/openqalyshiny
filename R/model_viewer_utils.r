@@ -240,6 +240,23 @@ groups_table_dependency <- function() {
   )
 }
 
+#' Add Strategy Modal Dependency
+#'
+#' Returns the HTML dependency for the add strategy modal JS and CSS assets.
+#'
+#' @return An htmltools htmlDependency object.
+#' @keywords internal
+add_strategy_modal_dependency <- function() {
+  htmltools::htmlDependency(
+    name = "add-strategy-modal",
+    version = "1.0.0",
+    src = c(file = system.file("www", package = "openqalyshiny")),
+    script = "add-strategy-modal.js",
+    stylesheet = "add-strategy-modal.css",
+    all_files = FALSE
+  )
+}
+
 #' Strategies Table Dependency
 #'
 #' Returns the HTML dependency for the strategies table JS and CSS assets.

@@ -1,0 +1,37 @@
+/* Add Strategy Modal — Variables table styles */
+
+/* Make the modal 80% of the viewport */
+.add-strategy-modal .modal-dialog {
+  max-width: 80vw;
+  width: 80vw;
+}
+
+.add-strategy-modal .modal-body {
+  max-height: 75vh;
+  overflow-y: auto;
+}
+
+#add-strategy-vars-container {
+  width: 100%;
+  margin-bottom: 0.25rem;
+}
+
+/* Match variables table row/cell sizing */
+#add-strategy-vars-container .tabulator-cell {
+  font-size: 0.85rem;
+  padding: 10px 6px;
+}
+
+#add-strategy-vars-container .tabulator-col-title {
+  font-size: 0.85rem;
+}
+
+/* Ensure formula overlay renders above Bootstrap modal (z-index ~1055) */
+.add-strategy-formula-overlay {
+  z-index: 10600 !important;
+}
+
+/* Ensure Ace autocomplete popup renders above modal and formula overlay */
+.ace_autocomplete {
+  z-index: 10700 !important;
+}

@@ -76,6 +76,8 @@ dispatch_model_action <- function(model, action) {
       if (nzchar(action$description %||% "")) {
         args$description <- action$description
       }
+      if (nzchar(action$strategy %||% "")) args$strategy <- action$strategy
+      if (nzchar(action$group %||% "")) args$group <- action$group
       rlang::inject(openqaly::add_variable(!!!args))
     },
     "remove_variable" = {
@@ -215,6 +217,45 @@ scripts_editor_dependency <- function() {
 #' @param path Optional path to a model file (.json, .yml, .yaml) to load on
 #'   startup. If \code{NULL} (default), no model is loaded until the user
 #'   opens one via the UI.
+#' @keywords internal
+create_history_manager <- function(max_size = 5) {
+  rv <- shiny::reactiveValues(past = list(), future = list())
+
+  list(
+    push = function(old_model) {
+      rv$past <- c(tail(rv$past, max_size - 1), list(old_model))
+      rv$future <- list()
+    },
+    undo = function(current_model) {
+      n <- length(rv$past)
+      if (n == 0) return(NULL)
+      restored <- rv$past[[n]]
+      rv$past <- rv$past[-n]
+      rv$future <- c(rv$future, list(current_model))
+      restored
+    },
+    redo = function(current_model) {
+      n <- length(rv$future)
+      if (n == 0) return(NULL)
+      restored <- rv$future[[n]]
+      rv$future <- rv$future[-n]
+      rv$past <- c(rv$past, list(current_model))
+      restored
+    },
+    can_undo = function() length(rv$past) > 0,
+    can_redo = function() length(rv$future) > 0,
+    clear = function() {
+      rv$past <- list()
+      rv$future <- list()
+    }
+  )
+}
+
+#' Launch the model editor Shiny app
+#'
+#' @param path Optional path to a model file (.json, .yml, .yaml) to load on
+#'   startup. If \code{NULL} (default), no model is loaded until the user
+#'   opens one via the UI.
 #' @return A Shiny app object
 #' @export
 run_model_editor <- function(path = NULL) {
@@ -224,7 +265,8 @@ run_model_editor <- function(path = NULL) {
       name = "ace-editor",
       version = "1.32.6",
       src = c(href = "https://cdnjs.cloudflare.com/ajax/libs/ace/1.32.6"),
-      script = c("ace.min.js", "mode-r.min.js", "theme-chrome.min.js"),
+      script = c("ace.min.js", "mode-r.min.js", "theme-chrome.min.js",
+                 "ext-language_tools.min.js"),
       all_files = FALSE
     ),
     scripts_editor_dependency(),
@@ -415,6 +457,19 @@ run_model_editor <- function(path = NULL) {
         .settings-form .form-group {
           margin-bottom: 12px;
         }
+        .app-bar .btn:disabled {
+          opacity: 0.3;
+          cursor: default;
+          pointer-events: none;
+        }
+      ")),
+      tags$script(shiny::HTML("
+        Shiny.addCustomMessageHandler('toggle_undo_redo', function(msg) {
+          var undo = document.getElementById('undo_btn');
+          var redo = document.getElementById('redo_btn');
+          if (undo) undo.disabled = !msg.can_undo;
+          if (redo) redo.disabled = !msg.can_redo;
+        });
       "))
     ),
     tags$div(
@@ -448,6 +503,23 @@ run_model_editor <- function(path = NULL) {
               "Save"
             )
           )
+        )
+      ),
+      tags$div(
+        style = "margin-left: auto; display: flex; gap: 4px;",
+        shiny::actionButton("undo_btn", NULL,
+          icon = shiny::icon("rotate-left"),
+          class = "btn btn-sm",
+          style = "color: white; background: transparent; border: none;",
+          title = "Undo (Ctrl+Z)",
+          disabled = "disabled"
+        ),
+        shiny::actionButton("redo_btn", NULL,
+          icon = shiny::icon("rotate-right"),
+          class = "btn btn-sm",
+          style = "color: white; background: transparent; border: none;",
+          title = "Redo (Ctrl+Shift+Z)",
+          disabled = "disabled"
         )
       )
     ),
@@ -512,6 +584,34 @@ run_model_editor <- function(path = NULL) {
     file_load_counter <- shiny::reactiveVal(0L)
     table_render_trigger <- shiny::reactiveVal(0L)
 
+    history <- create_history_manager(max_size = 5)
+
+    apply_action <- function(action) {
+      old <- model()
+      new <- dispatch_model_action(old, action)
+      history$push(old)
+      model(new)
+      new
+    }
+
+    perform_undo <- function() {
+      restored <- history$undo(model())
+      if (!is.null(restored)) {
+        model(restored)
+        file_load_counter(file_load_counter() + 1L)
+        table_render_trigger(table_render_trigger() + 1L)
+      }
+    }
+
+    perform_redo <- function() {
+      restored <- history$redo(model())
+      if (!is.null(restored)) {
+        model(restored)
+        file_load_counter(file_load_counter() + 1L)
+        table_render_trigger(table_render_trigger() + 1L)
+      }
+    }
+
     shiny::observeEvent(input$open_file, {
       shiny::req(is.list(input$open_file))
       file_path <- shinyFiles::parseFilePaths(volumes, input$open_file)
@@ -527,6 +627,7 @@ run_model_editor <- function(path = NULL) {
       }
       model(loaded)
       original_model(loaded)
+      history$clear()
       file_load_counter(file_load_counter() + 1L)
       table_render_trigger(table_render_trigger() + 1L)
     })
@@ -543,6 +644,7 @@ run_model_editor <- function(path = NULL) {
         }
         model(loaded)
         original_model(loaded)
+        history$clear()
         file_load_counter(file_load_counter() + 1L)
         table_render_trigger(table_render_trigger() + 1L)
       }, once = TRUE)
@@ -553,7 +655,7 @@ run_model_editor <- function(path = NULL) {
       action <- input$model_action
       shiny::req(action$type)
       tryCatch({
-        model(dispatch_model_action(model(), action))
+        apply_action(action)
         if (action$type == "add_variable") {
           file_load_counter(file_load_counter() + 1L)
         }
@@ -667,100 +769,101 @@ run_model_editor <- function(path = NULL) {
     })
 
     # Setting observers - each dispatches set_settings with one setting
+    # Idempotency checks prevent feedback loops during undo/redo
     shiny::observeEvent(input$setting_timeframe, {
+      new_val <- as.double(input$setting_timeframe)
+      current <- openqaly::get_settings(model())$timeframe
+      if (identical(new_val, current)) return()
       tryCatch({
-        model(dispatch_model_action(model(), list(
-          type = "set_settings",
-          settings = list(timeframe = as.double(input$setting_timeframe))
-        )))
+        apply_action(list(type = "set_settings", settings = list(timeframe = new_val)))
       }, error = function(e) {
         shiny::showNotification(paste("Failed:", conditionMessage(e)), type = "error")
       })
     })
 
     shiny::observeEvent(input$setting_timeframe_unit, {
+      new_val <- input$setting_timeframe_unit
+      current <- openqaly::get_settings(model())$timeframe_unit
+      if (identical(new_val, current)) return()
       tryCatch({
-        model(dispatch_model_action(model(), list(
-          type = "set_settings",
-          settings = list(timeframe_unit = input$setting_timeframe_unit)
-        )))
+        apply_action(list(type = "set_settings", settings = list(timeframe_unit = new_val)))
       }, error = function(e) {
         shiny::showNotification(paste("Failed:", conditionMessage(e)), type = "error")
       })
     })
 
     shiny::observeEvent(input$setting_cycle_length, {
+      new_val <- as.double(input$setting_cycle_length)
+      current <- openqaly::get_settings(model())$cycle_length
+      if (identical(new_val, current)) return()
       tryCatch({
-        model(dispatch_model_action(model(), list(
-          type = "set_settings",
-          settings = list(cycle_length = as.double(input$setting_cycle_length))
-        )))
+        apply_action(list(type = "set_settings", settings = list(cycle_length = new_val)))
       }, error = function(e) {
         shiny::showNotification(paste("Failed:", conditionMessage(e)), type = "error")
       })
     })
 
     shiny::observeEvent(input$setting_cycle_length_unit, {
+      new_val <- input$setting_cycle_length_unit
+      current <- openqaly::get_settings(model())$cycle_length_unit
+      if (identical(new_val, current)) return()
       tryCatch({
-        model(dispatch_model_action(model(), list(
-          type = "set_settings",
-          settings = list(cycle_length_unit = input$setting_cycle_length_unit)
-        )))
+        apply_action(list(type = "set_settings", settings = list(cycle_length_unit = new_val)))
       }, error = function(e) {
         shiny::showNotification(paste("Failed:", conditionMessage(e)), type = "error")
       })
     })
 
     shiny::observeEvent(input$setting_discount_cost, {
+      new_val <- as.double(input$setting_discount_cost)
+      current <- openqaly::get_settings(model())$discount_cost
+      if (identical(new_val, current)) return()
       tryCatch({
-        model(dispatch_model_action(model(), list(
-          type = "set_settings",
-          settings = list(discount_cost = as.double(input$setting_discount_cost))
-        )))
+        apply_action(list(type = "set_settings", settings = list(discount_cost = new_val)))
       }, error = function(e) {
         shiny::showNotification(paste("Failed:", conditionMessage(e)), type = "error")
       })
     })
 
     shiny::observeEvent(input$setting_discount_outcomes, {
+      new_val <- as.double(input$setting_discount_outcomes)
+      current <- openqaly::get_settings(model())$discount_outcomes
+      if (identical(new_val, current)) return()
       tryCatch({
-        model(dispatch_model_action(model(), list(
-          type = "set_settings",
-          settings = list(discount_outcomes = as.double(input$setting_discount_outcomes))
-        )))
+        apply_action(list(type = "set_settings", settings = list(discount_outcomes = new_val)))
       }, error = function(e) {
         shiny::showNotification(paste("Failed:", conditionMessage(e)), type = "error")
       })
     })
 
     shiny::observeEvent(input$setting_half_cycle_method, {
+      new_val <- input$setting_half_cycle_method
+      current <- openqaly::get_settings(model())$half_cycle_method
+      if (identical(new_val, current)) return()
       tryCatch({
-        model(dispatch_model_action(model(), list(
-          type = "set_settings",
-          settings = list(half_cycle_method = input$setting_half_cycle_method)
-        )))
+        apply_action(list(type = "set_settings", settings = list(half_cycle_method = new_val)))
       }, error = function(e) {
         shiny::showNotification(paste("Failed:", conditionMessage(e)), type = "error")
       })
     })
 
     shiny::observeEvent(input$setting_days_per_year, {
+      new_val <- as.double(input$setting_days_per_year)
+      current <- openqaly::get_settings(model())$days_per_year
+      if (identical(new_val, current)) return()
       tryCatch({
-        model(dispatch_model_action(model(), list(
-          type = "set_settings",
-          settings = list(days_per_year = as.double(input$setting_days_per_year))
-        )))
+        apply_action(list(type = "set_settings", settings = list(days_per_year = new_val)))
       }, error = function(e) {
         shiny::showNotification(paste("Failed:", conditionMessage(e)), type = "error")
       })
     })
 
     shiny::observeEvent(input$setting_reduce_state_cycle, {
+      new_val <- input$setting_reduce_state_cycle
+      current <- openqaly::get_settings(model())$reduce_state_cycle
+      if (identical(new_val, current)) return()
       tryCatch({
-        model(dispatch_model_action(model(), list(
-          type = "set_settings",
-          settings = list(reduce_state_cycle = input$setting_reduce_state_cycle)
-        )))
+        apply_action(list(type = "set_settings", settings = list(reduce_state_cycle = new_val)))
       }, error = function(e) {
         shiny::showNotification(paste("Failed:", conditionMessage(e)), type = "error")
       })
@@ -818,10 +921,10 @@ run_model_editor <- function(path = NULL) {
       )
       colnames(empty_data) <- paste0("V", seq_len(26))
       tryCatch({
-        model(dispatch_model_action(model(), list(
+        apply_action(list(
           type = "add_table", name = name, data = empty_data,
           description = if (nzchar(desc %||% "")) desc else NULL
-        )))
+        ))
         selected_table(name)
         table_render_trigger(table_render_trigger() + 1L)
         shiny::removeModal()
@@ -854,11 +957,11 @@ run_model_editor <- function(path = NULL) {
       desc <- input$tables_edit_desc
       shiny::req(nzchar(new_name))
       tryCatch({
-        model(dispatch_model_action(model(), list(
+        apply_action(list(
           type = "edit_table_meta", name = old_name,
           new_name = if (new_name != old_name) new_name else NULL,
           description = desc
-        )))
+        ))
         selected_table(new_name)
         table_render_trigger(table_render_trigger() + 1L)
         shiny::removeModal()
@@ -872,9 +975,9 @@ run_model_editor <- function(path = NULL) {
       tname <- input$tables_delete_click
       shiny::req(tname)
       tryCatch({
-        model(dispatch_model_action(model(), list(
+        apply_action(list(
           type = "remove_table", name = tname
-        )))
+        ))
         table_render_trigger(table_render_trigger() + 1L)
       }, error = function(e) {
         shiny::showNotification(paste("Failed:", conditionMessage(e)), type = "error")
@@ -1067,9 +1170,9 @@ run_model_editor <- function(path = NULL) {
       })
 
       tryCatch({
-        model(dispatch_model_action(model(), list(
+        apply_action(list(
           type = "edit_table", name = sel, data = hot_data
-        )))
+        ))
       }, error = function(e) {
         shiny::showNotification(paste("Save failed:", conditionMessage(e)), type = "error")
       })
@@ -1123,10 +1226,10 @@ run_model_editor <- function(path = NULL) {
       shiny::req(nzchar(name))
       desc <- input$scripts_add_desc
       tryCatch({
-        model(dispatch_model_action(model(), list(
+        apply_action(list(
           type = "add_script", name = name, code = "",
           description = if (nzchar(desc %||% "")) desc else NULL
-        )))
+        ))
         selected_script(name)
         shiny::removeModal()
       }, error = function(e) {
@@ -1157,11 +1260,11 @@ run_model_editor <- function(path = NULL) {
       desc <- input$scripts_edit_desc
       shiny::req(nzchar(new_name))
       tryCatch({
-        model(dispatch_model_action(model(), list(
+        apply_action(list(
           type = "edit_script", name = old_name,
           new_name = if (new_name != old_name) new_name else NULL,
           description = desc
-        )))
+        ))
         selected_script(new_name)
         shiny::removeModal()
       }, error = function(e) {
@@ -1174,17 +1277,18 @@ run_model_editor <- function(path = NULL) {
       sname <- input$scripts_delete_click
       shiny::req(sname)
       tryCatch({
-        model(dispatch_model_action(model(), list(
+        apply_action(list(
           type = "remove_script", name = sname
-        )))
+        ))
       }, error = function(e) {
         shiny::showNotification(paste("Failed:", conditionMessage(e)), type = "error")
       })
     })
 
-    # Load script content into Ace when selection changes
+    # Load script content into Ace when selection changes or undo/redo occurs
     shiny::observe({
       sel <- selected_script()
+      file_load_counter()  # React to undo/redo and file loads
       m <- shiny::isolate(model())
       if (is.null(sel) || is.null(m) || is.null(m$scripts[[sel]])) return()
       script <- m$scripts[[sel]]
@@ -1197,10 +1301,13 @@ run_model_editor <- function(path = NULL) {
     shiny::observeEvent(input$scripts_ace_code, {
       sel <- shiny::isolate(selected_script())
       shiny::req(sel)
+      m <- shiny::isolate(model())
+      current_code <- m$scripts[[sel]]$code %||% ""
+      if (identical(input$scripts_ace_code, current_code)) return()
       tryCatch({
-        model(dispatch_model_action(model(), list(
+        apply_action(list(
           type = "edit_script", name = sel, code = input$scripts_ace_code
-        )))
+        ))
       }, error = function(e) {
         shiny::showNotification(paste("Save failed:", conditionMessage(e)), type = "error")
       })
@@ -1283,23 +1390,156 @@ run_model_editor <- function(path = NULL) {
       m <- shiny::isolate(model())
       shiny::req(m)
       strategies_df <- openqaly::get_strategies(m)
-      initial_data <- lapply(seq_len(nrow(strategies_df)), function(i) as.list(strategies_df[i, ]))
+
+      # Get strategy-specific variables
+      vars_df <- openqaly::get_variables(m)
+      strategy_vars <- vars_df[!is.na(vars_df$strategy) & nzchar(vars_df$strategy), , drop = FALSE]
+      strat_var_names <- unique(strategy_vars$name)
+
+      # Build initial data with var__<varname> fields
+      initial_data <- lapply(seq_len(nrow(strategies_df)), function(i) {
+        row <- as.list(strategies_df[i, ])
+        strat_name <- row$name
+        for (vname in strat_var_names) {
+          match_idx <- which(strategy_vars$name == vname & strategy_vars$strategy == strat_name)
+          row[[paste0("var__", vname)]] <- if (length(match_idx) > 0) {
+            as.character(strategy_vars$formula[match_idx[1]])
+          } else {
+            ""
+          }
+        }
+        row
+      })
+
+      # Build var_columns metadata
+      var_columns <- lapply(strat_var_names, function(vname) {
+        dn <- strategy_vars$display_name[strategy_vars$name == vname][1]
+        if (is.na(dn) || !nzchar(dn)) dn <- vname
+        list(name = vname, display_name = dn)
+      })
+      terms <- get_model_terms(m, "variable")
+      suggestions <- get_model_suggestions(m, "variable")
+
       shiny::tags$div(
         strategies_table_dependency(),
+        add_strategy_modal_dependency(),
+        formula_input_dependency(),
+        variables_table_dependency(),
         shiny::tags$div(
           class = "strategies-table-container",
           `data-input-id` = "strategies_action",
-          `data-initial` = jsonlite::toJSON(initial_data, auto_unbox = TRUE)
+          `data-initial` = jsonlite::toJSON(initial_data, auto_unbox = TRUE),
+          `data-var-columns` = jsonlite::toJSON(var_columns, auto_unbox = TRUE),
+          `data-terms` = jsonlite::toJSON(terms, auto_unbox = FALSE),
+          `data-suggestions` = jsonlite::toJSON(suggestions, auto_unbox = FALSE)
         )
       )
     })
 
+    # Reactive to track whether modal has strategy-specific vars
+    add_strategy_has_vars <- shiny::reactiveVal(FALSE)
+
     shiny::observeEvent(input$strategies_action, {
       action <- input$strategies_action
       shiny::req(action$type)
+
+      # Intercept modal trigger
+      if (action$type == "show_add_strategy_modal") {
+        m <- model()
+        shiny::req(m)
+
+        # Find strategy-specific variables
+        vars_df <- openqaly::get_variables(m)
+        strategy_vars <- vars_df[!is.na(vars_df$strategy) & nzchar(vars_df$strategy), , drop = FALSE]
+        # Get unique variable names that have strategy-specific rows
+        strat_var_names <- unique(strategy_vars$name)
+        has_vars <- length(strat_var_names) > 0
+        add_strategy_has_vars(has_vars)
+
+        # Build modal content — 2-column grid for strategy fields
+        modal_body <- shiny::tagList(
+          shiny::tags$div(
+            class = "row",
+            shiny::tags$div(
+              class = "col-md-6",
+              shiny::textInput("add_strategy_name", "Name", value = "")
+            ),
+            shiny::tags$div(
+              class = "col-md-6",
+              shiny::textInput("add_strategy_display_name", "Display Name", value = "")
+            )
+          ),
+          shiny::tags$div(
+            class = "row",
+            shiny::tags$div(
+              class = "col-md-6",
+              shiny::textInput("add_strategy_description", "Description", value = "")
+            ),
+            shiny::tags$div(
+              class = "col-md-6",
+              shiny::selectInput("add_strategy_enabled", "Enabled",
+                                 choices = c("Yes" = "1", "No" = "0"),
+                                 selected = "1")
+            )
+          )
+        )
+
+        if (has_vars) {
+          modal_body <- shiny::tagList(
+            modal_body,
+            shiny::tags$hr(),
+            shiny::tags$h5("Strategy-Specific Variables"),
+            shiny::tags$p(
+              class = "text-muted small",
+              "These variables have strategy-specific formulas. ",
+              "Enter formulas for the new strategy, or leave blank to skip."
+            ),
+            shiny::tags$div(id = "add-strategy-vars-container")
+          )
+        }
+
+        shiny::showModal(shiny::tags$div(
+          class = "add-strategy-modal",
+          shiny::modalDialog(
+            title = "Add Strategy",
+            modal_body,
+            size = "l",
+            footer = shiny::tagList(
+              shiny::modalButton("Cancel"),
+              shiny::actionButton("add_strategy_confirm", "Create Strategy",
+                                  class = "btn-primary")
+            )
+          )
+        ))
+
+        # Send variable data to JS for table initialization
+        if (has_vars) {
+          terms <- get_model_terms(m, "variable")
+          suggestions <- get_model_suggestions(m, "variable")
+
+          # Build initial rows: one per strategy-specific variable name
+          var_rows <- lapply(strat_var_names, function(vname) {
+            list(name = vname, display_name = "", description = "", formula = "")
+          })
+
+          # Pre-serialize terms/suggestions with auto_unbox = FALSE to preserve
+          # array structure (single-element vectors must stay as JSON arrays).
+          # sendCustomMessage uses auto_unbox = TRUE which would break the
+          # FormulaHighlighter/FormulaCompleter APIs.
+          session$sendCustomMessage("init_add_strategy_vars_table", list(
+            variables = var_rows,
+            terms_json = jsonlite::toJSON(terms, auto_unbox = FALSE),
+            suggestions_json = jsonlite::toJSON(suggestions, auto_unbox = FALSE)
+          ))
+        }
+
+        return()
+      }
+
       tryCatch({
-        model(dispatch_model_action(model(), action))
-        if (action$type %in% c("add_strategy", "remove_strategy", "force_remove_strategy")) {
+        apply_action(action)
+        if (action$type %in% c("add_strategy", "remove_strategy", "force_remove_strategy",
+                                "add_variable")) {
           file_load_counter(file_load_counter() + 1L)
         }
       }, strategy_has_dependencies = function(e) {
@@ -1351,7 +1591,7 @@ run_model_editor <- function(path = NULL) {
           paste("Action failed:", conditionMessage(e)),
           type = "error"
         )
-        if (action$type == "edit_strategy") {
+        if (action$type %in% c("edit_strategy", "edit_variable")) {
           session$sendCustomMessage("strategies_table_revert", list())
         }
       })
@@ -1361,14 +1601,99 @@ run_model_editor <- function(path = NULL) {
       sname <- pending_remove_strategy()
       shiny::req(sname)
       tryCatch({
-        model(dispatch_model_action(model(), list(
+        apply_action(list(
           type = "force_remove_strategy", name = sname
-        )))
+        ))
         pending_remove_strategy(NULL)
         file_load_counter(file_load_counter() + 1L)
         shiny::removeModal()
       }, error = function(e) {
         shiny::showNotification(paste("Failed:", conditionMessage(e)), type = "error")
+      })
+    })
+
+    # --- Add Strategy modal confirm ---
+    shiny::observeEvent(input$add_strategy_confirm, {
+      name <- trimws(input$add_strategy_name %||% "")
+      if (!nzchar(name)) {
+        shiny::showNotification("Strategy name is required.", type = "error")
+        return()
+      }
+
+      if (add_strategy_has_vars()) {
+        # Ask JS to collect the table data; the vars handler below will finish
+        session$sendCustomMessage("collect_add_strategy_vars", list())
+        return()
+      }
+
+      # No strategy-specific vars — just add the strategy directly
+      tryCatch({
+        apply_action(list(
+          type = "add_strategy",
+          name = name,
+          display_name = trimws(input$add_strategy_display_name %||% ""),
+          description = trimws(input$add_strategy_description %||% ""),
+          enabled = if (input$add_strategy_enabled == "0") 0 else 1
+        ))
+        file_load_counter(file_load_counter() + 1L)
+        shiny::removeModal()
+      }, error = function(e) {
+        shiny::showNotification(
+          paste("Failed to add strategy:", conditionMessage(e)),
+          type = "error"
+        )
+      })
+    })
+
+    # --- Add Strategy modal vars data handler (atomic batch) ---
+    shiny::observeEvent(input$add_strategy_modal_vars, {
+      name <- trimws(input$add_strategy_name %||% "")
+      if (!nzchar(name)) {
+        shiny::showNotification("Strategy name is required.", type = "error")
+        return()
+      }
+
+      var_rows <- input$add_strategy_modal_vars
+      old <- model()
+
+      tryCatch({
+        # Push history once for atomic undo
+        history$push(old)
+
+        # 1. Add the strategy
+        result <- dispatch_model_action(old, list(
+          type = "add_strategy",
+          name = name,
+          display_name = trimws(input$add_strategy_display_name %||% ""),
+          description = trimws(input$add_strategy_description %||% ""),
+          enabled = if (input$add_strategy_enabled == "0") 0 else 1
+        ))
+
+        # 2. Add variable rows with non-empty formulas
+        for (row in var_rows) {
+          formula <- trimws(row$formula %||% "")
+          if (!nzchar(formula)) next
+          result <- dispatch_model_action(result, list(
+            type = "add_variable",
+            name = row$name,
+            formula = formula,
+            display_name = trimws(row$display_name %||% ""),
+            description = trimws(row$description %||% ""),
+            strategy = name
+          ))
+        }
+
+        model(result)
+        file_load_counter(file_load_counter() + 1L)
+        shiny::removeModal()
+      }, error = function(e) {
+        # Revert on any error — pop the history entry we just pushed
+        history$undo(old)
+        model(old)
+        shiny::showNotification(
+          paste("Failed to add strategy:", conditionMessage(e)),
+          type = "error"
+        )
       })
     })
 
@@ -1395,7 +1720,7 @@ run_model_editor <- function(path = NULL) {
       action <- input$groups_action
       shiny::req(action$type)
       tryCatch({
-        model(dispatch_model_action(model(), action))
+        apply_action(action)
         if (action$type %in% c("add_group", "remove_group", "force_remove_group")) {
           file_load_counter(file_load_counter() + 1L)
         }
@@ -1458,9 +1783,9 @@ run_model_editor <- function(path = NULL) {
       gname <- pending_remove_group()
       shiny::req(gname)
       tryCatch({
-        model(dispatch_model_action(model(), list(
+        apply_action(list(
           type = "force_remove_group", name = gname
-        )))
+        ))
         pending_remove_group(NULL)
         file_load_counter(file_load_counter() + 1L)
         shiny::removeModal()
@@ -1497,6 +1822,18 @@ run_model_editor <- function(path = NULL) {
           `data-suggestions` = jsonlite::toJSON(suggestions, auto_unbox = FALSE)
         )
       )
+    })
+
+    # Undo/redo button observers
+    shiny::observeEvent(input$undo_btn, perform_undo())
+    shiny::observeEvent(input$redo_btn, perform_redo())
+
+    # Reactive button state sync
+    shiny::observe({
+      session$sendCustomMessage("toggle_undo_redo", list(
+        can_undo = history$can_undo(),
+        can_redo = history$can_redo()
+      ))
     })
   }
 

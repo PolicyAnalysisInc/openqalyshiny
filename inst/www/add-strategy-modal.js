@@ -1,7 +1,7 @@
-/* Strategies Table — Tabulator (individual edit/remove actions) */
+/* Add Strategy Modal — Tabulator table for strategy-specific variables */
 (function() {
   "use strict";
-  console.log("[Strategies Table] JS version 1.0.0 loaded");
+  console.log("[Add Strategy Modal] JS version 1.0.0 loaded");
 
   // =========================================================================
   // Tabulator CDN loader (shared — guards double-load)
@@ -28,13 +28,13 @@
     var script = document.createElement("script");
     script.src = TABULATOR_CDN;
     script.onload = function() {
-      console.log("[Strategies Table] Tabulator loaded");
+      console.log("[Add Strategy Modal] Tabulator loaded");
       var cbs = _tabulatorCallbacks.slice();
       _tabulatorCallbacks = [];
       for (var i = 0; i < cbs.length; i++) cbs[i]();
     };
     script.onerror = function() {
-      console.error("[Strategies Table] Failed to load Tabulator from CDN");
+      console.error("[Add Strategy Modal] Failed to load Tabulator from CDN");
     };
     document.head.appendChild(script);
   }
@@ -50,7 +50,7 @@
   }
 
   // =========================================================================
-  // Custom formula editor (copied from variables-table.js)
+  // Custom formula editor (duplicated from variables-table.js)
   // =========================================================================
 
   function formulaEditor(terms, suggestions) {
@@ -64,6 +64,7 @@
       var overlay = null;
       var aceEditor = null;
       var onDocMouseDown = null;
+      var acFocusTrap = null;
       var cellFocusRedirect = null;
       var editCellEl = null;
 
@@ -86,6 +87,11 @@
         if (onDocMouseDown) {
           document.removeEventListener("mousedown", onDocMouseDown, true);
           onDocMouseDown = null;
+        }
+        if (acFocusTrap) {
+          document.removeEventListener("focusin", acFocusTrap, true);
+          document.removeEventListener("focus", acFocusTrap, true);
+          acFocusTrap = null;
         }
         if (cellFocusRedirect && editCellEl) {
           editCellEl.removeEventListener("focus", cellFocusRedirect, true);
@@ -119,17 +125,20 @@
         }
 
         var lineH = 18;
-        var innerH = cellRect.height - 4;
+        var minOverlayH = 36;
+        var overlayH = Math.max(cellRect.height, minOverlayH);
+        var topOffset = (overlayH - cellRect.height) / 2;
+        var innerH = overlayH - 4;
         var vPad = Math.max(0, Math.round((innerH - lineH) / 2));
 
         overlay = document.createElement("div");
-        overlay.className = "var-formula-overlay";
+        overlay.className = "var-formula-overlay add-strategy-formula-overlay";
         overlay.style.position = "fixed";
         overlay.style.left = cellRect.left + "px";
-        overlay.style.top = cellRect.top + "px";
+        overlay.style.top = (cellRect.top - topOffset) + "px";
         overlay.style.width = cellRect.width + "px";
-        overlay.style.height = cellRect.height + "px";
-        overlay.style.zIndex = "10000";
+        overlay.style.height = overlayH + "px";
+        overlay.style.zIndex = "10600";
 
         var aceContainer = document.createElement("div");
         aceContainer.className = "var-ace-container";
@@ -161,6 +170,17 @@
           overlay.addEventListener(evt, function(e) { e.stopPropagation(); });
         });
 
+        // Prevent Bootstrap modal focus trap from closing autocomplete popup.
+        // Ace appends .ace_autocomplete to document.body (outside the modal),
+        // so focusin events propagate and trigger Bootstrap's focus enforcement.
+        acFocusTrap = function(e) {
+          if (e.target.closest && e.target.closest(".ace_autocomplete")) {
+            e.stopPropagation();
+          }
+        };
+        document.addEventListener("focusin", acFocusTrap, true);
+        document.addEventListener("focus", acFocusTrap, true);
+
         ace.require("ace/ext/language_tools");
         aceEditor = ace.edit(aceContainer);
         aceEditor.setTheme("ace/theme/chrome");
@@ -191,7 +211,7 @@
             aceEditor.completers = [cmp];
           }
         } catch (e) {
-          console.warn("[Strategies Table] Term highlighting/autocomplete init failed:", e.message);
+          console.warn("[Add Strategy Modal] Term highlighting/autocomplete init failed:", e.message);
         }
 
         overlay.addEventListener("keydown", function(e) {
@@ -240,6 +260,11 @@
         aceEditor.on("blur", function() {
           setTimeout(function() {
             if (!committed && aceEditor && !aceEditor.isFocused()) {
+              // Don't commit if autocomplete popup is open
+              if (aceEditor.completer && aceEditor.completer.popup &&
+                  aceEditor.completer.popup.isOpen) {
+                return;
+              }
               commit(aceEditor.getValue());
             }
           }, 300);
@@ -285,254 +310,101 @@
   }
 
   // =========================================================================
-  // Column definitions
+  // Modal table instance
   // =========================================================================
 
-  function buildColumnDefs(inputId, varColumns, terms, suggestions) {
-    var cols = [
-      // Name
-      {
-        title: "Name",
-        field: "name",
-        widthGrow: 1,
-        minWidth: 120,
-        editor: "input",
-        formatter: emdashIfEmpty
-      },
-
-      // Display Name
-      {
-        title: "Display Name",
-        field: "display_name",
-        widthGrow: 1,
-        minWidth: 120,
-        editor: "input",
-        formatter: emdashIfEmpty
-      },
-
-      // Description
-      {
-        title: "Description",
-        field: "description",
-        widthGrow: 1,
-        minWidth: 120,
-        editor: "input",
-        formatter: emdashIfEmpty
-      },
-
-      // Enabled
-      {
-        title: "Enabled",
-        field: "enabled",
-        width: 80,
-        editor: "list",
-        editorParams: {
-          values: [
-            { label: "Yes", value: 1 },
-            { label: "No", value: 0 }
-          ]
-        },
-        formatter: function(cell) {
-          var val = cell.getValue();
-          return (val === 1 || val === "1" || val === true) ? "Yes" : "No";
-        }
-      }
-    ];
-
-    // Add one column per strategy-specific variable
-    if (varColumns && varColumns.length > 0) {
-      var fEditor = formulaEditor(terms, suggestions);
-      for (var i = 0; i < varColumns.length; i++) {
-        cols.push({
-          title: varColumns[i].display_name || varColumns[i].name,
-          field: "var__" + varColumns[i].name,
-          widthGrow: 1,
-          minWidth: 120,
-          editor: fEditor,
-          formatter: emdashIfEmpty
-        });
-      }
-    }
-
-    // Delete column
-    cols.push({
-      title: "",
-      field: "_delete",
-      width: 50,
-      hozAlign: "center",
-      headerSort: false,
-      editor: false,
-      clipboard: false,
-      formatter: function(cell) {
-        var data = cell.getRow().getData();
-
-        var btn = document.createElement("button");
-        btn.type = "button";
-        btn.className = "strat-delete-btn";
-        btn.textContent = "\u00d7";
-        btn.addEventListener("click", function(e) {
-          e.stopPropagation();
-          var data = cell.getRow().getData();
-          if (typeof Shiny !== "undefined") {
-            Shiny.setInputValue(inputId, {
-              type: "remove_strategy",
-              name: data.name
-            }, { priority: "event" });
-          }
-        });
-        return btn;
-      }
-    });
-
-    return cols;
-  }
+  var _modalTable = null;
 
   // =========================================================================
-  // Grid initialization
+  // Shiny message handlers
   // =========================================================================
 
-  var _activeTables = {};
-  var _pendingEdit = null;
+  if (typeof Shiny !== "undefined") {
 
-  function initGrid(containerDiv) {
-    var inputId = containerDiv.dataset.inputId;
-    if (!inputId) return;
+    // Initialize the variables table inside the modal
+    Shiny.addCustomMessageHandler("init_add_strategy_vars_table", function(msg) {
+      var variables = msg.variables || [];
 
-    // Destroy previous table for this inputId if it exists
-    if (_activeTables[inputId]) {
-      try { _activeTables[inputId].destroy(); } catch (e) {}
-      delete _activeTables[inputId];
-    }
+      // terms/suggestions are pre-serialized JSON strings (auto_unbox=FALSE)
+      // to preserve array structure for FormulaHighlighter/FormulaCompleter
+      var terms = null;
+      var suggestions = null;
+      try { terms = typeof msg.terms_json === "string" ? JSON.parse(msg.terms_json) : (msg.terms_json || null); } catch (e) {}
+      try { suggestions = typeof msg.suggestions_json === "string" ? JSON.parse(msg.suggestions_json) : (msg.suggestions_json || null); } catch (e) {}
 
-    var initialData = [];
-    try {
-      initialData = JSON.parse(containerDiv.dataset.initial || "[]");
-    } catch (e) {
-      initialData = [];
-    }
-
-    var varColumns = [];
-    try { varColumns = JSON.parse(containerDiv.dataset.varColumns || "[]"); } catch (e) {}
-    var terms = null;
-    try { terms = JSON.parse(containerDiv.dataset.terms || "null"); } catch (e) {}
-    var suggestions = null;
-    try { suggestions = JSON.parse(containerDiv.dataset.suggestions || "null"); } catch (e) {}
-
-    var columnDefs = buildColumnDefs(inputId, varColumns, terms, suggestions);
-
-    var table = new Tabulator(containerDiv, {
-      data: initialData,
-      columns: columnDefs,
-      layout: "fitColumns",
-      height: "auto",
-      editTriggerEvent: "dblclick",
-      headerSortClickElement: "icon"
-    });
-
-    _activeTables[inputId] = table;
-
-    // "Add Strategy" button above the table
-    var addBtn = document.createElement("button");
-    addBtn.type = "button";
-    addBtn.className = "strat-add-btn";
-    addBtn.textContent = "+ Add Strategy";
-    containerDiv.parentNode.insertBefore(addBtn, containerDiv);
-    addBtn.addEventListener("click", function() {
-      if (typeof Shiny !== "undefined") {
-        Shiny.setInputValue(inputId, {
-          type: "show_add_strategy_modal"
-        }, { priority: "event" });
-      }
-    });
-
-    // Cell edited — handle variable edits vs strategy edits
-    table.on("cellEdited", function(cell) {
-      var field = cell.getField();
-      var data = cell.getRow().getData();
-      if (cell.getOldValue() === cell.getValue()) return;
-
-      // Store pending edit for potential revert
-      _pendingEdit = { cell: cell };
-
-      if (field.indexOf("var__") === 0) {
-        // Variable formula edit
-        var varName = field.substring(5);
-        var strategyName = data.name;
-        var oldValue = cell.getOldValue() || "";
-
-        if (typeof Shiny !== "undefined") {
-          if (!oldValue) {
-            // No existing entry — add_variable
-            Shiny.setInputValue(inputId, {
-              type: "add_variable",
-              name: varName,
-              strategy: strategyName,
-              formula: cell.getValue()
-            }, { priority: "event" });
+      function tryInit(attempt) {
+        var container = document.getElementById("add-strategy-vars-container");
+        if (!container) {
+          if (attempt < 20) {
+            setTimeout(function() { tryInit(attempt + 1); }, 100);
           } else {
-            // Existing entry — edit_variable
-            Shiny.setInputValue(inputId, {
-              type: "edit_variable",
-              name: varName,
-              strategy: strategyName,
-              field: "formula",
-              value: cell.getValue()
-            }, { priority: "event" });
+            console.error("[Add Strategy Modal] Could not find #add-strategy-vars-container");
           }
+          return;
         }
-      } else {
-        // Strategy metadata edit
-        var name = data.name;
-        if (field === "name") name = cell.getOldValue() || "";
 
-        if (typeof Shiny !== "undefined") {
-          Shiny.setInputValue(inputId, {
-            type: "edit_strategy",
-            name: name,
-            field: field,
-            value: cell.getValue()
-          }, { priority: "event" });
-        }
+        ensureTabulator(function() {
+          if (_modalTable) {
+            try { _modalTable.destroy(); } catch (e) {}
+            _modalTable = null;
+          }
+
+          var columns = [
+            {
+              title: "Name",
+              field: "name",
+              widthGrow: 1,
+              minWidth: 120,
+              editor: false,
+              formatter: emdashIfEmpty
+            },
+            {
+              title: "Display Name",
+              field: "display_name",
+              widthGrow: 1,
+              minWidth: 120,
+              editor: "input",
+              formatter: emdashIfEmpty
+            },
+            {
+              title: "Description",
+              field: "description",
+              widthGrow: 1,
+              minWidth: 120,
+              editor: "input",
+              formatter: emdashIfEmpty
+            },
+            {
+              title: "Formula",
+              field: "formula",
+              widthGrow: 2,
+              minWidth: 150,
+              editor: formulaEditor(terms, suggestions),
+              formatter: emdashIfEmpty
+            }
+          ];
+
+          _modalTable = new Tabulator(container, {
+            data: variables,
+            columns: columns,
+            layout: "fitColumns",
+            height: "auto",
+            editTriggerEvent: "dblclick",
+            headerSortClickElement: "icon"
+          });
+        });
       }
+
+      tryInit(0);
     });
 
-    containerDiv.setAttribute("data-initialized", "true");
-  }
-
-  // =========================================================================
-  // Error revert handler
-  // =========================================================================
-
-  if (typeof Shiny !== "undefined") {
-    Shiny.addCustomMessageHandler("strategies_table_revert", function(msg) {
-      if (_pendingEdit && _pendingEdit.cell) {
-        try { _pendingEdit.cell.restoreOldValue(); } catch (e) {}
+    // Collect data from the modal table and send back to Shiny
+    Shiny.addCustomMessageHandler("collect_add_strategy_vars", function(msg) {
+      var data = [];
+      if (_modalTable) {
+        data = _modalTable.getData();
       }
-      _pendingEdit = null;
+      Shiny.setInputValue("add_strategy_modal_vars", data, { priority: "event" });
     });
-  }
-
-  // =========================================================================
-  // Lifecycle — listen for renderUI re-renders
-  // =========================================================================
-
-  function initAllGrids() {
-    var containers = document.querySelectorAll(".strategies-table-container:not([data-initialized])");
-    if (containers.length === 0) return;
-    ensureTabulator(function() {
-      containers.forEach(initGrid);
-    });
-  }
-
-  if (typeof Shiny !== "undefined") {
-    $(document).on("shiny:connected", function() {
-      setTimeout(initAllGrids, 100);
-    });
-
-    $(document).on("shiny:value", function() {
-      setTimeout(initAllGrids, 100);
-    });
-
-    setTimeout(initAllGrids, 100);
   }
 })();
