@@ -1,6 +1,6 @@
-/* Variables Table — Tabulator styles */
+/* Values Table — Tabulator styles */
 
-.variables-table-container {
+.values-table-container {
   width: 100%;
   margin-bottom: 0.25rem;
   overflow-x: auto;
@@ -9,21 +9,21 @@
 }
 
 /* Compact row sizing */
-.variables-table-container .tabulator-row {
+.values-table-container .tabulator-row {
   min-height: 32px;
 }
 
-.variables-table-container .tabulator-cell {
+.values-table-container .tabulator-cell {
   font-size: 0.85rem;
   padding: 0 6px;
 }
 
-.variables-table-container .tabulator-col-title {
+.values-table-container .tabulator-col-title {
   font-size: 0.85rem;
 }
 
 /* Delete button in grid cell */
-.var-delete-btn {
+.val-delete-btn {
   border: none;
   background: none;
   color: var(--bs-danger, #dc3545);
@@ -34,12 +34,12 @@
   opacity: 0.6;
 }
 
-.var-delete-btn:hover {
+.val-delete-btn:hover {
   opacity: 1;
 }
 
-/* Add Variable button above the table */
-.var-add-btn {
+/* Add Value button above the table */
+.val-add-btn {
   align-self: flex-start;
   border: 1px solid var(--bs-border-color, #dee2e6);
   background: var(--bs-body-bg, #fff);
@@ -51,12 +51,12 @@
   margin-bottom: 0.4rem;
 }
 
-.var-add-btn:hover {
+.val-add-btn:hover {
   background: var(--bs-tertiary-bg, #f8f9fa);
 }
 
-/* Confirm button (✓) for new rows */
-.var-confirm-btn {
+/* Confirm button for new rows */
+.val-confirm-btn {
   border: none;
   background: none;
   color: var(--bs-success, #198754);
@@ -67,12 +67,12 @@
   opacity: 0.7;
 }
 
-.var-confirm-btn:hover {
+.val-confirm-btn:hover {
   opacity: 1;
 }
 
-/* Cancel button (×) for new rows */
-.var-cancel-btn {
+/* Cancel button for new rows */
+.val-cancel-btn {
   border: none;
   background: none;
   color: var(--bs-danger, #dc3545);
@@ -83,12 +83,12 @@
   opacity: 0.7;
 }
 
-.var-cancel-btn:hover {
+.val-cancel-btn:hover {
   opacity: 1;
 }
 
-/* Fallback plain text input editor in grid cells */
-.var-input-editor {
+/* Fallback plain text input editor */
+.val-input-editor {
   width: 100%;
   height: 100%;
   border: none;
@@ -98,7 +98,7 @@
 }
 
 /* Formula editor — Ace overlay positioned over cell */
-.var-formula-overlay {
+.val-formula-overlay {
   background: #fff;
   border: 2px solid var(--bs-primary, #0d6efd);
   border-radius: 3px;
@@ -107,28 +107,56 @@
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
 }
 
-.var-formula-overlay .ace_editor {
+.val-formula-overlay .ace_editor {
   font-size: 0.85rem !important;
 }
 
-.var-formula-overlay .ace_scroller {
+.val-formula-overlay .ace_scroller {
   padding: 0 4px;
 }
 
-.var-ace-container {
+.val-ace-container {
   overflow: visible;
 }
 
-.var-formula-overlay .ace_content {
+.val-formula-overlay .ace_content {
   padding: 0;
 }
 
-.var-formula-overlay .ace_scrollbar {
+.val-formula-overlay .ace_scrollbar {
   display: none !important;
 }
 
-/* Placeholder inside editing cell — invisible */
-.var-formula-placeholder {
+.val-formula-placeholder {
   width: 100%;
   height: 100%;
+}
+
+/* Typeahead editor for name column */
+.val-typeahead-wrapper {
+  position: relative;
+}
+
+.val-typeahead-dropdown {
+  display: none;
+  position: fixed;
+  max-height: 180px;
+  overflow-y: auto;
+  background: var(--bs-body-bg, #fff);
+  border: 1px solid var(--bs-border-color, #dee2e6);
+  border-top: none;
+  border-radius: 0 0 4px 4px;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.12);
+  z-index: 10001;
+}
+
+.val-typeahead-item {
+  padding: 4px 8px;
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+
+.val-typeahead-item:hover,
+.val-typeahead-item-active {
+  background: var(--bs-tertiary-bg, #f0f0f0);
 }

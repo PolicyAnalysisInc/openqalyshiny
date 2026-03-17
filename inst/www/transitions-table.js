@@ -1,7 +1,7 @@
-/* Variables Table — Tabulator (individual edit/remove actions) */
+/* Transitions Table — Tabulator (individual edit/remove actions) */
 (function() {
   "use strict";
-  console.log("[Variables Table] JS version 1.0.0 loaded");
+  console.log("[Transitions Table] JS version 1.0.0 loaded");
 
   // Prevent Tabulator's internal focus() calls from triggering browser auto-scroll
   (function() {
@@ -15,7 +15,7 @@
   })();
 
   // =========================================================================
-  // Tabulator CDN loader (shared with dsa-params.js — guards double-load)
+  // Tabulator CDN loader (shared — guards double-load)
   // =========================================================================
   var TABULATOR_CDN = "https://cdn.jsdelivr.net/npm/tabulator-tables@6.3.1/dist/js/tabulator.min.js";
   var TABULATOR_CSS = "https://cdn.jsdelivr.net/npm/tabulator-tables@6.3.1/dist/css/tabulator_bootstrap5.min.css";
@@ -39,13 +39,13 @@
     var script = document.createElement("script");
     script.src = TABULATOR_CDN;
     script.onload = function() {
-      console.log("[Variables Table] Tabulator loaded");
+      console.log("[Transitions Table] Tabulator loaded");
       var cbs = _tabulatorCallbacks.slice();
       _tabulatorCallbacks = [];
       for (var i = 0; i < cbs.length; i++) cbs[i]();
     };
     script.onerror = function() {
-      console.error("[Variables Table] Failed to load Tabulator from CDN");
+      console.error("[Transitions Table] Failed to load Tabulator from CDN");
     };
     document.head.appendChild(script);
   }
@@ -54,24 +54,33 @@
   // Helpers
   // =========================================================================
 
-  // Reverse-lookup map: value -> display name
-  function buildDisplayMap(obj) {
-    var map = {};
-    var keys = Object.keys(obj);
-    for (var i = 0; i < keys.length; i++) {
-      map[obj[keys[i]]] = keys[i];
+  function relayout(table) {
+    var holder = table.element.querySelector(".tabulator-tableholder");
+    var scrollLeft = holder ? holder.scrollLeft : 0;
+    var scrollTop = holder ? holder.scrollTop : 0;
+    table.setData(table.getData());
+    if (holder) {
+      requestAnimationFrame(function() {
+        holder.scrollLeft = scrollLeft;
+        holder.scrollTop = scrollTop;
+      });
     }
-    return map;
+  }
+
+  function emdashIfEmpty(cell) {
+    var val = cell.getValue();
+    if (val === null || val === undefined || val === "") return "\u2014";
+    return val;
   }
 
   // =========================================================================
-  // Custom formula editor (same pattern as dsa-params.js)
+  // Custom formula editor
   // =========================================================================
 
   function formulaEditor(terms, suggestions) {
     return function(cell, onRendered, success, cancel) {
       var placeholder = document.createElement("div");
-      placeholder.className = "var-formula-placeholder";
+      placeholder.className = "trans-formula-placeholder";
       placeholder.addEventListener("focusout", function(e) { e.stopPropagation(); });
 
       var currentValue = cell.getValue() || "";
@@ -120,7 +129,7 @@
         if (typeof ace === "undefined") {
           var input = document.createElement("input");
           input.type = "text";
-          input.className = "var-input-editor";
+          input.className = "trans-input-editor";
           input.value = currentValue;
           input.addEventListener("keydown", function(e) {
             if (e.key === "Enter") { commit(input.value); e.preventDefault(); }
@@ -138,7 +147,7 @@
         var vPad = Math.max(0, Math.round((innerH - lineH) / 2));
 
         overlay = document.createElement("div");
-        overlay.className = "var-formula-overlay";
+        overlay.className = "trans-formula-overlay";
         overlay.style.position = "fixed";
         overlay.style.left = cellRect.left + "px";
         overlay.style.top = cellRect.top + "px";
@@ -147,7 +156,7 @@
         overlay.style.zIndex = "10000";
 
         var aceContainer = document.createElement("div");
-        aceContainer.className = "var-ace-container";
+        aceContainer.className = "trans-ace-container";
         aceContainer.style.position = "absolute";
         aceContainer.style.left = "0";
         aceContainer.style.right = "0";
@@ -206,7 +215,7 @@
             aceEditor.completers = [cmp];
           }
         } catch (e) {
-          console.warn("[Variables Table] Term highlighting/autocomplete init failed:", e.message);
+          console.warn("[Transitions Table] Term highlighting/autocomplete init failed:", e.message);
         }
 
         overlay.addEventListener("keydown", function(e) {
@@ -300,192 +309,198 @@
   }
 
   // =========================================================================
-  // Column definitions
+  // Column definitions by model type
   // =========================================================================
 
-  function relayout(table) {
-    var holder = table.element.querySelector(".tabulator-tableholder");
-    var scrollLeft = holder ? holder.scrollLeft : 0;
-    var scrollTop = holder ? holder.scrollTop : 0;
-    table.setData(table.getData());
-    if (holder) {
-      requestAnimationFrame(function() {
-        holder.scrollLeft = scrollLeft;
-        holder.scrollTop = scrollTop;
+  function buildColumnDefs(modelType, inputId, stateNames, terms, suggestions) {
+    var cols = [];
+    var fEditor = formulaEditor(terms, suggestions);
+
+    // Build state dropdown values
+    var stateValues = stateNames.map(function(s) {
+      return { label: s, value: s };
+    });
+
+    var timeUnitValues = [
+      { label: "Cycles", value: "cycles" },
+      { label: "Days", value: "days" },
+      { label: "Weeks", value: "weeks" },
+      { label: "Months", value: "months" },
+      { label: "Years", value: "years" }
+    ];
+
+    var timeUnitMap = { cycles: "Cycles", days: "Days", weeks: "Weeks", months: "Months", years: "Years" };
+
+    if (modelType === "markov") {
+      cols.push({
+        title: "From State",
+        field: "from_state",
+        minWidth: 140,
+        editor: "list",
+        editorParams: { values: stateValues },
+        formatter: emdashIfEmpty
       });
-    }
-  }
-
-  function emdashIfEmpty(cell) {
-    var val = cell.getValue();
-    if (val === null || val === undefined || val === "") return "\u2014";
-    return val;
-  }
-
-  function buildColumnDefs(strategies, groups, inputId, terms, suggestions) {
-    var strategyDisplay = buildDisplayMap(strategies);
-    var groupDisplay = buildDisplayMap(groups);
-
-    return [
-      // Name
-      {
-        title: "Name",
-        field: "name",
-        widthGrow: 1,
-        minWidth: 120,
-        editor: "input",
-        formatter: emdashIfEmpty
-      },
-
-      // Strategy
-      {
-        title: "Strategy",
-        field: "strategy",
-        minWidth: 120,
+      cols.push({
+        title: "To State",
+        field: "to_state",
+        minWidth: 140,
         editor: "list",
-        editorParams: {
-          values: [{ label: "\u2014 (None)", value: "" }].concat(
-            Object.keys(strategies).map(function(displayName) {
-              return { label: displayName, value: strategies[displayName] };
-            })
-          )
-        },
-        formatter: function(cell) {
-          var val = cell.getValue();
-          if (!val || val === "") return "\u2014";
-          return strategyDisplay[val] || val;
-        }
-      },
-
-      // Group
-      {
-        title: "Group",
-        field: "group",
-        minWidth: 120,
-        editor: "list",
-        editorParams: {
-          values: [{ label: "\u2014 (None)", value: "" }].concat(
-            Object.keys(groups).map(function(displayName) {
-              return { label: displayName, value: groups[displayName] };
-            })
-          )
-        },
-        formatter: function(cell) {
-          var val = cell.getValue();
-          if (!val || val === "") return "\u2014";
-          return groupDisplay[val] || val;
-        }
-      },
-
-      // Display Name
-      {
-        title: "Display Name",
-        field: "display_name",
-        widthGrow: 1,
-        minWidth: 120,
-        editor: "input",
+        editorParams: { values: stateValues },
         formatter: emdashIfEmpty
-      },
-
-      // Description
-      {
-        title: "Description",
-        field: "description",
-        widthGrow: 1,
-        minWidth: 120,
-        editor: "input",
-        formatter: emdashIfEmpty
-      },
-
-      // Formula
-      {
+      });
+      cols.push({
         title: "Formula",
         field: "formula",
         widthGrow: 2,
         minWidth: 450,
-        editor: formulaEditor(terms, suggestions),
+        editor: fEditor,
         formatter: emdashIfEmpty
-      },
-
-      // Delete column
-      {
-        title: "",
-        field: "_delete",
-        width: 60,
-        widthGrow: 0,
-        hozAlign: "center",
-        headerSort: false,
-        editor: false,
-        clipboard: false,
+      });
+    } else if (modelType === "psm") {
+      cols.push({
+        title: "Endpoint",
+        field: "endpoint",
+        widthGrow: 1,
+        minWidth: 140,
+        editor: "input",
+        formatter: emdashIfEmpty
+      });
+      cols.push({
+        title: "Time Unit",
+        field: "time_unit",
+        minWidth: 120,
+        editor: "list",
+        editorParams: { values: timeUnitValues },
         formatter: function(cell) {
-          var data = cell.getRow().getData();
+          var val = cell.getValue();
+          if (!val || val === "") return "\u2014";
+          return timeUnitMap[val] || val;
+        }
+      });
+      cols.push({
+        title: "Formula",
+        field: "formula",
+        widthGrow: 2,
+        minWidth: 450,
+        editor: fEditor,
+        formatter: emdashIfEmpty
+      });
+    } else if (modelType === "custom_psm") {
+      cols.push({
+        title: "State",
+        field: "state",
+        minWidth: 140,
+        editor: "list",
+        editorParams: { values: stateValues },
+        formatter: emdashIfEmpty
+      });
+      cols.push({
+        title: "Formula",
+        field: "formula",
+        widthGrow: 2,
+        minWidth: 450,
+        editor: fEditor,
+        formatter: emdashIfEmpty
+      });
+    }
 
-          if (data._isNew) {
-            var wrapper = document.createElement("span");
+    // Delete column
+    cols.push({
+      title: "",
+      field: "_delete",
+      width: 60,
+      widthGrow: 0,
+      hozAlign: "center",
+      headerSort: false,
+      editor: false,
+      clipboard: false,
+      formatter: function(cell) {
+        var data = cell.getRow().getData();
 
-            var confirmBtn = document.createElement("button");
-            confirmBtn.type = "button";
-            confirmBtn.className = "var-confirm-btn";
-            confirmBtn.textContent = "\u2713";
-            confirmBtn.addEventListener("click", function(e) {
-              e.stopPropagation();
-              var rowData = cell.getRow().getData();
-              var name = (rowData.name || "").trim();
-              var formula = (rowData.formula || "").trim();
-              if (!name || !formula) {
-                alert("Name and formula are required.");
+        if (data._isNew) {
+          var wrapper = document.createElement("span");
+
+          var confirmBtn = document.createElement("button");
+          confirmBtn.type = "button";
+          confirmBtn.className = "trans-confirm-btn";
+          confirmBtn.textContent = "\u2713";
+          confirmBtn.addEventListener("click", function(e) {
+            e.stopPropagation();
+            var rowData = cell.getRow().getData();
+            var payload = { type: "add_transition", model_type: modelType };
+
+            if (modelType === "markov") {
+              if (!(rowData.from_state || "").trim() || !(rowData.to_state || "").trim() || !(rowData.formula || "").trim()) {
+                alert("From State, To State, and Formula are required.");
                 return;
               }
-              cell.getRow().delete();
-              relayout(table);
-              if (typeof Shiny !== "undefined") {
-                Shiny.setInputValue(inputId, {
-                  type: "add_variable",
-                  name: name,
-                  formula: formula,
-                  display_name: (rowData.display_name || "").trim(),
-                  description: (rowData.description || "").trim()
-                }, { priority: "event" });
+              payload.from_state = rowData.from_state.trim();
+              payload.to_state = rowData.to_state.trim();
+              payload.formula = rowData.formula.trim();
+            } else if (modelType === "psm") {
+              if (!(rowData.endpoint || "").trim() || !(rowData.formula || "").trim()) {
+                alert("Endpoint and Formula are required.");
+                return;
               }
-            });
+              payload.endpoint = rowData.endpoint.trim();
+              payload.time_unit = (rowData.time_unit || "cycles").trim();
+              payload.formula = rowData.formula.trim();
+            } else if (modelType === "custom_psm") {
+              if (!(rowData.state || "").trim() || !(rowData.formula || "").trim()) {
+                alert("State and Formula are required.");
+                return;
+              }
+              payload.state = rowData.state.trim();
+              payload.formula = rowData.formula.trim();
+            }
 
-            var cancelBtn = document.createElement("button");
-            cancelBtn.type = "button";
-            cancelBtn.className = "var-cancel-btn";
-            cancelBtn.textContent = "\u00d7";
-            cancelBtn.addEventListener("click", function(e) {
-              e.stopPropagation();
-              cell.getRow().delete();
-              relayout(table);
-            });
-
-            wrapper.appendChild(confirmBtn);
-            wrapper.appendChild(cancelBtn);
-            return wrapper;
-          }
-
-          var btn = document.createElement("button");
-          btn.type = "button";
-          btn.className = "var-delete-btn";
-          btn.textContent = "\u00d7";
-          btn.addEventListener("click", function(e) {
-            e.stopPropagation();
-            var data = cell.getRow().getData();
             cell.getRow().delete();
             relayout(table);
             if (typeof Shiny !== "undefined") {
-              Shiny.setInputValue(inputId, {
-                type: "remove_variable",
-                name: data.name,
-                strategy: data.strategy || "",
-                group: data.group || ""
-              }, { priority: "event" });
+              Shiny.setInputValue(inputId, payload, { priority: "event" });
             }
           });
-          return btn;
+
+          var cancelBtn = document.createElement("button");
+          cancelBtn.type = "button";
+          cancelBtn.className = "trans-cancel-btn";
+          cancelBtn.textContent = "\u00d7";
+          cancelBtn.addEventListener("click", function(e) {
+            e.stopPropagation();
+            cell.getRow().delete();
+            relayout(table);
+          });
+
+          wrapper.appendChild(confirmBtn);
+          wrapper.appendChild(cancelBtn);
+          return wrapper;
         }
+
+        var btn = document.createElement("button");
+        btn.type = "button";
+        btn.className = "trans-delete-btn";
+        btn.textContent = "\u00d7";
+        btn.addEventListener("click", function(e) {
+          e.stopPropagation();
+          var data = cell.getRow().getData();
+          var payload = { type: "remove_transition", model_type: modelType };
+          if (modelType === "markov") {
+            payload.from_state = data.from_state;
+            payload.to_state = data.to_state;
+          } else if (modelType === "psm") {
+            payload.endpoint = data.endpoint;
+          } else if (modelType === "custom_psm") {
+            payload.state = data.state;
+          }
+          if (typeof Shiny !== "undefined") {
+            Shiny.setInputValue(inputId, payload, { priority: "event" });
+          }
+        });
+        return btn;
       }
-    ];
+    });
+
+    return cols;
   }
 
   // =========================================================================
@@ -493,25 +508,23 @@
   // =========================================================================
 
   var _activeTables = {};
+  var table; // module-level reference for confirm button closure
+
   function initGrid(containerDiv) {
     var inputId = containerDiv.dataset.inputId;
     if (!inputId) return;
 
-    // Destroy previous table for this inputId if it exists
-    if (_activeTables[inputId]) {
-      try { _activeTables[inputId].destroy(); } catch (e) {}
-      delete _activeTables[inputId];
+    if (_activeTables[inputId + "_trans"]) {
+      try { _activeTables[inputId + "_trans"].destroy(); } catch (e) {}
+      delete _activeTables[inputId + "_trans"];
     }
 
-    var strategies = {};
-    try { strategies = JSON.parse(containerDiv.dataset.strategies || "{}"); } catch (e) {}
+    var modelType = containerDiv.dataset.modelType || "markov";
 
-    var groups = {};
-    try { groups = JSON.parse(containerDiv.dataset.groups || "{}"); } catch (e) {}
-
+    var stateNames = [];
+    try { stateNames = JSON.parse(containerDiv.dataset.stateNames || "[]"); } catch (e) {}
     var terms = null;
     try { terms = JSON.parse(containerDiv.dataset.terms || "null"); } catch (e) {}
-
     var suggestions = null;
     try { suggestions = JSON.parse(containerDiv.dataset.suggestions || "null"); } catch (e) {}
 
@@ -522,9 +535,9 @@
       initialData = [];
     }
 
-    var columnDefs = buildColumnDefs(strategies, groups, inputId, terms, suggestions);
+    var columnDefs = buildColumnDefs(modelType, inputId, stateNames, terms, suggestions);
 
-    var table = new Tabulator(containerDiv, {
+    table = new Tabulator(containerDiv, {
       index: "_id",
       data: initialData,
       columns: columnDefs,
@@ -535,12 +548,9 @@
       selectableRangeColumns: true,
       selectableRangeRows: true,
       selectableRangeClearCells: true,
-
       editTriggerEvent: "dblclick",
-
       clipboard: true,
       clipboardCopyStyled: false,
-
       headerSortClickElement: "icon"
     });
 
@@ -558,30 +568,39 @@
       ro.observe(containerDiv);
     }
 
-    _activeTables[inputId] = table;
+    _activeTables[inputId + "_trans"] = table;
 
-    // "Add Variable" button above the table
+    // "Add Transition" button
     var addBtn = document.createElement("button");
     addBtn.type = "button";
-    addBtn.className = "var-add-btn";
-    addBtn.textContent = "+ Add Variable";
+    addBtn.className = "trans-add-btn";
+    addBtn.textContent = "+ Add Transition";
     containerDiv.parentNode.insertBefore(addBtn, containerDiv);
     addBtn.addEventListener("click", function() {
-      table.addRow(
-        { _isNew: true, name: "", formula: "", display_name: "", description: "", strategy: "", group: "" },
-        false
-      ).then(function(row) {
+      var emptyRow = { _isNew: true, formula: "" };
+      if (modelType === "markov") {
+        emptyRow.from_state = "";
+        emptyRow.to_state = "";
+      } else if (modelType === "psm") {
+        emptyRow.endpoint = "";
+        emptyRow.time_unit = "cycles";
+      } else if (modelType === "custom_psm") {
+        emptyRow.state = "";
+      }
+      table.addRow(emptyRow, false).then(function(row) {
         relayout(table);
         row.getElement().scrollIntoView({ behavior: "smooth", block: "nearest" });
-        // Auto-open the name editor on the new row
-        var nameCell = row.getCell("name");
-        if (nameCell) {
-          setTimeout(function() { nameCell.edit(); }, 50);
+        // Auto-open the first editor
+        var firstField = modelType === "markov" ? "from_state" :
+                         modelType === "psm" ? "endpoint" : "state";
+        var firstCell = row.getCell(firstField);
+        if (firstCell) {
+          setTimeout(function() { firstCell.edit(); }, 50);
         }
       });
     });
 
-    // Cell edited — fire individual edit_variable action
+    // Cell edited — fire edit_transition action
     table.on("cellEdited", function(cell) {
       var field = cell.getField();
       var data = cell.getRow().getData();
@@ -594,25 +613,24 @@
         return;
       }
 
-      // For strategy/group/name edits, use OLD value for lookup since
-      // data already reflects the new value but edit_variable needs
-      // the old targeting/name to find the correct variable
-      var name = data.name;
-      var strategy = data.strategy || "";
-      var group = data.group || "";
-      if (field === "name") name = cell.getOldValue() || "";
-      if (field === "strategy") strategy = cell.getOldValue() || "";
-      if (field === "group") group = cell.getOldValue() || "";
+      var payload = { type: "edit_transition", model_type: modelType, field: field, value: cell.getValue() };
+
+      if (modelType === "markov") {
+        payload.from_state = data.from_state;
+        payload.to_state = data.to_state;
+        // Use old value for identifier fields
+        if (field === "from_state") payload.from_state = cell.getOldValue() || "";
+        if (field === "to_state") payload.to_state = cell.getOldValue() || "";
+      } else if (modelType === "psm") {
+        payload.endpoint = data.endpoint;
+        if (field === "endpoint") payload.endpoint = cell.getOldValue() || "";
+      } else if (modelType === "custom_psm") {
+        payload.state = data.state;
+        if (field === "state") payload.state = cell.getOldValue() || "";
+      }
 
       if (typeof Shiny !== "undefined") {
-        Shiny.setInputValue(inputId, {
-          type: "edit_variable",
-          name: name,
-          strategy: strategy,
-          group: group,
-          field: field,
-          value: cell.getValue()
-        }, { priority: "event" });
+        Shiny.setInputValue(inputId, payload, { priority: "event" });
       }
 
       relayout(table);
@@ -621,13 +639,12 @@
     containerDiv.setAttribute("data-initialized", "true");
   }
 
-
   // =========================================================================
-  // Lifecycle — listen for renderUI re-renders
+  // Lifecycle
   // =========================================================================
 
   function initAllGrids() {
-    var containers = document.querySelectorAll(".variables-table-container:not([data-initialized])");
+    var containers = document.querySelectorAll(".transitions-table-container:not([data-initialized])");
     if (containers.length === 0) return;
     ensureTabulator(function() {
       containers.forEach(initGrid);

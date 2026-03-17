@@ -1,6 +1,6 @@
-/* Variables Table — Tabulator styles */
+/* Transitions Table — Tabulator styles */
 
-.variables-table-container {
+.transitions-table-container {
   width: 100%;
   margin-bottom: 0.25rem;
   overflow-x: auto;
@@ -9,21 +9,21 @@
 }
 
 /* Compact row sizing */
-.variables-table-container .tabulator-row {
+.transitions-table-container .tabulator-row {
   min-height: 32px;
 }
 
-.variables-table-container .tabulator-cell {
+.transitions-table-container .tabulator-cell {
   font-size: 0.85rem;
   padding: 0 6px;
 }
 
-.variables-table-container .tabulator-col-title {
+.transitions-table-container .tabulator-col-title {
   font-size: 0.85rem;
 }
 
 /* Delete button in grid cell */
-.var-delete-btn {
+.trans-delete-btn {
   border: none;
   background: none;
   color: var(--bs-danger, #dc3545);
@@ -34,12 +34,12 @@
   opacity: 0.6;
 }
 
-.var-delete-btn:hover {
+.trans-delete-btn:hover {
   opacity: 1;
 }
 
-/* Add Variable button above the table */
-.var-add-btn {
+/* Add Transition button above the table */
+.trans-add-btn {
   align-self: flex-start;
   border: 1px solid var(--bs-border-color, #dee2e6);
   background: var(--bs-body-bg, #fff);
@@ -51,12 +51,12 @@
   margin-bottom: 0.4rem;
 }
 
-.var-add-btn:hover {
+.trans-add-btn:hover {
   background: var(--bs-tertiary-bg, #f8f9fa);
 }
 
-/* Confirm button (✓) for new rows */
-.var-confirm-btn {
+/* Confirm button for new rows */
+.trans-confirm-btn {
   border: none;
   background: none;
   color: var(--bs-success, #198754);
@@ -67,12 +67,12 @@
   opacity: 0.7;
 }
 
-.var-confirm-btn:hover {
+.trans-confirm-btn:hover {
   opacity: 1;
 }
 
-/* Cancel button (×) for new rows */
-.var-cancel-btn {
+/* Cancel button for new rows */
+.trans-cancel-btn {
   border: none;
   background: none;
   color: var(--bs-danger, #dc3545);
@@ -83,12 +83,12 @@
   opacity: 0.7;
 }
 
-.var-cancel-btn:hover {
+.trans-cancel-btn:hover {
   opacity: 1;
 }
 
-/* Fallback plain text input editor in grid cells */
-.var-input-editor {
+/* Fallback plain text input editor */
+.trans-input-editor {
   width: 100%;
   height: 100%;
   border: none;
@@ -98,7 +98,7 @@
 }
 
 /* Formula editor — Ace overlay positioned over cell */
-.var-formula-overlay {
+.trans-formula-overlay {
   background: #fff;
   border: 2px solid var(--bs-primary, #0d6efd);
   border-radius: 3px;
@@ -107,28 +107,27 @@
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
 }
 
-.var-formula-overlay .ace_editor {
+.trans-formula-overlay .ace_editor {
   font-size: 0.85rem !important;
 }
 
-.var-formula-overlay .ace_scroller {
+.trans-formula-overlay .ace_scroller {
   padding: 0 4px;
 }
 
-.var-ace-container {
+.trans-ace-container {
   overflow: visible;
 }
 
-.var-formula-overlay .ace_content {
+.trans-formula-overlay .ace_content {
   padding: 0;
 }
 
-.var-formula-overlay .ace_scrollbar {
+.trans-formula-overlay .ace_scrollbar {
   display: none !important;
 }
 
-/* Placeholder inside editing cell — invisible */
-.var-formula-placeholder {
+.trans-formula-placeholder {
   width: 100%;
   height: 100%;
 }

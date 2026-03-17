@@ -43,6 +43,19 @@
   // Helpers
   // =========================================================================
 
+  function relayout(table) {
+    var holder = table.element.querySelector(".tabulator-tableholder");
+    var scrollLeft = holder ? holder.scrollLeft : 0;
+    var scrollTop = holder ? holder.scrollTop : 0;
+    table.setData(table.getData());
+    if (holder) {
+      requestAnimationFrame(function() {
+        holder.scrollLeft = scrollLeft;
+        holder.scrollTop = scrollTop;
+      });
+    }
+  }
+
   function emdashIfEmpty(cell) {
     var val = cell.getValue();
     if (val === null || val === undefined || val === "") return "\u2014";
@@ -378,7 +391,7 @@
               title: "Formula",
               field: "formula",
               widthGrow: 2,
-              minWidth: 150,
+              minWidth: 450,
               editor: formulaEditor(terms, suggestions),
               formatter: emdashIfEmpty
             }
@@ -387,10 +400,14 @@
           _modalTable = new Tabulator(container, {
             data: variables,
             columns: columns,
-            layout: "fitColumns",
+            layout: "fitDataStretch",
+            layoutColumnsOnNewData: true,
             height: "auto",
             editTriggerEvent: "dblclick",
             headerSortClickElement: "icon"
+          });
+          _modalTable.on("cellEdited", function() {
+            relayout(_modalTable);
           });
         });
       }

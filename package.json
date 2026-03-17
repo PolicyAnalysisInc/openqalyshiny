@@ -1,0 +1,20 @@
+{
+  "name": "openqalyshiny",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "directories": {
+    "man": "man",
+    "test": "tests"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@milkdown/crepe": "^7.17.1",
+    "esbuild": "^0.27.4"
+  }
+}

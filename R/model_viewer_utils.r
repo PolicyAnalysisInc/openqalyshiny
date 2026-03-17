@@ -223,6 +223,74 @@ variables_table_dependency <- function() {
   )
 }
 
+#' States Table Dependency
+#'
+#' Returns the HTML dependency for the states table JS and CSS assets.
+#'
+#' @return An htmltools htmlDependency object.
+#' @keywords internal
+states_table_dependency <- function() {
+  htmltools::htmlDependency(
+    name = "states-table",
+    version = "1.0.0",
+    src = c(file = system.file("www", package = "openqalyshiny")),
+    script = "states-table.js",
+    stylesheet = "states-table.css",
+    all_files = FALSE
+  )
+}
+
+#' Transitions Table Dependency
+#'
+#' Returns the HTML dependency for the transitions table JS and CSS assets.
+#'
+#' @return An htmltools htmlDependency object.
+#' @keywords internal
+transitions_table_dependency <- function() {
+  htmltools::htmlDependency(
+    name = "transitions-table",
+    version = "1.0.0",
+    src = c(file = system.file("www", package = "openqalyshiny")),
+    script = "transitions-table.js",
+    stylesheet = "transitions-table.css",
+    all_files = FALSE
+  )
+}
+
+#' Values Table Dependency
+#'
+#' Returns the HTML dependency for the values table JS and CSS assets.
+#'
+#' @return An htmltools htmlDependency object.
+#' @keywords internal
+values_table_dependency <- function() {
+  htmltools::htmlDependency(
+    name = "values-table",
+    version = "1.0.0",
+    src = c(file = system.file("www", package = "openqalyshiny")),
+    script = "values-table.js",
+    stylesheet = "values-table.css",
+    all_files = FALSE
+  )
+}
+
+#' Summaries Table Dependency
+#'
+#' Returns the HTML dependency for the summaries table JS and CSS assets.
+#'
+#' @return An htmltools htmlDependency object.
+#' @keywords internal
+summaries_table_dependency <- function() {
+  htmltools::htmlDependency(
+    name = "summaries-table",
+    version = "1.0.0",
+    src = c(file = system.file("www", package = "openqalyshiny")),
+    script = "summaries-table.js",
+    stylesheet = "summaries-table.css",
+    all_files = FALSE
+  )
+}
+
 #' Groups Table Dependency
 #'
 #' Returns the HTML dependency for the groups table JS and CSS assets.
@@ -253,6 +321,57 @@ add_strategy_modal_dependency <- function() {
     src = c(file = system.file("www", package = "openqalyshiny")),
     script = "add-strategy-modal.js",
     stylesheet = "add-strategy-modal.css",
+    all_files = FALSE
+  )
+}
+
+#' Add Group Modal Dependency
+#'
+#' Returns the HTML dependency for the add group modal JS and CSS assets.
+#'
+#' @return An htmltools htmlDependency object.
+#' @keywords internal
+add_group_modal_dependency <- function() {
+  htmltools::htmlDependency(
+    name = "add-group-modal",
+    version = "1.0.0",
+    src = c(file = system.file("www", package = "openqalyshiny")),
+    script = "add-group-modal.js",
+    stylesheet = "add-group-modal.css",
+    all_files = FALSE
+  )
+}
+
+#' Trees Table Dependency
+#'
+#' Returns the HTML dependency for the trees table JS and CSS assets.
+#'
+#' @return An htmltools htmlDependency object.
+#' @keywords internal
+trees_table_dependency <- function() {
+  htmltools::htmlDependency(
+    name = "trees-table",
+    version = "1.0.0",
+    src = c(file = system.file("www", package = "openqalyshiny")),
+    script = "trees-table.js",
+    stylesheet = "trees-table.css",
+    all_files = FALSE
+  )
+}
+
+#' Documentation Editor Dependency
+#'
+#' Returns the HTML dependency for the documentation editor JS and CSS assets.
+#'
+#' @return An htmltools htmlDependency object.
+#' @keywords internal
+documentation_editor_dependency <- function() {
+  htmltools::htmlDependency(
+    name = "documentation-editor",
+    version = "1.0.0",
+    src = c(file = system.file("www", package = "openqalyshiny")),
+    script = c("milkdown-crepe.bundle.js", "documentation-editor.js"),
+    stylesheet = c("milkdown-crepe.bundle.css", "documentation-editor.css"),
     all_files = FALSE
   )
 }

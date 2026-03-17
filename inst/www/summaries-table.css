@@ -1,0 +1,197 @@
+/* Summaries Table — Tabulator styles */
+
+.summaries-table-container {
+  width: 100%;
+  margin-bottom: 0.25rem;
+  overflow-x: auto;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+/* Compact row sizing */
+.summaries-table-container .tabulator-row {
+  min-height: 32px;
+}
+
+.summaries-table-container .tabulator-cell {
+  font-size: 0.85rem;
+  padding: 0 6px;
+}
+
+.summaries-table-container .tabulator-col-title {
+  font-size: 0.85rem;
+}
+
+/* Delete button in grid cell */
+.sum-delete-btn {
+  border: none;
+  background: none;
+  color: var(--bs-danger, #dc3545);
+  font-size: 1.1rem;
+  line-height: 1;
+  padding: 0.15rem 0.4rem;
+  cursor: pointer;
+  opacity: 0.6;
+}
+
+.sum-delete-btn:hover {
+  opacity: 1;
+}
+
+/* Add Summary button above the table */
+.sum-add-btn {
+  align-self: flex-start;
+  border: 1px solid var(--bs-border-color, #dee2e6);
+  background: var(--bs-body-bg, #fff);
+  color: var(--bs-body-color, #212529);
+  font-size: 0.8rem;
+  padding: 0.25rem 0.6rem;
+  border-radius: 4px;
+  cursor: pointer;
+  margin-bottom: 0.4rem;
+}
+
+.sum-add-btn:hover {
+  background: var(--bs-tertiary-bg, #f8f9fa);
+}
+
+/* Confirm button (✓) for new rows */
+.sum-confirm-btn {
+  border: none;
+  background: none;
+  color: var(--bs-success, #198754);
+  font-size: 1.1rem;
+  line-height: 1;
+  padding: 0.15rem 0.25rem;
+  cursor: pointer;
+  opacity: 0.7;
+}
+
+.sum-confirm-btn:hover {
+  opacity: 1;
+}
+
+/* Cancel button (×) for new rows */
+.sum-cancel-btn {
+  border: none;
+  background: none;
+  color: var(--bs-danger, #dc3545);
+  font-size: 1.1rem;
+  line-height: 1;
+  padding: 0.15rem 0.25rem;
+  cursor: pointer;
+  opacity: 0.7;
+}
+
+.sum-cancel-btn:hover {
+  opacity: 1;
+}
+
+/* =========================================================================
+   Tag display (formatter)
+   ========================================================================= */
+
+.sum-tags-display {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3px;
+  align-items: center;
+  padding: 2px 0;
+}
+
+.sum-tag {
+  display: inline-block;
+  background: var(--bs-primary, #0d6efd);
+  color: #fff;
+  font-size: 0.75rem;
+  padding: 1px 7px;
+  border-radius: 10px;
+  line-height: 1.4;
+  white-space: nowrap;
+}
+
+/* =========================================================================
+   Multi-tag editor overlay
+   ========================================================================= */
+
+.sum-multitag-placeholder {
+  visibility: hidden;
+}
+
+.sum-multitag-overlay {
+  position: fixed;
+  z-index: 10000;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 3px;
+  padding: 3px 4px;
+  background: var(--bs-body-bg, #fff);
+  border: 2px solid var(--bs-primary, #0d6efd);
+  border-radius: 4px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  min-width: 200px;
+}
+
+.sum-tag-editable {
+  display: inline-flex;
+  align-items: center;
+  background: var(--bs-primary, #0d6efd);
+  color: #fff;
+  font-size: 0.75rem;
+  padding: 1px 4px 1px 7px;
+  border-radius: 10px;
+  line-height: 1.4;
+  white-space: nowrap;
+  gap: 3px;
+}
+
+.sum-tag-remove {
+  cursor: pointer;
+  font-size: 0.85rem;
+  line-height: 1;
+  color: rgba(255, 255, 255, 0.8);
+  padding: 0 2px;
+}
+
+.sum-tag-remove:hover {
+  color: #fff;
+}
+
+.sum-multitag-input {
+  border: none;
+  outline: none;
+  background: transparent;
+  font-size: 0.8rem;
+  flex: 1 1 60px;
+  min-width: 60px;
+  padding: 2px 0;
+}
+
+/* =========================================================================
+   Multi-tag dropdown
+   ========================================================================= */
+
+.sum-multitag-dropdown {
+  position: fixed;
+  z-index: 10001;
+  display: none;
+  background: var(--bs-body-bg, #fff);
+  border: 1px solid var(--bs-border-color, #dee2e6);
+  border-radius: 4px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  max-height: 180px;
+  overflow-y: auto;
+}
+
+.sum-multitag-item {
+  padding: 4px 8px;
+  font-size: 0.8rem;
+  cursor: pointer;
+}
+
+.sum-multitag-item:hover,
+.sum-multitag-item-active {
+  background: var(--bs-primary, #0d6efd);
+  color: #fff;
+}

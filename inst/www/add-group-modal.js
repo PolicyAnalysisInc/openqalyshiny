@@ -1,7 +1,7 @@
-/* Groups Table — Tabulator (individual edit/remove actions) */
+/* Add Group Modal — Tabulator table for group-specific variables */
 (function() {
   "use strict";
-  console.log("[Groups Table] JS version 1.0.0 loaded");
+  console.log("[Add Group Modal] JS version 1.0.0 loaded");
 
   // =========================================================================
   // Tabulator CDN loader (shared — guards double-load)
@@ -28,13 +28,13 @@
     var script = document.createElement("script");
     script.src = TABULATOR_CDN;
     script.onload = function() {
-      console.log("[Groups Table] Tabulator loaded");
+      console.log("[Add Group Modal] Tabulator loaded");
       var cbs = _tabulatorCallbacks.slice();
       _tabulatorCallbacks = [];
       for (var i = 0; i < cbs.length; i++) cbs[i]();
     };
     script.onerror = function() {
-      console.error("[Groups Table] Failed to load Tabulator from CDN");
+      console.error("[Add Group Modal] Failed to load Tabulator from CDN");
     };
     document.head.appendChild(script);
   }
@@ -63,7 +63,7 @@
   }
 
   // =========================================================================
-  // Custom formula editor (copied from strategies-table.js)
+  // Custom formula editor (duplicated from variables-table.js)
   // =========================================================================
 
   function formulaEditor(terms, suggestions) {
@@ -77,6 +77,7 @@
       var overlay = null;
       var aceEditor = null;
       var onDocMouseDown = null;
+      var acFocusTrap = null;
       var cellFocusRedirect = null;
       var editCellEl = null;
 
@@ -99,6 +100,11 @@
         if (onDocMouseDown) {
           document.removeEventListener("mousedown", onDocMouseDown, true);
           onDocMouseDown = null;
+        }
+        if (acFocusTrap) {
+          document.removeEventListener("focusin", acFocusTrap, true);
+          document.removeEventListener("focus", acFocusTrap, true);
+          acFocusTrap = null;
         }
         if (cellFocusRedirect && editCellEl) {
           editCellEl.removeEventListener("focus", cellFocusRedirect, true);
@@ -132,17 +138,20 @@
         }
 
         var lineH = 18;
-        var innerH = cellRect.height - 4;
+        var minOverlayH = 36;
+        var overlayH = Math.max(cellRect.height, minOverlayH);
+        var topOffset = (overlayH - cellRect.height) / 2;
+        var innerH = overlayH - 4;
         var vPad = Math.max(0, Math.round((innerH - lineH) / 2));
 
         overlay = document.createElement("div");
-        overlay.className = "var-formula-overlay";
+        overlay.className = "var-formula-overlay add-group-formula-overlay";
         overlay.style.position = "fixed";
         overlay.style.left = cellRect.left + "px";
-        overlay.style.top = cellRect.top + "px";
+        overlay.style.top = (cellRect.top - topOffset) + "px";
         overlay.style.width = cellRect.width + "px";
-        overlay.style.height = cellRect.height + "px";
-        overlay.style.zIndex = "10000";
+        overlay.style.height = overlayH + "px";
+        overlay.style.zIndex = "10600";
 
         var aceContainer = document.createElement("div");
         aceContainer.className = "var-ace-container";
@@ -174,6 +183,15 @@
           overlay.addEventListener(evt, function(e) { e.stopPropagation(); });
         });
 
+        // Prevent Bootstrap modal focus trap from closing autocomplete popup.
+        acFocusTrap = function(e) {
+          if (e.target.closest && e.target.closest(".ace_autocomplete")) {
+            e.stopPropagation();
+          }
+        };
+        document.addEventListener("focusin", acFocusTrap, true);
+        document.addEventListener("focus", acFocusTrap, true);
+
         ace.require("ace/ext/language_tools");
         aceEditor = ace.edit(aceContainer);
         aceEditor.setTheme("ace/theme/chrome");
@@ -204,7 +222,7 @@
             aceEditor.completers = [cmp];
           }
         } catch (e) {
-          console.warn("[Groups Table] Term highlighting/autocomplete init failed:", e.message);
+          console.warn("[Add Group Modal] Term highlighting/autocomplete init failed:", e.message);
         }
 
         overlay.addEventListener("keydown", function(e) {
@@ -253,6 +271,11 @@
         aceEditor.on("blur", function() {
           setTimeout(function() {
             if (!committed && aceEditor && !aceEditor.isFocused()) {
+              // Don't commit if autocomplete popup is open
+              if (aceEditor.completer && aceEditor.completer.popup &&
+                  aceEditor.completer.popup.isOpen) {
+                return;
+              }
               commit(aceEditor.getValue());
             }
           }, 300);
@@ -298,269 +321,105 @@
   }
 
   // =========================================================================
-  // Column definitions
+  // Modal table instance
   // =========================================================================
 
-  function buildColumnDefs(inputId, varColumns, terms, suggestions) {
-    var cols = [
-      // Name
-      {
-        title: "Name",
-        field: "name",
-        widthGrow: 1,
-        minWidth: 120,
-        editor: "input",
-        formatter: emdashIfEmpty
-      },
-
-      // Display Name
-      {
-        title: "Display Name",
-        field: "display_name",
-        widthGrow: 1,
-        minWidth: 120,
-        editor: "input",
-        formatter: emdashIfEmpty
-      },
-
-      // Description
-      {
-        title: "Description",
-        field: "description",
-        widthGrow: 1,
-        minWidth: 120,
-        editor: "input",
-        formatter: emdashIfEmpty
-      },
-
-      // Weight
-      {
-        title: "Weight",
-        field: "weight",
-        minWidth: 80,
-        editor: "input",
-        formatter: emdashIfEmpty
-      },
-
-      // Enabled
-      {
-        title: "Enabled",
-        field: "enabled",
-        minWidth: 120,
-        editor: "list",
-        editorParams: {
-          values: [
-            { label: "Yes", value: 1 },
-            { label: "No", value: 0 }
-          ]
-        },
-        formatter: function(cell) {
-          var val = cell.getValue();
-          return (val === 1 || val === "1" || val === true) ? "Yes" : "No";
-        }
-      }
-    ];
-
-    // Add one column per group-specific variable
-    if (varColumns && varColumns.length > 0) {
-      var fEditor = formulaEditor(terms, suggestions);
-      for (var i = 0; i < varColumns.length; i++) {
-        cols.push({
-          title: varColumns[i].display_name || varColumns[i].name,
-          field: "var__" + varColumns[i].name,
-          widthGrow: 1,
-          minWidth: 450,
-          editor: fEditor,
-          formatter: emdashIfEmpty
-        });
-      }
-    }
-
-    // Delete column
-    cols.push({
-      title: "",
-      field: "_delete",
-      width: 50,
-      widthGrow: 0,
-      hozAlign: "center",
-      headerSort: false,
-      editor: false,
-      clipboard: false,
-      formatter: function(cell) {
-        var btn = document.createElement("button");
-        btn.type = "button";
-        btn.className = "grp-delete-btn";
-        btn.textContent = "\u00d7";
-        btn.addEventListener("click", function(e) {
-          e.stopPropagation();
-          var data = cell.getRow().getData();
-          if (typeof Shiny !== "undefined") {
-            Shiny.setInputValue(inputId, {
-              type: "remove_group",
-              name: data.name
-            }, { priority: "event" });
-          }
-        });
-        return btn;
-      }
-    });
-
-    return cols;
-  }
+  var _modalTable = null;
 
   // =========================================================================
-  // Grid initialization
+  // Shiny message handlers
   // =========================================================================
-
-  var _activeTables = {};
-  function initGrid(containerDiv) {
-    var inputId = containerDiv.dataset.inputId;
-    if (!inputId) return;
-
-    // Destroy previous table for this inputId if it exists
-    if (_activeTables[inputId]) {
-      try { _activeTables[inputId].destroy(); } catch (e) {}
-      delete _activeTables[inputId];
-    }
-
-    var initialData = [];
-    try {
-      initialData = JSON.parse(containerDiv.dataset.initial || "[]");
-    } catch (e) {
-      initialData = [];
-    }
-
-    var varColumns = [];
-    try { varColumns = JSON.parse(containerDiv.dataset.varColumns || "[]"); } catch (e) {}
-    var terms = null;
-    try { terms = JSON.parse(containerDiv.dataset.terms || "null"); } catch (e) {}
-    var suggestions = null;
-    try { suggestions = JSON.parse(containerDiv.dataset.suggestions || "null"); } catch (e) {}
-
-    var columnDefs = buildColumnDefs(inputId, varColumns, terms, suggestions);
-
-    var table = new Tabulator(containerDiv, {
-      index: "_id",
-      data: initialData,
-      columns: columnDefs,
-      layout: "fitColumns",
-      layoutColumnsOnNewData: true,
-      height: "100%",
-      selectableRange: true,
-      selectableRangeColumns: true,
-      selectableRangeRows: true,
-      selectableRangeClearCells: true,
-      editTriggerEvent: "dblclick",
-      headerSortClickElement: "icon"
-    });
-
-    // Fix: redraw when tab becomes visible (container goes from 0 to non-zero width)
-    if (typeof ResizeObserver !== "undefined") {
-      var ro = new ResizeObserver(function(entries) {
-        for (var i = 0; i < entries.length; i++) {
-          if (entries[i].contentRect.width > 0) {
-            table.redraw(true);
-            ro.disconnect();
-            break;
-          }
-        }
-      });
-      ro.observe(containerDiv);
-    }
-
-    _activeTables[inputId] = table;
-
-    // "Add Group" button above the table
-    var addBtn = document.createElement("button");
-    addBtn.type = "button";
-    addBtn.className = "grp-add-btn";
-    addBtn.textContent = "+ Add Group";
-    containerDiv.parentNode.insertBefore(addBtn, containerDiv);
-    addBtn.addEventListener("click", function() {
-      if (typeof Shiny !== "undefined") {
-        Shiny.setInputValue(inputId, {
-          type: "show_add_group_modal"
-        }, { priority: "event" });
-      }
-    });
-
-    // Cell edited — handle variable edits vs group edits
-    table.on("cellEdited", function(cell) {
-      var field = cell.getField();
-      var data = cell.getRow().getData();
-      if (cell.getOldValue() === cell.getValue()) {
-        relayout(table);
-        return;
-      }
-
-      if (field.indexOf("var__") === 0) {
-        // Variable formula edit
-        var varName = field.substring(5);
-        var groupName = data.name;
-        var oldValue = cell.getOldValue() || "";
-
-        if (typeof Shiny !== "undefined") {
-          if (!oldValue) {
-            // No existing entry — add_variable
-            Shiny.setInputValue(inputId, {
-              type: "add_variable",
-              name: varName,
-              group: groupName,
-              formula: cell.getValue()
-            }, { priority: "event" });
-          } else {
-            // Existing entry — edit_variable
-            Shiny.setInputValue(inputId, {
-              type: "edit_variable",
-              name: varName,
-              group: groupName,
-              field: "formula",
-              value: cell.getValue()
-            }, { priority: "event" });
-          }
-        }
-      } else {
-        // Group metadata edit
-        var name = data.name;
-        if (field === "name") name = cell.getOldValue() || "";
-
-        if (typeof Shiny !== "undefined") {
-          Shiny.setInputValue(inputId, {
-            type: "edit_group",
-            name: name,
-            field: field,
-            value: cell.getValue()
-          }, { priority: "event" });
-        }
-      }
-
-      relayout(table);
-    });
-
-    containerDiv.setAttribute("data-initialized", "true");
-  }
-
-  // =========================================================================
-  // Lifecycle — listen for renderUI re-renders
-  // =========================================================================
-
-  function initAllGrids() {
-    var containers = document.querySelectorAll(".groups-table-container:not([data-initialized])");
-    if (containers.length === 0) return;
-    ensureTabulator(function() {
-      containers.forEach(initGrid);
-    });
-  }
 
   if (typeof Shiny !== "undefined") {
-    $(document).on("shiny:connected", function() {
-      setTimeout(initAllGrids, 100);
+
+    // Initialize the variables table inside the modal
+    Shiny.addCustomMessageHandler("init_add_group_vars_table", function(msg) {
+      var variables = msg.variables || [];
+
+      // terms/suggestions are pre-serialized JSON strings (auto_unbox=FALSE)
+      // to preserve array structure for FormulaHighlighter/FormulaCompleter
+      var terms = null;
+      var suggestions = null;
+      try { terms = typeof msg.terms_json === "string" ? JSON.parse(msg.terms_json) : (msg.terms_json || null); } catch (e) {}
+      try { suggestions = typeof msg.suggestions_json === "string" ? JSON.parse(msg.suggestions_json) : (msg.suggestions_json || null); } catch (e) {}
+
+      function tryInit(attempt) {
+        var container = document.getElementById("add-group-vars-container");
+        if (!container) {
+          if (attempt < 20) {
+            setTimeout(function() { tryInit(attempt + 1); }, 100);
+          } else {
+            console.error("[Add Group Modal] Could not find #add-group-vars-container");
+          }
+          return;
+        }
+
+        ensureTabulator(function() {
+          if (_modalTable) {
+            try { _modalTable.destroy(); } catch (e) {}
+            _modalTable = null;
+          }
+
+          var columns = [
+            {
+              title: "Name",
+              field: "name",
+              widthGrow: 1,
+              minWidth: 120,
+              editor: false,
+              formatter: emdashIfEmpty
+            },
+            {
+              title: "Display Name",
+              field: "display_name",
+              widthGrow: 1,
+              minWidth: 120,
+              editor: "input",
+              formatter: emdashIfEmpty
+            },
+            {
+              title: "Description",
+              field: "description",
+              widthGrow: 1,
+              minWidth: 120,
+              editor: "input",
+              formatter: emdashIfEmpty
+            },
+            {
+              title: "Formula",
+              field: "formula",
+              widthGrow: 2,
+              minWidth: 450,
+              editor: formulaEditor(terms, suggestions),
+              formatter: emdashIfEmpty
+            }
+          ];
+
+          _modalTable = new Tabulator(container, {
+            data: variables,
+            columns: columns,
+            layout: "fitDataStretch",
+            layoutColumnsOnNewData: true,
+            height: "auto",
+            editTriggerEvent: "dblclick",
+            headerSortClickElement: "icon"
+          });
+          _modalTable.on("cellEdited", function() {
+            relayout(_modalTable);
+          });
+        });
+      }
+
+      tryInit(0);
     });
 
-    $(document).on("shiny:value", function() {
-      setTimeout(initAllGrids, 100);
+    // Collect data from the modal table and send back to Shiny
+    Shiny.addCustomMessageHandler("collect_add_group_vars", function(msg) {
+      var data = [];
+      if (_modalTable) {
+        data = _modalTable.getData();
+      }
+      Shiny.setInputValue("add_group_modal_vars", data, { priority: "event" });
     });
-
-    setTimeout(initAllGrids, 100);
   }
 })();

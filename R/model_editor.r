@@ -171,6 +171,322 @@ dispatch_model_action <- function(model, action) {
       args <- c(list(model = model), action$settings)
       rlang::inject(openqaly::set_settings(!!!args))
     },
+    "add_state" = {
+      args <- list(model = model, name = action$name)
+      if (nzchar(action$display_name %||% "")) args$display_name <- action$display_name
+      if (nzchar(action$description %||% "")) args$description <- action$description
+      model_type <- openqaly::get_model_type(model)
+      if (model_type == "markov") {
+        if (nzchar(action$initial_probability %||% "")) {
+          args$initial_prob <- rlang::parse_expr(action$initial_probability)
+        }
+        if (nzchar(action$state_group %||% "")) args$state_group <- action$state_group
+        args$share_state_time <- identical(action$share_state_time, TRUE) ||
+          identical(action$share_state_time, "Yes")
+        if (nzchar(action$state_cycle_limit %||% "")) {
+          args$state_cycle_limit <- as.numeric(action$state_cycle_limit)
+        }
+        if (nzchar(action$state_cycle_limit_unit %||% "")) {
+          args$state_cycle_limit_unit <- action$state_cycle_limit_unit
+        }
+      }
+      rlang::inject(openqaly::add_state(!!!args))
+    },
+    "edit_state" = {
+      args <- list(model = model, name = action$name)
+      field <- action$field
+      value <- action$value
+      if (field == "name") {
+        args$new_name <- value
+      } else if (field == "initial_probability") {
+        args$initial_prob <- rlang::parse_expr(value)
+      } else if (field == "share_state_time") {
+        args$share_state_time <- identical(value, "Yes") || identical(value, TRUE)
+      } else if (field == "state_cycle_limit") {
+        args$state_cycle_limit <- if (nzchar(value %||% "")) as.numeric(value) else Inf
+      } else {
+        args[[field]] <- value
+      }
+      rlang::inject(openqaly::edit_state(!!!args))
+    },
+    "remove_state" = {
+      openqaly::remove_state(model, name = action$name, error_on_dependencies = TRUE)
+    },
+    "force_remove_state" = {
+      openqaly::remove_state(model, name = action$name, error_on_dependencies = FALSE)
+    },
+    "add_transition" = {
+      model_type <- action$model_type %||% openqaly::get_model_type(model)
+      if (model_type == "markov") {
+        openqaly::add_transition(
+          model,
+          from_state = action$from_state,
+          to_state = action$to_state,
+          formula = rlang::parse_expr(action$formula)
+        )
+      } else if (model_type == "psm") {
+        openqaly::add_psm_transition(
+          model,
+          endpoint = action$endpoint,
+          time_unit = action$time_unit,
+          formula = rlang::parse_expr(action$formula)
+        )
+      } else if (model_type == "custom_psm") {
+        openqaly::add_custom_psm_transition(
+          model,
+          state = action$state,
+          formula = rlang::parse_expr(action$formula)
+        )
+      } else {
+        stop("Unsupported model type for transitions: ", model_type)
+      }
+    },
+    "edit_transition" = {
+      model_type <- action$model_type %||% openqaly::get_model_type(model)
+      if (model_type == "markov") {
+        args <- list(model = model, from_state = action$from_state, to_state = action$to_state)
+        if (action$field == "formula") {
+          args$formula <- rlang::parse_expr(action$value)
+        }
+        rlang::inject(openqaly::edit_transition(!!!args))
+      } else if (model_type == "psm") {
+        args <- list(model = model, endpoint = action$endpoint)
+        if (action$field == "formula") {
+          args$formula <- rlang::parse_expr(action$value)
+        } else if (action$field == "time_unit") {
+          args$time_unit <- action$value
+        }
+        rlang::inject(openqaly::edit_psm_transition(!!!args))
+      } else if (model_type == "custom_psm") {
+        args <- list(model = model, state = action$state)
+        if (action$field == "formula") {
+          args$formula <- rlang::parse_expr(action$value)
+        }
+        rlang::inject(openqaly::edit_custom_psm_transition(!!!args))
+      }
+    },
+    "remove_transition" = {
+      model_type <- action$model_type %||% openqaly::get_model_type(model)
+      if (model_type == "markov") {
+        openqaly::remove_transition(model, from_state = action$from_state, to_state = action$to_state)
+      } else if (model_type == "psm") {
+        openqaly::remove_psm_transition(model, endpoint = action$endpoint)
+      } else if (model_type == "custom_psm") {
+        openqaly::remove_custom_psm_transition(model, state = action$state)
+      }
+    },
+    "add_value" = {
+      args <- list(model = model, name = action$name)
+      if (nzchar(action$formula %||% "")) {
+        args$formula <- rlang::parse_expr(action$formula)
+      }
+      if (nzchar(action$state %||% "")) args$state <- action$state
+      if (nzchar(action$destination %||% "")) args$destination <- action$destination
+      if (nzchar(action$value_type %||% "")) args$type <- action$value_type
+      if (nzchar(action$display_name %||% "")) args$display_name <- action$display_name
+      if (nzchar(action$description %||% "")) args$description <- action$description
+      if (nzchar(action$discounting_override %||% "")) {
+        args$discounting_override <- rlang::parse_expr(action$discounting_override)
+      }
+      rlang::inject(openqaly::add_value(!!!args))
+    },
+    "edit_value" = {
+      old_state <- action$state %||% ""
+      old_dest <- action$destination %||% ""
+      field <- action$field
+
+      if (field %in% c("state", "destination")) {
+        # Remove + re-add pattern for state/destination changes
+        vals <- openqaly::get_model_values(model)
+        match_idx <- which(
+          vals$name == action$name &
+          (if (nzchar(old_state)) vals$state == old_state else (is.na(vals$state) | vals$state == "")) &
+          (if (nzchar(old_dest)) vals$destination == old_dest else (is.na(vals$destination) | vals$destination == ""))
+        )
+        if (length(match_idx) == 0) stop("Value not found")
+        val_row <- vals[match_idx[1], ]
+
+        # Remove old
+        model <- openqaly::remove_value(
+          model, name = action$name,
+          state = if (nzchar(old_state)) old_state else NULL,
+          destination = if (nzchar(old_dest)) old_dest else NULL,
+          error_on_dependencies = FALSE
+        )
+
+        # Re-add with updated field
+        new_state <- if (field == "state") (action$value %||% "") else old_state
+        new_dest <- if (field == "destination") (action$value %||% "") else old_dest
+
+        add_args <- list(model = model, name = action$name)
+        if (nzchar(new_state)) add_args$state <- new_state
+        if (nzchar(new_dest)) add_args$destination <- new_dest
+        if (!is.na(val_row$formula) && nzchar(as.character(val_row$formula))) {
+          add_args$formula <- rlang::parse_expr(as.character(val_row$formula))
+        }
+        if ("type" %in% names(val_row) && !is.na(val_row$type) && nzchar(val_row$type)) {
+          add_args$type <- val_row$type
+        }
+        if ("display_name" %in% names(val_row) && !is.na(val_row$display_name) && nzchar(val_row$display_name)) {
+          add_args$display_name <- val_row$display_name
+        }
+        if ("description" %in% names(val_row) && !is.na(val_row$description) && nzchar(val_row$description)) {
+          add_args$description <- val_row$description
+        }
+        if ("discounting_override" %in% names(val_row) && !is.na(val_row$discounting_override) && nzchar(as.character(val_row$discounting_override))) {
+          add_args$discounting_override <- rlang::parse_expr(as.character(val_row$discounting_override))
+        }
+        rlang::inject(openqaly::add_value(!!!add_args))
+      } else {
+        args <- list(
+          model = model,
+          name = action$name,
+          state = if (nzchar(old_state)) old_state else NA_character_,
+          destination = if (nzchar(old_dest)) old_dest else NA_character_
+        )
+        if (field == "formula") {
+          args$formula <- rlang::parse_expr(action$value)
+        } else if (field == "name") {
+          args$new_name <- action$value
+          if (isTRUE(action$error_on_name_sharing)) args$error_on_name_sharing <- TRUE
+          if (isTRUE(action$error_on_field_changes)) args$error_on_field_changes <- TRUE
+          if (isTRUE(action$rename_all)) args$rename_all <- TRUE
+        } else if (field == "discounting_override") {
+          if (nzchar(action$value %||% "")) {
+            args$discounting_override <- rlang::parse_expr(action$value)
+          } else {
+            args$discounting_override <- NA
+          }
+        } else {
+          args[[field]] <- action$value
+        }
+        rlang::inject(openqaly::edit_value(!!!args))
+      }
+    },
+    "remove_value" = {
+      openqaly::remove_value(
+        model,
+        name = action$name,
+        state = if (nzchar(action$state %||% "")) action$state else NULL,
+        destination = if (nzchar(action$destination %||% "")) action$destination else NULL,
+        error_on_dependencies = TRUE
+      )
+    },
+    "force_remove_value" = {
+      openqaly::remove_value(
+        model,
+        name = action$name,
+        state = if (nzchar(action$state %||% "")) action$state else NULL,
+        destination = if (nzchar(action$destination %||% "")) action$destination else NULL,
+        error_on_dependencies = FALSE
+      )
+    },
+    "rename_value_single" = {
+      openqaly::edit_value(
+        model,
+        name = action$name,
+        state = if (nzchar(action$state %||% "")) action$state else NA_character_,
+        destination = if (nzchar(action$destination %||% "")) action$destination else NA_character_,
+        new_name = action$new_name,
+        error_on_name_sharing = FALSE,
+        error_on_field_changes = TRUE
+      )
+    },
+    "rename_value_all" = {
+      openqaly::edit_value(
+        model,
+        name = action$name,
+        state = if (nzchar(action$state %||% "")) action$state else NA_character_,
+        destination = if (nzchar(action$destination %||% "")) action$destination else NA_character_,
+        new_name = action$new_name,
+        rename_all = TRUE
+      )
+    },
+    "add_summary" = {
+      args <- list(model = model, name = action$name, values = action$values)
+      if (nzchar(action$display_name %||% "")) args$display_name <- action$display_name
+      if (nzchar(action$description %||% "")) args$description <- action$description
+      if (nzchar(action$summary_type %||% "")) args$type <- action$summary_type
+      if (nzchar(action$wtp %||% "")) args$wtp <- as.numeric(action$wtp)
+      rlang::inject(openqaly::add_summary(!!!args))
+    },
+    "edit_summary" = {
+      args <- list(model = model, name = action$name)
+      field <- action$field
+      value <- action$value
+      if (field == "name") {
+        args$new_name <- value
+      } else if (field == "type") {
+        args$type <- value
+      } else if (field == "wtp") {
+        args$wtp <- if (nzchar(value %||% "")) as.numeric(value) else NA_real_
+      } else if (field == "values") {
+        args$values <- value
+      } else {
+        args[[field]] <- value
+      }
+      rlang::inject(openqaly::edit_summary(!!!args))
+    },
+    "remove_summary" = {
+      openqaly::remove_summary(model, name = action$name, error_on_dependencies = TRUE)
+    },
+    "force_remove_summary" = {
+      openqaly::remove_summary(model, name = action$name, error_on_dependencies = FALSE)
+    },
+    "add_tree_node" = {
+      args <- list(model = model, name = action$tree_name, node = action$node)
+      if (nzchar(action$parent %||% "")) args$parent <- action$parent
+      if (nzchar(action$formula %||% "")) {
+        args$formula <- rlang::parse_expr(action$formula)
+      }
+      if (nzchar(action$tags %||% "")) args$tags <- action$tags
+      rlang::inject(openqaly::add_tree_node(!!!args))
+    },
+    "edit_tree_node" = {
+      args <- list(model = model, name = action$tree_name, node = action$node)
+      field <- action$field
+      value <- action$value
+      if (field == "node") {
+        args$new_node_name <- value
+      } else if (field == "tree_name") {
+        args$new_tree_name <- value
+      } else if (field == "formula") {
+        args$formula <- rlang::parse_expr(value)
+      } else {
+        args[[field]] <- value
+      }
+      rlang::inject(openqaly::edit_tree_node(!!!args))
+    },
+    "remove_tree_node" = {
+      openqaly::remove_tree_node(model, name = action$tree_name, node = action$node)
+    },
+    "remove_tree" = {
+      openqaly::remove_tree(model, name = action$tree_name)
+    },
+    "edit_decision_tree" = {
+      args <- list(model = model)
+      if (!is.null(action$duration)) {
+        args$duration <- rlang::parse_expr(action$duration)
+      }
+      if (!is.null(action$duration_unit)) args$duration_unit <- action$duration_unit
+      rlang::inject(openqaly::edit_decision_tree(!!!args))
+    },
+    "set_decision_tree" = {
+      args <- list(model = model, name = action$tree_name)
+      if (nzchar(action$duration %||% "")) {
+        args$duration <- rlang::parse_expr(action$duration)
+      }
+      if (nzchar(action$duration_unit %||% "")) {
+        args$duration_unit <- action$duration_unit
+      }
+      rlang::inject(openqaly::set_decision_tree(!!!args))
+    },
+    "remove_decision_tree" = {
+      openqaly::remove_decision_tree(model)
+    },
+    "set_documentation" = {
+      openqaly::set_documentation(model, text = action$text)
+    },
     stop("Unknown action type: ", action$type)
   )
 }
@@ -270,8 +586,12 @@ run_model_editor <- function(path = NULL) {
       all_files = FALSE
     ),
     scripts_editor_dependency(),
+    documentation_editor_dependency(),
     tags$head(
       tags$style(shiny::HTML("
+        body {
+          overflow: hidden;
+        }
         .app-bar {
           display: flex;
           align-items: center;
@@ -317,7 +637,7 @@ run_model_editor <- function(path = NULL) {
         }
         .model-content {
           padding: 16px;
-          overflow: hidden;
+          overflow-x: auto; overflow-y: hidden;
           flex: 1 1 auto;
           min-height: 0;
           display: flex;
@@ -383,7 +703,7 @@ run_model_editor <- function(path = NULL) {
         }
         .tables-editor {
           flex-grow: 1;
-          overflow: hidden;
+          overflow-x: auto; overflow-y: hidden;
           min-height: 0;
           padding: 8px;
         }
@@ -446,6 +766,138 @@ run_model_editor <- function(path = NULL) {
           min-height: 0;
           overflow: hidden;
         }
+        .trees-tab-container {
+          display: flex;
+          flex-direction: row;
+          flex: 1 1 auto;
+          min-height: 0;
+        }
+        .trees-sidebar {
+          width: 220px;
+          min-width: 220px;
+          border-right: 1px solid #dee2e6;
+          overflow-y: auto;
+          padding: 8px;
+        }
+        .trees-sidebar-item {
+          display: flex;
+          align-items: center;
+          padding: 6px 8px;
+          cursor: pointer;
+          border-radius: 4px;
+          margin-bottom: 2px;
+        }
+        .trees-sidebar-item:hover {
+          background-color: #f0f0f0;
+        }
+        .trees-sidebar-item.active {
+          background-color: #e2e6ea;
+          font-weight: 600;
+        }
+        .trees-sidebar-item .tree-name {
+          flex-grow: 1;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+        }
+        .trees-sidebar-item .tree-actions {
+          display: flex;
+          gap: 4px;
+          margin-left: 4px;
+        }
+        .trees-sidebar-item .tree-actions .btn {
+          padding: 0 4px;
+          font-size: 12px;
+          line-height: 1;
+          border: none;
+          background: transparent;
+          color: #666;
+        }
+        .trees-sidebar-item .tree-actions .btn:hover {
+          color: #333;
+        }
+        .trees-editor {
+          flex-grow: 1;
+          display: flex;
+          flex-direction: column;
+          min-height: 0;
+          padding: 8px;
+          overflow: hidden;
+        }
+        .trees-toolbar {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          padding-bottom: 6px;
+          flex-shrink: 0;
+        }
+        .trees-toolbar-left {
+          display: flex;
+          align-items: center;
+          gap: 6px;
+        }
+        .trees-toolbar-right {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+        }
+        .trees-preview-toggle {
+          display: inline-flex;
+          align-items: center;
+          gap: 6px;
+          cursor: pointer;
+          font-size: 0.8rem;
+          color: #666;
+          user-select: none;
+        }
+        .trees-preview-toggle input { display: none; }
+        .trees-toggle-slider {
+          width: 32px; height: 18px;
+          background: #ccc;
+          border-radius: 9px;
+          position: relative;
+          transition: background 0.2s;
+        }
+        .trees-toggle-slider::after {
+          content: '';
+          position: absolute;
+          width: 14px; height: 14px;
+          background: #fff;
+          border-radius: 50%;
+          top: 2px; left: 2px;
+          transition: transform 0.2s;
+        }
+        .trees-preview-toggle input:checked + .trees-toggle-slider {
+          background: var(--bs-primary, #0d6efd);
+        }
+        .trees-preview-toggle input:checked + .trees-toggle-slider::after {
+          transform: translateX(14px);
+        }
+        .trees-content-split {
+          display: flex;
+          flex: 1 1 auto;
+          min-height: 0;
+          gap: 0;
+        }
+        .trees-table-wrapper {
+          flex: 1 1 auto;
+          min-width: 0;
+          min-height: 0;
+          display: flex;
+          flex-direction: column;
+        }
+        .trees-preview-panel {
+          flex: 0 0 40%;
+          min-width: 0;
+          min-height: 0;
+          border-left: 1px solid #dee2e6;
+          padding: 8px;
+          overflow: auto;
+        }
+        .trees-preview-panel .shiny-plot-output {
+          width: 100% !important;
+          height: 100% !important;
+        }
         #scripts_ace_editor {
           flex: 1 1 auto;
           min-height: 200px;
@@ -469,6 +921,17 @@ run_model_editor <- function(path = NULL) {
           var redo = document.getElementById('redo_btn');
           if (undo) undo.disabled = !msg.can_undo;
           if (redo) redo.disabled = !msg.can_redo;
+        });
+        Shiny.addCustomMessageHandler('trees_toggle_preview', function(msg) {
+          var panel = document.querySelector('.trees-preview-panel');
+          if (panel) {
+            panel.style.display = msg.show ? '' : 'none';
+            if (msg.show) {
+              // Notify Shiny that the plot output is now visible
+              var plot = document.getElementById('trees_preview_plot');
+              if (plot) $(plot).trigger('shown');
+            }
+          }
         });
       "))
     ),
@@ -532,8 +995,7 @@ run_model_editor <- function(path = NULL) {
       tags$div(
         class = "model-content",
         bslib::navset_underline(
-          bslib::nav_panel("Settings", shiny::uiOutput("settings_panel")),
-          bslib::nav_panel("Variables", shiny::uiOutput("variables_table")),
+          bslib::nav_panel("Documentation", shiny::uiOutput("documentation_tab")),
           bslib::nav_panel("Tables",
             tags$div(
               class = "tables-tab-container",
@@ -545,8 +1007,52 @@ run_model_editor <- function(path = NULL) {
             )
           ),
           bslib::nav_panel("Scripts", shiny::uiOutput("scripts_tab")),
+          bslib::nav_panel("Variables", shiny::uiOutput("variables_table")),
+          bslib::nav_panel("Settings", shiny::uiOutput("settings_panel")),
           bslib::nav_panel("Groups", shiny::uiOutput("groups_table")),
+          bslib::nav_panel("States", shiny::uiOutput("states_table")),
           bslib::nav_panel("Strategies", shiny::uiOutput("strategies_table")),
+          bslib::nav_panel("Transitions", shiny::uiOutput("transitions_table")),
+          bslib::nav_panel("Values", shiny::uiOutput("values_table")),
+          bslib::nav_panel("Summaries", shiny::uiOutput("summaries_table")),
+          bslib::nav_panel("Decision Trees",
+            tags$div(
+              class = "trees-tab-container",
+              shiny::uiOutput("trees_sidebar"),
+              tags$div(
+                class = "trees-editor",
+                tags$div(
+                  class = "trees-toolbar",
+                  tags$div(class = "trees-toolbar-left"),
+                  tags$div(
+                    class = "trees-toolbar-right",
+                    tags$label(
+                      class = "trees-preview-toggle",
+                      tags$input(
+                        type = "checkbox",
+                        id = "trees_preview_toggle",
+                        onchange = "Shiny.setInputValue('trees_preview_on', this.checked, {priority: 'event'})"
+                      ),
+                      tags$span(class = "trees-toggle-slider"),
+                      tags$span(class = "trees-toggle-label", "Preview")
+                    )
+                  )
+                ),
+                tags$div(
+                  class = "trees-content-split",
+                  tags$div(
+                    class = "trees-table-wrapper",
+                    shiny::uiOutput("trees_table")
+                  ),
+                  tags$div(
+                    class = "trees-preview-panel",
+                    style = "display: none;",
+                    shiny::plotOutput("trees_preview_plot", height = "100%", width = "100%")
+                  )
+                )
+              )
+            )
+          ),
           bslib::nav_panel("Model Diff", diffResultsUI("diff"))
         )
       )
@@ -586,12 +1092,38 @@ run_model_editor <- function(path = NULL) {
 
     history <- create_history_manager(max_size = 5)
 
+    send_values_update <- function() {
+      m <- shiny::isolate(model())
+      if (is.null(m)) return()
+      values_df <- openqaly::get_model_values(m)
+      initial_data <- lapply(seq_len(nrow(values_df)), function(i) {
+        row <- as.list(values_df[i, ])
+        for (nm in names(row)) {
+          if (is.na(row[[nm]])) row[[nm]] <- ""
+        }
+        row$formula <- as.character(row$formula)
+        if ("discounting_override" %in% names(row)) {
+          row$discounting_override <- as.character(row$discounting_override)
+          if (row$discounting_override == "NA") row$discounting_override <- ""
+        }
+        row[["_id"]] <- paste(row$name, row$state, row$destination, sep = "|")
+        row
+      })
+      session$sendCustomMessage("values-table-update", list(
+        inputId = "model_action",
+        data = initial_data
+      ))
+    }
+
     apply_action <- function(action) {
       old <- model()
       new <- dispatch_model_action(old, action)
+      if (identical(old, new)) {
+        return(list(status = "noop", model = new))
+      }
       history$push(old)
       model(new)
-      new
+      list(status = "ok", model = new)
     }
 
     perform_undo <- function() {
@@ -654,9 +1186,245 @@ run_model_editor <- function(path = NULL) {
     shiny::observeEvent(input$model_action, {
       action <- input$model_action
       shiny::req(action$type)
+
+      # Handle remove_value dependency errors with force confirmation
+      if (action$type == "remove_value") {
+        tryCatch({
+          result <- apply_action(action)
+          send_values_update()
+        }, value_has_dependencies = function(e) {
+          deps <- e$dependencies
+          dep_items <- paste0("<li>", htmltools::htmlEscape(unlist(deps)), "</li>", collapse = "")
+          escaped_name <- gsub("'", "\\\\'", action$name)
+          escaped_state <- gsub("'", "\\\\'", action$state %||% "")
+          escaped_dest <- gsub("'", "\\\\'", action$destination %||% "")
+          shiny::showModal(shiny::modalDialog(
+            title = "Value has dependencies",
+            shiny::tags$p(conditionMessage(e)),
+            shiny::tags$p("Do you want to force remove this value and all its dependencies?"),
+            footer = shiny::tagList(
+              shiny::modalButton("Cancel"),
+              shiny::actionButton("confirm_force_remove_value", "Remove Anyway",
+                                  class = "btn-danger",
+                                  onclick = paste0(
+                                    "Shiny.setInputValue('model_action', ",
+                                    "{type: 'force_remove_value', name: '", escaped_name,
+                                    "', state: '", escaped_state,
+                                    "', destination: '", escaped_dest, "'}, ",
+                                    "{priority: 'event'}); ",
+                                    "Shiny.onInputChange('close_modal', Math.random());"
+                                  ))
+            )
+          ))
+          send_values_update()
+        }, error = function(e) {
+          shiny::showNotification(
+            paste("Action failed:", conditionMessage(e)),
+            type = "error"
+          )
+          file_load_counter(file_load_counter() + 1L)
+        })
+        return()
+      }
+
+      # Handle edit_value name field — name sharing and field changes modals
+      if (action$type == "edit_value" && identical(action$field, "name")) {
+        tryCatch({
+          result <- apply_action(action)
+          send_values_update()
+        }, value_name_shared = function(e) {
+          escaped_old_name <- gsub("'", "\\\\'", action$name)
+          escaped_new_name <- gsub("'", "\\\\'", action$value)
+          escaped_state <- gsub("'", "\\\\'", action$state %||% "")
+          escaped_dest <- gsub("'", "\\\\'", action$destination %||% "")
+          shiny::showModal(shiny::modalDialog(
+            title = "Rename shared value",
+            shiny::tags$p(conditionMessage(e)),
+            footer = shiny::tagList(
+              shiny::modalButton("Cancel"),
+              shiny::actionButton("rename_value_single_btn", "Just This Row",
+                                  class = "btn-warning",
+                                  onclick = paste0(
+                                    "Shiny.setInputValue('model_action', ",
+                                    "{type: 'rename_value_single', name: '", escaped_old_name,
+                                    "', new_name: '", escaped_new_name,
+                                    "', state: '", escaped_state,
+                                    "', destination: '", escaped_dest, "'}, ",
+                                    "{priority: 'event'}); ",
+                                    "Shiny.onInputChange('close_modal', Math.random());"
+                                  )),
+              shiny::actionButton("rename_value_all_btn", "All Rows",
+                                  class = "btn-primary",
+                                  onclick = paste0(
+                                    "Shiny.setInputValue('model_action', ",
+                                    "{type: 'rename_value_all', name: '", escaped_old_name,
+                                    "', new_name: '", escaped_new_name,
+                                    "', state: '", escaped_state,
+                                    "', destination: '", escaped_dest, "'}, ",
+                                    "{priority: 'event'}); ",
+                                    "Shiny.onInputChange('close_modal', Math.random());"
+                                  ))
+            )
+          ))
+          send_values_update()
+        }, value_field_changes = function(e) {
+          escaped_name <- gsub("'", "\\\\'", action$name)
+          escaped_new_name <- gsub("'", "\\\\'", action$value)
+          escaped_state <- gsub("'", "\\\\'", action$state %||% "")
+          escaped_dest <- gsub("'", "\\\\'", action$destination %||% "")
+          shiny::showModal(shiny::modalDialog(
+            title = "Field changes",
+            shiny::tags$p(conditionMessage(e)),
+            footer = shiny::tagList(
+              shiny::modalButton("Cancel"),
+              shiny::actionButton("confirm_value_field_changes", "Proceed",
+                                  class = "btn-primary",
+                                  onclick = paste0(
+                                    "Shiny.setInputValue('model_action', ",
+                                    "{type: 'edit_value', name: '", escaped_name,
+                                    "', state: '", escaped_state,
+                                    "', destination: '", escaped_dest,
+                                    "', field: 'name', value: '", escaped_new_name,
+                                    "', error_on_name_sharing: false, error_on_field_changes: false}, ",
+                                    "{priority: 'event'}); ",
+                                    "Shiny.onInputChange('close_modal', Math.random());"
+                                  ))
+            )
+          ))
+          send_values_update()
+        }, error = function(e) {
+          shiny::showNotification(
+            paste("Action failed:", conditionMessage(e)),
+            type = "error"
+          )
+          file_load_counter(file_load_counter() + 1L)
+        })
+        return()
+      }
+
+      # Handle rename_value_single — catches field changes
+      if (action$type == "rename_value_single") {
+        tryCatch({
+          result <- apply_action(action)
+          send_values_update()
+        }, value_field_changes = function(e) {
+          escaped_name <- gsub("'", "\\\\'", action$name)
+          escaped_new_name <- gsub("'", "\\\\'", action$new_name)
+          escaped_state <- gsub("'", "\\\\'", action$state %||% "")
+          escaped_dest <- gsub("'", "\\\\'", action$destination %||% "")
+          shiny::showModal(shiny::modalDialog(
+            title = "Field changes",
+            shiny::tags$p(conditionMessage(e)),
+            footer = shiny::tagList(
+              shiny::modalButton("Cancel"),
+              shiny::actionButton("confirm_rename_value_field_changes", "Proceed",
+                                  class = "btn-primary",
+                                  onclick = paste0(
+                                    "Shiny.setInputValue('model_action', ",
+                                    "{type: 'edit_value', name: '", escaped_name,
+                                    "', state: '", escaped_state,
+                                    "', destination: '", escaped_dest,
+                                    "', field: 'name', value: '", escaped_new_name,
+                                    "', error_on_name_sharing: false, error_on_field_changes: false}, ",
+                                    "{priority: 'event'}); ",
+                                    "Shiny.onInputChange('close_modal', Math.random());"
+                                  ))
+            )
+          ))
+          send_values_update()
+        }, error = function(e) {
+          shiny::showNotification(
+            paste("Action failed:", conditionMessage(e)),
+            type = "error"
+          )
+          file_load_counter(file_load_counter() + 1L)
+        })
+        return()
+      }
+
+      # Handle remove_summary dependency errors with force confirmation
+      if (action$type == "remove_summary") {
+        tryCatch({
+          result <- apply_action(action)
+          file_load_counter(file_load_counter() + 1L)
+        }, summary_has_dependencies = function(e) {
+          escaped_name <- gsub("'", "\\\\'", action$name)
+          shiny::showModal(shiny::modalDialog(
+            title = "Summary has dependencies",
+            shiny::tags$p(conditionMessage(e)),
+            shiny::tags$p("Do you want to force remove this summary and all its dependencies?"),
+            footer = shiny::tagList(
+              shiny::modalButton("Cancel"),
+              shiny::actionButton("confirm_force_remove_summary", "Remove Anyway",
+                                  class = "btn-danger",
+                                  onclick = paste0(
+                                    "Shiny.setInputValue('model_action', ",
+                                    "{type: 'force_remove_summary', name: '", escaped_name, "'}, ",
+                                    "{priority: 'event'}); ",
+                                    "Shiny.onInputChange('close_modal', Math.random());"
+                                  ))
+            )
+          ))
+        }, error = function(e) {
+          shiny::showNotification(paste("Action failed:", conditionMessage(e)), type = "error")
+          file_load_counter(file_load_counter() + 1L)
+        })
+        return()
+      }
+
+      # Handle remove_state dependency errors with force confirmation
+      if (action$type == "remove_state") {
+        tryCatch({
+          result <- apply_action(action)
+          if (result$status == "noop") {
+            file_load_counter(file_load_counter() + 1L)
+          } else {
+            file_load_counter(file_load_counter() + 1L)
+          }
+        }, error = function(e) {
+          msg <- conditionMessage(e)
+          if (grepl("dependenc", msg, ignore.case = TRUE)) {
+            shiny::showModal(shiny::modalDialog(
+              title = "State has dependencies",
+              shiny::tags$p(msg),
+              shiny::tags$p("Do you want to force remove this state and all its dependencies?"),
+              footer = shiny::tagList(
+                shiny::modalButton("Cancel"),
+                shiny::actionButton("confirm_force_remove_state", "Force Remove",
+                                    class = "btn-danger",
+                                    onclick = paste0(
+                                      "Shiny.setInputValue('model_action', ",
+                                      "{type: 'force_remove_state', name: '",
+                                      gsub("'", "\\\\'", action$name), "'}, ",
+                                      "{priority: 'event'}); ",
+                                      "Shiny.onInputChange('close_modal', Math.random());"
+                                    ))
+              )
+            ))
+          } else {
+            shiny::showNotification(
+              paste("Action failed:", msg),
+              type = "error"
+            )
+            file_load_counter(file_load_counter() + 1L)
+          }
+        })
+        return()
+      }
+
       tryCatch({
-        apply_action(action)
-        if (action$type == "add_variable") {
+        result <- apply_action(action)
+        value_types <- c("add_value", "edit_value", "remove_value",
+                         "force_remove_value", "rename_value_single",
+                         "rename_value_all")
+        if (result$status == "noop") {
+          file_load_counter(file_load_counter() + 1L)
+        } else if (action$type %in% value_types) {
+          send_values_update()
+        } else if (action$type %in% c("add_variable", "add_state", "add_transition",
+                                        "force_remove_state", "remove_transition",
+                                        "add_summary", "edit_summary",
+                                        "force_remove_summary")) {
           file_load_counter(file_load_counter() + 1L)
         }
       }, error = function(e) {
@@ -664,10 +1432,12 @@ run_model_editor <- function(path = NULL) {
           paste("Action failed:", conditionMessage(e)),
           type = "error"
         )
-        if (action$type == "edit_variable") {
-          session$sendCustomMessage("variables_table_revert", list())
-        }
+        file_load_counter(file_load_counter() + 1L)
       })
+    })
+
+    shiny::observeEvent(input$close_modal, {
+      shiny::removeModal()
     })
 
     output$model_loaded <- shiny::reactive({
@@ -676,6 +1446,18 @@ run_model_editor <- function(path = NULL) {
     shiny::outputOptions(output, "model_loaded", suspendWhenHidden = FALSE)
 
     diffResultsServer("diff", shiny::reactive(original_model()), shiny::reactive(model()))
+
+    # --- Documentation tab ---
+    output$documentation_tab <- shiny::renderUI({
+      file_load_counter()
+      m <- shiny::isolate(model())
+      shiny::req(m)
+      tags$div(
+        class = "documentation-editor-container",
+        `data-input-id` = "model_action",
+        `data-initial` = m$documentation %||% ""
+      )
+    })
 
     # --- Settings tab ---
     output$settings_panel <- shiny::renderUI({
@@ -1102,12 +1884,24 @@ run_model_editor <- function(path = NULL) {
               return {};
             }
           });
+          var lastWidth = 0;
           var setHeight = function() {
             var h = window.innerHeight - el.getBoundingClientRect().top - 16;
             if (h > 50) hot.updateSettings({ height: h });
           };
-          requestAnimationFrame(setHeight);
-          window.addEventListener('resize', setHeight);
+          if (typeof ResizeObserver !== 'undefined') {
+            new ResizeObserver(function(entries) {
+              var w = entries[0].contentRect.width;
+              setHeight();
+              if (w !== lastWidth && w > 0) {
+                lastWidth = w;
+                hot.render();
+              }
+            }).observe(el);
+          } else {
+            requestAnimationFrame(setHeight);
+            window.addEventListener('resize', setHeight);
+          }
         }
       ")
     })
@@ -1310,6 +2104,7 @@ run_model_editor <- function(path = NULL) {
         ))
       }, error = function(e) {
         shiny::showNotification(paste("Save failed:", conditionMessage(e)), type = "error")
+        file_load_counter(file_load_counter() + 1L)
       })
     })
 
@@ -1408,6 +2203,7 @@ run_model_editor <- function(path = NULL) {
             ""
           }
         }
+        row[["_id"]] <- row$name
         row
       })
 
@@ -1420,7 +2216,7 @@ run_model_editor <- function(path = NULL) {
       terms <- get_model_terms(m, "variable")
       suggestions <- get_model_suggestions(m, "variable")
 
-      shiny::tags$div(
+      shiny::tagList(
         strategies_table_dependency(),
         add_strategy_modal_dependency(),
         formula_input_dependency(),
@@ -1537,9 +2333,11 @@ run_model_editor <- function(path = NULL) {
       }
 
       tryCatch({
-        apply_action(action)
-        if (action$type %in% c("add_strategy", "remove_strategy", "force_remove_strategy",
-                                "add_variable")) {
+        result <- apply_action(action)
+        if (result$status == "noop") {
+          file_load_counter(file_load_counter() + 1L)
+        } else if (action$type %in% c("add_strategy", "remove_strategy",
+                                        "force_remove_strategy", "add_variable")) {
           file_load_counter(file_load_counter() + 1L)
         }
       }, strategy_has_dependencies = function(e) {
@@ -1591,9 +2389,7 @@ run_model_editor <- function(path = NULL) {
           paste("Action failed:", conditionMessage(e)),
           type = "error"
         )
-        if (action$type %in% c("edit_strategy", "edit_variable")) {
-          session$sendCustomMessage("strategies_table_revert", list())
-        }
+        file_load_counter(file_load_counter() + 1L)
       })
     })
 
@@ -1705,23 +2501,159 @@ run_model_editor <- function(path = NULL) {
       m <- shiny::isolate(model())
       shiny::req(m)
       groups_df <- openqaly::get_groups(m)
-      initial_data <- lapply(seq_len(nrow(groups_df)), function(i) as.list(groups_df[i, ]))
-      shiny::tags$div(
+
+      # Get group-specific variables
+      vars_df <- openqaly::get_variables(m)
+      group_vars <- vars_df[!is.na(vars_df$group) & nzchar(vars_df$group), , drop = FALSE]
+      grp_var_names <- unique(group_vars$name)
+
+      # Build initial data with var__<varname> fields
+      initial_data <- lapply(seq_len(nrow(groups_df)), function(i) {
+        row <- as.list(groups_df[i, ])
+        grp_name <- row$name
+        for (vname in grp_var_names) {
+          match_idx <- which(group_vars$name == vname & group_vars$group == grp_name)
+          row[[paste0("var__", vname)]] <- if (length(match_idx) > 0) {
+            as.character(group_vars$formula[match_idx[1]])
+          } else {
+            ""
+          }
+        }
+        row[["_id"]] <- row$name
+        row
+      })
+
+      # Build var_columns metadata
+      var_columns <- lapply(grp_var_names, function(vname) {
+        dn <- group_vars$display_name[group_vars$name == vname][1]
+        if (is.na(dn) || !nzchar(dn)) dn <- vname
+        list(name = vname, display_name = dn)
+      })
+      terms <- get_model_terms(m, "variable")
+      suggestions <- get_model_suggestions(m, "variable")
+
+      shiny::tagList(
         groups_table_dependency(),
+        add_group_modal_dependency(),
+        formula_input_dependency(),
+        variables_table_dependency(),
         shiny::tags$div(
           class = "groups-table-container",
           `data-input-id` = "groups_action",
-          `data-initial` = jsonlite::toJSON(initial_data, auto_unbox = TRUE)
+          `data-initial` = jsonlite::toJSON(initial_data, auto_unbox = TRUE),
+          `data-var-columns` = jsonlite::toJSON(var_columns, auto_unbox = TRUE),
+          `data-terms` = jsonlite::toJSON(terms, auto_unbox = FALSE),
+          `data-suggestions` = jsonlite::toJSON(suggestions, auto_unbox = FALSE)
         )
       )
     })
 
+    # Reactive to track whether modal has group-specific vars
+    add_group_has_vars <- shiny::reactiveVal(FALSE)
+
     shiny::observeEvent(input$groups_action, {
       action <- input$groups_action
       shiny::req(action$type)
+
+      # Intercept modal trigger
+      if (action$type == "show_add_group_modal") {
+        m <- model()
+        shiny::req(m)
+
+        # Find group-specific variables
+        vars_df <- openqaly::get_variables(m)
+        group_vars <- vars_df[!is.na(vars_df$group) & nzchar(vars_df$group), , drop = FALSE]
+        grp_var_names <- unique(group_vars$name)
+        has_vars <- length(grp_var_names) > 0
+        add_group_has_vars(has_vars)
+
+        # Build modal content — 2-column grid for group fields
+        modal_body <- shiny::tagList(
+          shiny::tags$div(
+            class = "row",
+            shiny::tags$div(
+              class = "col-md-6",
+              shiny::textInput("add_group_name", "Name", value = "")
+            ),
+            shiny::tags$div(
+              class = "col-md-6",
+              shiny::textInput("add_group_display_name", "Display Name", value = "")
+            )
+          ),
+          shiny::tags$div(
+            class = "row",
+            shiny::tags$div(
+              class = "col-md-4",
+              shiny::textInput("add_group_description", "Description", value = "")
+            ),
+            shiny::tags$div(
+              class = "col-md-4",
+              shiny::textInput("add_group_weight", "Weight", value = "1")
+            ),
+            shiny::tags$div(
+              class = "col-md-4",
+              shiny::selectInput("add_group_enabled", "Enabled",
+                                 choices = c("Yes" = "1", "No" = "0"),
+                                 selected = "1")
+            )
+          )
+        )
+
+        if (has_vars) {
+          modal_body <- shiny::tagList(
+            modal_body,
+            shiny::tags$hr(),
+            shiny::tags$h5("Group-Specific Variables"),
+            shiny::tags$p(
+              class = "text-muted small",
+              "These variables have group-specific formulas. ",
+              "Enter formulas for the new group, or leave blank to skip."
+            ),
+            shiny::tags$div(id = "add-group-vars-container")
+          )
+        }
+
+        shiny::showModal(shiny::tags$div(
+          class = "add-group-modal",
+          shiny::modalDialog(
+            title = "Add Group",
+            modal_body,
+            size = "l",
+            footer = shiny::tagList(
+              shiny::modalButton("Cancel"),
+              shiny::actionButton("add_group_confirm", "Create Group",
+                                  class = "btn-primary")
+            )
+          )
+        ))
+
+        # Send variable data to JS for table initialization
+        if (has_vars) {
+          terms <- get_model_terms(m, "variable")
+          suggestions <- get_model_suggestions(m, "variable")
+
+          # Build initial rows: one per group-specific variable name
+          var_rows <- lapply(grp_var_names, function(vname) {
+            list(name = vname, display_name = "", description = "", formula = "")
+          })
+
+          session$sendCustomMessage("init_add_group_vars_table", list(
+            variables = var_rows,
+            terms_json = jsonlite::toJSON(terms, auto_unbox = FALSE),
+            suggestions_json = jsonlite::toJSON(suggestions, auto_unbox = FALSE)
+          ))
+        }
+
+        return()
+      }
+
       tryCatch({
-        apply_action(action)
-        if (action$type %in% c("add_group", "remove_group", "force_remove_group")) {
+        result <- apply_action(action)
+        if (result$status == "noop") {
+          file_load_counter(file_load_counter() + 1L)
+        } else if (action$type %in% c("add_group", "remove_group",
+                                        "force_remove_group", "add_variable",
+                                        "edit_variable")) {
           file_load_counter(file_load_counter() + 1L)
         }
       }, group_has_dependencies = function(e) {
@@ -1773,9 +2705,7 @@ run_model_editor <- function(path = NULL) {
           paste("Action failed:", conditionMessage(e)),
           type = "error"
         )
-        if (action$type == "edit_group") {
-          session$sendCustomMessage("groups_table_revert", list())
-        }
+        file_load_counter(file_load_counter() + 1L)
       })
     })
 
@@ -1794,6 +2724,171 @@ run_model_editor <- function(path = NULL) {
       })
     })
 
+    # --- Add Group modal confirm ---
+    shiny::observeEvent(input$add_group_confirm, {
+      name <- trimws(input$add_group_name %||% "")
+      if (!nzchar(name)) {
+        shiny::showNotification("Group name is required.", type = "error")
+        return()
+      }
+
+      if (add_group_has_vars()) {
+        # Ask JS to collect the table data; the vars handler below will finish
+        session$sendCustomMessage("collect_add_group_vars", list())
+        return()
+      }
+
+      # No group-specific vars — just add the group directly
+      tryCatch({
+        apply_action(list(
+          type = "add_group",
+          name = name,
+          display_name = trimws(input$add_group_display_name %||% ""),
+          description = trimws(input$add_group_description %||% ""),
+          weight = trimws(input$add_group_weight %||% "1"),
+          enabled = if (input$add_group_enabled == "0") 0 else 1
+        ))
+        file_load_counter(file_load_counter() + 1L)
+        shiny::removeModal()
+      }, error = function(e) {
+        shiny::showNotification(
+          paste("Failed to add group:", conditionMessage(e)),
+          type = "error"
+        )
+      })
+    })
+
+    # --- Add Group modal vars data handler (atomic batch) ---
+    shiny::observeEvent(input$add_group_modal_vars, {
+      name <- trimws(input$add_group_name %||% "")
+      if (!nzchar(name)) {
+        shiny::showNotification("Group name is required.", type = "error")
+        return()
+      }
+
+      var_rows <- input$add_group_modal_vars
+      old <- model()
+
+      tryCatch({
+        # Push history once for atomic undo
+        history$push(old)
+
+        # 1. Add the group
+        result <- dispatch_model_action(old, list(
+          type = "add_group",
+          name = name,
+          display_name = trimws(input$add_group_display_name %||% ""),
+          description = trimws(input$add_group_description %||% ""),
+          weight = trimws(input$add_group_weight %||% "1"),
+          enabled = if (input$add_group_enabled == "0") 0 else 1
+        ))
+
+        # 2. Add variable rows with non-empty formulas
+        for (row in var_rows) {
+          formula <- trimws(row$formula %||% "")
+          if (!nzchar(formula)) next
+          result <- dispatch_model_action(result, list(
+            type = "add_variable",
+            name = row$name,
+            formula = formula,
+            display_name = trimws(row$display_name %||% ""),
+            description = trimws(row$description %||% ""),
+            group = name
+          ))
+        }
+
+        model(result)
+        file_load_counter(file_load_counter() + 1L)
+        shiny::removeModal()
+      }, error = function(e) {
+        # Revert on any error — pop the history entry we just pushed
+        history$undo(old)
+        model(old)
+        shiny::showNotification(
+          paste("Failed to add group:", conditionMessage(e)),
+          type = "error"
+        )
+      })
+    })
+
+    # --- States tab ---
+    output$states_table <- shiny::renderUI({
+      file_load_counter()
+      m <- shiny::isolate(model())
+      shiny::req(m)
+      model_type <- openqaly::get_model_type(m)
+      if (model_type == "decision_tree") {
+        return(shiny::tags$p("Decision tree models do not use states."))
+      }
+      states_df <- m$states
+      initial_data <- lapply(seq_len(nrow(states_df)), function(i) {
+        row <- as.list(states_df[i, ])
+        # Convert logicals to Yes/No for JS
+        if (!is.null(row$share_state_time)) {
+          row$share_state_time <- if (isTRUE(row$share_state_time)) "Yes" else "No"
+        }
+        row[["_id"]] <- row$name
+        row
+      })
+      tag_args <- list(
+        class = "states-table-container",
+        `data-input-id` = "model_action",
+        `data-initial` = jsonlite::toJSON(initial_data, auto_unbox = TRUE),
+        `data-model-type` = model_type
+      )
+      deps <- list(states_table_dependency())
+      if (model_type == "markov") {
+        terms <- get_model_terms(m, "variable")
+        suggestions <- get_model_suggestions(m, "variable")
+        tag_args[["data-terms"]] <- jsonlite::toJSON(terms, auto_unbox = FALSE)
+        tag_args[["data-suggestions"]] <- jsonlite::toJSON(suggestions, auto_unbox = FALSE)
+        deps <- c(deps, list(formula_input_dependency()))
+      }
+      shiny::tagList(
+        deps,
+        rlang::inject(shiny::tags$div(!!!tag_args))
+      )
+    })
+
+    # --- Transitions tab ---
+    output$transitions_table <- shiny::renderUI({
+      file_load_counter()
+      m <- shiny::isolate(model())
+      shiny::req(m)
+      model_type <- openqaly::get_model_type(m)
+      if (model_type == "decision_tree") {
+        return(shiny::tags$p("Decision tree models do not use transitions."))
+      }
+      trans_df <- m$transitions
+      state_names <- m$states$name
+      terms <- get_model_terms(m, "variable")
+      suggestions <- get_model_suggestions(m, "variable")
+      initial_data <- lapply(seq_len(nrow(trans_df)), function(i) {
+        row <- as.list(trans_df[i, ])
+        if (model_type == "markov") {
+          row[["_id"]] <- paste(row$from_state, row$to_state, sep = "|")
+        } else if (model_type == "psm") {
+          row[["_id"]] <- row$endpoint
+        } else if (model_type == "custom_psm") {
+          row[["_id"]] <- row$state
+        }
+        row
+      })
+      shiny::tagList(
+        transitions_table_dependency(),
+        formula_input_dependency(),
+        shiny::tags$div(
+          class = "transitions-table-container",
+          `data-input-id` = "model_action",
+          `data-initial` = jsonlite::toJSON(initial_data, auto_unbox = TRUE),
+          `data-model-type` = model_type,
+          `data-state-names` = jsonlite::toJSON(state_names, auto_unbox = TRUE),
+          `data-terms` = jsonlite::toJSON(terms, auto_unbox = FALSE),
+          `data-suggestions` = jsonlite::toJSON(suggestions, auto_unbox = FALSE)
+        )
+      )
+    })
+
     output$variables_table <- shiny::renderUI({
       file_load_counter()
       m <- shiny::isolate(model())
@@ -1805,11 +2900,15 @@ run_model_editor <- function(path = NULL) {
       terms <- get_model_terms(m, "variable")
       suggestions <- get_model_suggestions(m, "variable")
 
-      initial_data <- lapply(seq_len(nrow(vars_df)), function(i) as.list(vars_df[i, ]))
+      initial_data <- lapply(seq_len(nrow(vars_df)), function(i) {
+        row <- as.list(vars_df[i, ])
+        row[["_id"]] <- paste(row$name, row$strategy %||% "", row$group %||% "", sep = "|")
+        row
+      })
       strategy_map <- stats::setNames(strategies$name, strategies$display_name)
       group_map <- stats::setNames(groups$name, groups$display_name)
 
-      shiny::tags$div(
+      shiny::tagList(
         variables_table_dependency(),
         formula_input_dependency(),
         shiny::tags$div(
@@ -1818,6 +2917,287 @@ run_model_editor <- function(path = NULL) {
           `data-initial` = jsonlite::toJSON(initial_data, auto_unbox = TRUE),
           `data-strategies` = jsonlite::toJSON(as.list(strategy_map), auto_unbox = TRUE),
           `data-groups` = jsonlite::toJSON(as.list(group_map), auto_unbox = TRUE),
+          `data-terms` = jsonlite::toJSON(terms, auto_unbox = FALSE),
+          `data-suggestions` = jsonlite::toJSON(suggestions, auto_unbox = FALSE)
+        )
+      )
+    })
+
+    # --- Values tab ---
+    output$values_table <- shiny::renderUI({
+      file_load_counter()
+      m <- shiny::isolate(model())
+      shiny::req(m)
+      model_type <- openqaly::get_model_type(m)
+
+      values_df <- openqaly::get_model_values(m)
+      terms <- get_model_terms(m, "variable")
+      suggestions <- get_model_suggestions(m, "variable")
+
+      initial_data <- lapply(seq_len(nrow(values_df)), function(i) {
+        row <- as.list(values_df[i, ])
+        # Ensure NA fields become empty strings for JS
+        for (nm in names(row)) {
+          if (is.na(row[[nm]])) row[[nm]] <- ""
+        }
+        # Convert formula to character
+        row$formula <- as.character(row$formula)
+        if ("discounting_override" %in% names(row)) {
+          row$discounting_override <- as.character(row$discounting_override)
+          if (row$discounting_override == "NA") row$discounting_override <- ""
+        }
+        row[["_id"]] <- paste(row$name, row$state, row$destination, sep = "|")
+        row
+      })
+
+      state_names <- if (model_type != "decision_tree") m$states$name else character(0)
+
+      shiny::tagList(
+        values_table_dependency(),
+        formula_input_dependency(),
+        shiny::tags$div(
+          class = "values-table-container",
+          `data-input-id` = "model_action",
+          `data-initial` = jsonlite::toJSON(initial_data, auto_unbox = TRUE),
+          `data-model-type` = model_type,
+          `data-state-names` = jsonlite::toJSON(state_names, auto_unbox = TRUE),
+          `data-terms` = jsonlite::toJSON(terms, auto_unbox = FALSE),
+          `data-suggestions` = jsonlite::toJSON(suggestions, auto_unbox = FALSE)
+        )
+      )
+    })
+
+    output$summaries_table <- shiny::renderUI({
+      file_load_counter()
+      m <- shiny::isolate(model())
+      shiny::req(m)
+
+      summaries_df <- m$summaries
+      if (is.null(summaries_df) || nrow(summaries_df) == 0) {
+        initial_data <- list()
+      } else {
+        initial_data <- lapply(seq_len(nrow(summaries_df)), function(i) {
+          row <- as.list(summaries_df[i, ])
+          for (nm in names(row)) {
+            if (is.na(row[[nm]])) row[[nm]] <- ""
+          }
+          row[["_id"]] <- row$name
+          row
+        })
+      }
+
+      values_df <- openqaly::get_model_values(m)
+      outcome_values <- unique(values_df$name[values_df$type == "outcome"])
+      cost_values <- unique(values_df$name[values_df$type == "cost"])
+
+      shiny::tagList(
+        summaries_table_dependency(),
+        shiny::tags$div(
+          class = "summaries-table-container",
+          `data-input-id` = "model_action",
+          `data-initial` = jsonlite::toJSON(initial_data, auto_unbox = TRUE),
+          `data-outcome-values` = jsonlite::toJSON(outcome_values, auto_unbox = FALSE),
+          `data-cost-values` = jsonlite::toJSON(cost_values, auto_unbox = FALSE)
+        )
+      )
+    })
+
+    # --- Decision Trees tab state ---
+    selected_tree <- shiny::reactiveVal(NULL)
+    tree_names_val <- shiny::reactiveVal(character(0))
+
+    shiny::observe({
+      m <- model()
+      shiny::req(m)
+      new_names <- openqaly::get_tree_names(m)
+      if (!identical(new_names, shiny::isolate(tree_names_val()))) {
+        tree_names_val(new_names)
+      }
+    })
+
+    shiny::observe({
+      m <- model()
+      shiny::req(m)
+      tnames <- openqaly::get_tree_names(m)
+      sel <- selected_tree()
+      if (is.null(sel) || !(sel %in% tnames)) {
+        selected_tree(if (length(tnames) > 0) tnames[1] else NULL)
+      }
+    })
+
+    shiny::observeEvent(input$trees_select_click, {
+      selected_tree(input$trees_select_click)
+    })
+
+    # Add Tree modal
+    shiny::observeEvent(input$trees_add_click, {
+      shiny::showModal(shiny::modalDialog(
+        title = "Add Tree",
+        shiny::textInput("trees_add_name", "Tree Name"),
+        footer = shiny::tagList(
+          shiny::modalButton("Cancel"),
+          shiny::actionButton("trees_add_confirm", "Create", class = "btn-primary")
+        )
+      ))
+    })
+
+    shiny::observeEvent(input$trees_add_confirm, {
+      name <- trimws(input$trees_add_name)
+      shiny::req(nzchar(name))
+      tryCatch({
+        apply_action(list(type = "add_tree_node", tree_name = name, node = "root"))
+        selected_tree(name)
+        shiny::removeModal()
+      }, error = function(e) {
+        shiny::showNotification(paste("Failed:", conditionMessage(e)), type = "error")
+      })
+    })
+
+    # Rename Tree modal
+    shiny::observeEvent(input$trees_edit_click, {
+      tname <- input$trees_edit_click
+      shiny::req(tname)
+      shiny::showModal(shiny::modalDialog(
+        title = "Rename Tree",
+        shiny::textInput("trees_edit_name", "Tree Name", value = tname),
+        footer = shiny::tagList(
+          shiny::modalButton("Cancel"),
+          shiny::actionButton("trees_edit_confirm", "Save", class = "btn-primary")
+        )
+      ))
+    })
+
+    shiny::observeEvent(input$trees_edit_confirm, {
+      old_name <- input$trees_edit_click
+      new_name <- trimws(input$trees_edit_name)
+      shiny::req(nzchar(new_name))
+      if (new_name != old_name) {
+        tryCatch({
+          m <- model()
+          trees_df <- openqaly::get_trees(m)
+          tree_nodes <- trees_df[trees_df$name == old_name, ]
+          apply_action(list(
+            type = "edit_tree_node", tree_name = old_name,
+            node = tree_nodes$node[1], field = "tree_name", value = new_name
+          ))
+          selected_tree(new_name)
+          shiny::removeModal()
+        }, error = function(e) {
+          shiny::showNotification(paste("Failed:", conditionMessage(e)), type = "error")
+        })
+      } else {
+        shiny::removeModal()
+      }
+    })
+
+    # Delete Tree
+    shiny::observeEvent(input$trees_delete_click, {
+      tname <- input$trees_delete_click
+      shiny::req(tname)
+      tryCatch({
+        apply_action(list(type = "remove_tree", tree_name = tname))
+      }, error = function(e) {
+        shiny::showNotification(paste("Failed:", conditionMessage(e)), type = "error")
+      })
+    })
+
+    # Toggle show/hide preview panel via custom message
+    shiny::observeEvent(input$trees_preview_on, {
+      session$sendCustomMessage("trees_toggle_preview",
+        list(show = isTRUE(input$trees_preview_on)))
+    })
+
+    # Tree preview plot
+    output$trees_preview_plot <- shiny::renderPlot({
+      shiny::req(isTRUE(input$trees_preview_on))
+      sel <- selected_tree()
+      m <- model()
+      shiny::req(m, sel)
+      openqaly::plot_decision_tree(m, tree_name = sel)
+    }, bg = "transparent")
+
+    # Trees sidebar
+    output$trees_sidebar <- shiny::renderUI({
+      tnames <- tree_names_val()
+      sel <- selected_tree()
+      sidebar_items <- lapply(tnames, function(tname) {
+        active_class <- if (identical(tname, sel)) " active" else ""
+        tags$div(
+          class = paste0("trees-sidebar-item", active_class),
+          onclick = sprintf(
+            "Shiny.setInputValue('trees_select_click', '%s', {priority: 'event'})",
+            gsub("'", "\\\\'", tname)
+          ),
+          tags$span(class = "tree-name", tname),
+          tags$div(
+            class = "tree-actions",
+            tags$button(
+              class = "btn", title = "Rename tree",
+              onclick = sprintf(
+                "event.stopPropagation(); Shiny.setInputValue('trees_edit_click', '%s', {priority: 'event'})",
+                gsub("'", "\\\\'", tname)
+              ),
+              shiny::icon("pencil")
+            ),
+            tags$button(
+              class = "btn", title = "Delete tree",
+              onclick = sprintf(
+                "event.stopPropagation(); Shiny.setInputValue('trees_delete_click', '%s', {priority: 'event'})",
+                gsub("'", "\\\\'", tname)
+              ),
+              shiny::icon("times")
+            )
+          )
+        )
+      })
+      tags$div(
+        class = "trees-sidebar",
+        shiny::actionButton("trees_add_click", "Add Tree",
+                            icon = shiny::icon("plus"),
+                            class = "btn-outline-primary btn-sm mb-2 w-100"),
+        sidebar_items
+      )
+    })
+
+    # Trees table (filtered to selected tree)
+    output$trees_table <- shiny::renderUI({
+      file_load_counter()
+      sel <- selected_tree()
+      m <- shiny::isolate(model())
+      shiny::req(m, sel)
+      trees_df <- openqaly::get_trees(m)
+      if (is.null(trees_df) || !is.data.frame(trees_df) || nrow(trees_df) == 0) {
+        tree_rows <- trees_df[0, ]
+      } else {
+        tree_rows <- trees_df[trees_df$name == sel, ]
+      }
+      if (is.null(tree_rows) || nrow(tree_rows) == 0) {
+        initial_data <- list()
+      } else {
+        initial_data <- lapply(seq_len(nrow(tree_rows)), function(i) {
+          row <- as.list(tree_rows[i, ])
+          for (nm in names(row)) {
+            val <- row[[nm]]
+            if (is.null(val) || length(val) == 0 || (length(val) == 1 && is.na(val))) {
+              row[[nm]] <- ""
+            }
+          }
+          row$formula <- as.character(row$formula)
+          row[["_id"]] <- paste(sel, row$node, sep = "|")
+          row$name <- NULL
+          row
+        })
+      }
+      terms <- get_model_terms(m, "variable")
+      suggestions <- get_model_suggestions(m, "variable")
+      shiny::tagList(
+        trees_table_dependency(),
+        formula_input_dependency(),
+        shiny::tags$div(
+          class = "trees-table-container",
+          `data-input-id` = "model_action",
+          `data-tree-name` = sel,
+          `data-initial` = jsonlite::toJSON(initial_data, auto_unbox = TRUE),
           `data-terms` = jsonlite::toJSON(terms, auto_unbox = FALSE),
           `data-suggestions` = jsonlite::toJSON(suggestions, auto_unbox = FALSE)
         )

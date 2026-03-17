@@ -1,34 +1,34 @@
-/* Add Strategy Modal — Variables table styles */
+/* Add Group Modal — Variables table styles */
 
 /* Make the modal 80% of the viewport */
-.add-strategy-modal .modal-dialog {
+.add-group-modal .modal-dialog {
   max-width: 80vw;
   width: 80vw;
 }
 
-.add-strategy-modal .modal-body {
+.add-group-modal .modal-body {
   max-height: 75vh;
   overflow-y: auto;
 }
 
-#add-strategy-vars-container {
+#add-group-vars-container {
   width: 100%;
   margin-bottom: 0.25rem;
   overflow-x: auto;
 }
 
 /* Match variables table row/cell sizing */
-#add-strategy-vars-container .tabulator-cell {
+#add-group-vars-container .tabulator-cell {
   font-size: 0.85rem;
   padding: 10px 6px;
 }
 
-#add-strategy-vars-container .tabulator-col-title {
+#add-group-vars-container .tabulator-col-title {
   font-size: 0.85rem;
 }
 
 /* Ensure formula overlay renders above Bootstrap modal (z-index ~1055) */
-.add-strategy-formula-overlay {
+.add-group-formula-overlay {
   z-index: 10600 !important;
 }
 

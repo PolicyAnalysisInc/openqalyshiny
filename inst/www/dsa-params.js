@@ -45,6 +45,19 @@
   // Helpers
   // =========================================================================
 
+  function relayout(table) {
+    var holder = table.element.querySelector(".tabulator-tableholder");
+    var scrollLeft = holder ? holder.scrollLeft : 0;
+    var scrollTop = holder ? holder.scrollTop : 0;
+    table.setData(table.getData());
+    if (holder) {
+      requestAnimationFrame(function() {
+        holder.scrollLeft = scrollLeft;
+        holder.scrollTop = scrollTop;
+      });
+    }
+  }
+
   // Reverse-lookup map: settings value -> display name
   function buildSettingsDisplayMap(settingsObj) {
     var map = {};
@@ -417,7 +430,7 @@
       {
         title: "Strategy",
         field: "strategy",
-        width: 110,
+        minWidth: 120,
         editor: "list",
         editorParams: function(cell) {
           var data = cell.getRow().getData();
@@ -470,7 +483,7 @@
       {
         title: "Group",
         field: "group",
-        width: 110,
+        minWidth: 120,
         editor: "list",
         editorParams: function(cell) {
           var data = cell.getRow().getData();
@@ -523,7 +536,7 @@
         title: "Low",
         field: "low",
         widthGrow: 1,
-        minWidth: 100,
+        minWidth: 450,
         editor: formulaEditor(terms, suggestions)
       },
 
@@ -532,7 +545,7 @@
         title: "High",
         field: "high",
         widthGrow: 1,
-        minWidth: 100,
+        minWidth: 450,
         editor: formulaEditor(terms, suggestions)
       },
 
@@ -552,8 +565,10 @@
           btn.textContent = "\u00d7";
           btn.addEventListener("click", function(e) {
             e.stopPropagation();
+            var tbl = cell.getTable();
             cell.getRow().delete();
-            syncToShiny(cell.getTable(), inputId);
+            relayout(tbl);
+            syncToShiny(tbl, inputId);
           });
           return btn;
         }
@@ -627,8 +642,9 @@
     var table = new Tabulator(containerDiv, {
       data: initialData,
       columns: columnDefs,
-      layout: "fitColumns",
-      height: "auto",
+      layout: "fitDataStretch",
+      layoutColumnsOnNewData: true,
+      height: "100%",
 
       // Cell range selection
       selectableRange: true,
@@ -734,6 +750,7 @@
       }
 
       syncToShiny(table, inputId);
+      relayout(table);
     });
 
     // Event: clipboard paste — sync pasted data to Shiny
@@ -774,6 +791,7 @@
         };
         applyTargetingDefaults(newRow, choices);
         table.addRow(newRow);
+        relayout(table);
         syncToShiny(table, inputId);
       });
     }

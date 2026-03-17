@@ -43,6 +43,19 @@
   // Helpers
   // =========================================================================
 
+  function relayout(table) {
+    var holder = table.element.querySelector(".tabulator-tableholder");
+    var scrollLeft = holder ? holder.scrollLeft : 0;
+    var scrollTop = holder ? holder.scrollTop : 0;
+    table.setData(table.getData());
+    if (holder) {
+      requestAnimationFrame(function() {
+        holder.scrollLeft = scrollLeft;
+        holder.scrollTop = scrollTop;
+      });
+    }
+  }
+
   function emdashIfEmpty(cell) {
     var val = cell.getValue();
     if (val === null || val === undefined || val === "") return "\u2014";
@@ -324,7 +337,7 @@
       {
         title: "Enabled",
         field: "enabled",
-        width: 80,
+        minWidth: 120,
         editor: "list",
         editorParams: {
           values: [
@@ -347,7 +360,7 @@
           title: varColumns[i].display_name || varColumns[i].name,
           field: "var__" + varColumns[i].name,
           widthGrow: 1,
-          minWidth: 120,
+          minWidth: 450,
           editor: fEditor,
           formatter: emdashIfEmpty
         });
@@ -359,6 +372,7 @@
       title: "",
       field: "_delete",
       width: 50,
+      widthGrow: 0,
       hozAlign: "center",
       headerSort: false,
       editor: false,
@@ -392,8 +406,6 @@
   // =========================================================================
 
   var _activeTables = {};
-  var _pendingEdit = null;
-
   function initGrid(containerDiv) {
     var inputId = containerDiv.dataset.inputId;
     if (!inputId) return;
@@ -421,13 +433,33 @@
     var columnDefs = buildColumnDefs(inputId, varColumns, terms, suggestions);
 
     var table = new Tabulator(containerDiv, {
+      index: "_id",
       data: initialData,
       columns: columnDefs,
       layout: "fitColumns",
-      height: "auto",
+      layoutColumnsOnNewData: true,
+      height: "100%",
+      selectableRange: true,
+      selectableRangeColumns: true,
+      selectableRangeRows: true,
+      selectableRangeClearCells: true,
       editTriggerEvent: "dblclick",
       headerSortClickElement: "icon"
     });
+
+    // Fix: redraw when tab becomes visible (container goes from 0 to non-zero width)
+    if (typeof ResizeObserver !== "undefined") {
+      var ro = new ResizeObserver(function(entries) {
+        for (var i = 0; i < entries.length; i++) {
+          if (entries[i].contentRect.width > 0) {
+            table.redraw(true);
+            ro.disconnect();
+            break;
+          }
+        }
+      });
+      ro.observe(containerDiv);
+    }
 
     _activeTables[inputId] = table;
 
@@ -449,10 +481,10 @@
     table.on("cellEdited", function(cell) {
       var field = cell.getField();
       var data = cell.getRow().getData();
-      if (cell.getOldValue() === cell.getValue()) return;
-
-      // Store pending edit for potential revert
-      _pendingEdit = { cell: cell };
+      if (cell.getOldValue() === cell.getValue()) {
+        relayout(table);
+        return;
+      }
 
       if (field.indexOf("var__") === 0) {
         // Variable formula edit
@@ -494,23 +526,13 @@
           }, { priority: "event" });
         }
       }
+
+      relayout(table);
     });
 
     containerDiv.setAttribute("data-initialized", "true");
   }
 
-  // =========================================================================
-  // Error revert handler
-  // =========================================================================
-
-  if (typeof Shiny !== "undefined") {
-    Shiny.addCustomMessageHandler("strategies_table_revert", function(msg) {
-      if (_pendingEdit && _pendingEdit.cell) {
-        try { _pendingEdit.cell.restoreOldValue(); } catch (e) {}
-      }
-      _pendingEdit = null;
-    });
-  }
 
   // =========================================================================
   // Lifecycle — listen for renderUI re-renders
