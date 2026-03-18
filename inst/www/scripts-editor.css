@@ -6,3 +6,56 @@
   min-height: 0;
   overflow: hidden;
 }
+
+/* Progress snackbar */
+.progress-snackbar {
+  position: fixed;
+  bottom: 1.5rem;
+  left: 50%;
+  transform: translateX(-50%) translateY(calc(100% + 2rem));
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  background: #323232;
+  color: #fff;
+  padding: 0.625rem 1rem;
+  border-radius: 0.5rem;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+  font-size: 0.875rem;
+  z-index: 9999;
+  opacity: 0;
+  transition: transform 0.3s ease, opacity 0.3s ease;
+  pointer-events: none;
+}
+
+.progress-snackbar.visible {
+  transform: translateX(-50%) translateY(0);
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.progress-snackbar-label {
+  white-space: nowrap;
+}
+
+.progress-snackbar-track {
+  width: 120px;
+  height: 6px;
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.progress-snackbar-fill {
+  height: 100%;
+  width: 0%;
+  background: #4dabf7;
+  border-radius: 3px;
+  transition: width 0.25s ease;
+}
+
+.progress-snackbar-pct {
+  min-width: 2.5em;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}

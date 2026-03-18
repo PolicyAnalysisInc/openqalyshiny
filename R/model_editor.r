@@ -487,6 +487,9 @@ dispatch_model_action <- function(model, action) {
     "set_documentation" = {
       openqaly::set_documentation(model, text = action$text)
     },
+    "set_override_categories" = {
+      openqaly::set_override_categories(model, action$categories)
+    },
     stop("Unknown action type: ", action$type)
   )
 }
@@ -914,6 +917,38 @@ run_model_editor <- function(path = NULL) {
           cursor: default;
           pointer-events: none;
         }
+        .app-bar-hamburger {
+          color: white;
+          background: transparent;
+          border: none;
+          font-size: 18px;
+          padding: 4px 8px;
+          margin-right: 8px;
+        }
+        .app-bar-hamburger:hover,
+        .app-bar-hamburger:focus {
+          color: white;
+          background: rgba(255,255,255,0.1);
+        }
+        .app-page-link.active {
+          font-weight: 600;
+          background-color: #e9ecef;
+        }
+        .app-page { display: none; }
+        .app-page.active {
+          display: flex;
+          flex-direction: column;
+          flex: 1 1 auto;
+          min-height: 0;
+        }
+        #page_diagnostics .bslib-card {
+          flex: 0 0 auto;
+        }
+        .results-page .bslib-sidebar-layout {
+          flex: 1 1 auto;
+          min-height: 0;
+          border: none;
+        }
       ")),
       tags$script(shiny::HTML("
         Shiny.addCustomMessageHandler('toggle_undo_redo', function(msg) {
@@ -922,6 +957,40 @@ run_model_editor <- function(path = NULL) {
           if (undo) undo.disabled = !msg.can_undo;
           if (redo) redo.disabled = !msg.can_redo;
         });
+        function switchAppPage(page) {
+          document.querySelectorAll('.app-page-link').forEach(function(btn) {
+            btn.classList.remove('active');
+          });
+          var active = document.querySelector('.app-page-link[data-page=\"' + page + '\"]');
+          if (active) active.classList.add('active');
+
+          document.querySelectorAll('.app-page').forEach(function(el) {
+            el.classList.remove('active');
+          });
+          var target = document.getElementById('page_' + page);
+          if (target) target.classList.add('active');
+
+          Shiny.setInputValue('active_page', page, {priority: 'event'});
+        }
+
+        Shiny.addCustomMessageHandler('editor_progress', function(data) {
+          var snackbar = document.getElementById('editor_progress_snackbar');
+          var bar = document.getElementById('editor_progress_bar');
+          var pct = document.getElementById('editor_progress_pct');
+          var msg = document.getElementById('editor_no_results_msg');
+          if (data.state === 'running') {
+            if (msg) msg.style.display = 'none';
+            if (bar) bar.style.width = data.pct + '%';
+            if (pct) pct.textContent = data.pct + '%';
+            if (snackbar) snackbar.classList.add('visible');
+          } else {
+            if (snackbar) snackbar.classList.remove('visible');
+            if (bar) bar.style.width = '0%';
+            if (pct) pct.textContent = '0%';
+            if (msg) msg.style.display = data.state === 'done' ? 'none' : 'block';
+          }
+        });
+
         Shiny.addCustomMessageHandler('trees_toggle_preview', function(msg) {
           var panel = document.querySelector('.trees-preview-panel');
           if (panel) {
@@ -937,6 +1006,43 @@ run_model_editor <- function(path = NULL) {
     ),
     tags$div(
       class = "app-bar",
+      tags$div(
+        class = "dropdown",
+        tags$button(
+          class = "btn app-bar-hamburger",
+          type = "button",
+          `data-bs-toggle` = "dropdown",
+          `aria-expanded` = "false",
+          shiny::icon("bars")
+        ),
+        tags$ul(
+          class = "dropdown-menu",
+          tags$li(
+            tags$button(
+              class = "dropdown-item app-page-link active",
+              `data-page` = "editor",
+              onclick = "switchAppPage('editor')",
+              "Editor"
+            )
+          ),
+          tags$li(
+            tags$button(
+              class = "dropdown-item app-page-link",
+              `data-page` = "results",
+              onclick = "switchAppPage('results')",
+              "Results"
+            )
+          ),
+          tags$li(
+            tags$button(
+              class = "dropdown-item app-page-link",
+              `data-page` = "diagnostics",
+              onclick = "switchAppPage('diagnostics')",
+              "Diagnostics"
+            )
+          )
+        )
+      ),
       tags$span(class = "app-bar-title", "Model Editor"),
       tags$div(
         class = "dropdown",
@@ -992,8 +1098,10 @@ run_model_editor <- function(path = NULL) {
     ),
     shiny::conditionalPanel(
       condition = "output.model_loaded",
+      # Editor page (existing editing tabs)
       tags$div(
-        class = "model-content",
+        id = "page_editor",
+        class = "app-page active model-content",
         bslib::navset_underline(
           bslib::nav_panel("Documentation", shiny::uiOutput("documentation_tab")),
           bslib::nav_panel("Tables",
@@ -1055,7 +1163,77 @@ run_model_editor <- function(path = NULL) {
           ),
           bslib::nav_panel("Model Diff", diffResultsUI("diff"))
         )
+      ),
+      # Results page
+      tags$div(
+        id = "page_results",
+        class = "app-page results-page",
+        style = "overflow: auto;",
+        bslib::layout_sidebar(
+          sidebar = bslib::sidebar(
+            id = "results_sidebar",
+            width = "33%",
+            shiny::uiOutput("results_override_panel")
+          ),
+          shiny::conditionalPanel(
+            condition = "!output.has_editor_results",
+            tags$div(
+              id = "editor_no_results_msg", class = "text-muted p-3",
+              "Run the model to see results."
+            )
+          ),
+          shiny::conditionalPanel(
+            condition = "output.has_editor_results",
+            bslib::navset_card_tab(
+              bslib::nav_panel("Trace", traceResultsUI("editor_trace")),
+              bslib::nav_panel("Outcomes", outcomesResultsUI("editor_outcomes")),
+              bslib::nav_panel("Costs", costsResultsUI("editor_costs")),
+              bslib::nav_panel("NMB", nmbResultsUI("editor_nmb")),
+              bslib::nav_panel("Pairwise CE", pairwiseCeResultsUI("editor_pairwise_ce")),
+              bslib::nav_panel("Incremental CE", incrementalCeResultsUI("editor_incremental_ce"))
+            )
+          )
+        )
+      ),
+      # Diagnostics page
+      tags$div(
+        id = "page_diagnostics",
+        class = "app-page results-page",
+        style = "overflow: auto;",
+        bslib::layout_sidebar(
+          sidebar = bslib::sidebar(
+            id = "diagnostics_sidebar",
+            width = "33%",
+            shiny::uiOutput("diagnostics_override_panel")
+          ),
+          shiny::conditionalPanel(
+            condition = "!output.has_editor_results",
+            tags$div(class = "text-muted p-3", "Run the model to see diagnostics.")
+          ),
+          shiny::conditionalPanel(
+            condition = "output.has_editor_results",
+            bslib::navset_card_tab(
+              bslib::nav_panel("Variables",
+                variableDiagnosticsUI("editor_variable_diagnostics")),
+              bslib::nav_panel("Decision Trees",
+                decisionTreeResultsUI("editor_decision_trees")),
+              bslib::nav_panel("Transitions",
+                transitionHeatmapUI("editor_transitions"))
+            )
+          )
+        )
       )
+    ),
+    # Progress snackbar
+    tags$div(
+      id = "editor_progress_snackbar",
+      class = "progress-snackbar",
+      tags$span(class = "progress-snackbar-label", "Running model..."),
+      tags$div(
+        class = "progress-snackbar-track",
+        tags$div(id = "editor_progress_bar", class = "progress-snackbar-fill")
+      ),
+      tags$span(id = "editor_progress_pct", class = "progress-snackbar-pct", "0%")
     )
   )
 
@@ -1446,6 +1624,224 @@ run_model_editor <- function(path = NULL) {
     shiny::outputOptions(output, "model_loaded", suspendWhenHidden = FALSE)
 
     diffResultsServer("diff", shiny::reactive(original_model()), shiny::reactive(model()))
+
+    # --- Results page ---
+    editor_results_rv <- shiny::reactiveValues(results = NULL, metadata = NULL)
+
+    output$results_override_panel <- shiny::renderUI({
+      m <- model()
+      if (is.null(m)) return(NULL)
+      cats <- openqaly::get_override_categories(m)
+      if (length(cats) == 0) {
+        return(htmltools::tagList(
+          override_input_dependency(),
+          override_manager_dependency(),
+          tags$div(class = "text-muted p-3",
+            tags$p("This model has no overrides."),
+            tags$button(
+              type = "button",
+              class = "override-manage-btn btn btn-outline-secondary btn-sm",
+              `data-input-id` = "editor_overrides",
+              "\u2699 Manage Overrides"
+            )
+          )
+        ))
+      }
+      overrideInput("editor_overrides", m)
+    })
+
+    overrideManagerServer("editor_overrides",
+      model = shiny::reactive(model()),
+      on_apply = function(new_cats) {
+        apply_action(list(type = "set_override_categories", categories = new_cats))
+      }
+    )
+
+    editor_override_values <- shiny::reactive({
+      m <- model()
+      if (is.null(m)) return(NULL)
+      cats <- openqaly::get_override_categories(m)
+      if (length(cats) == 0) return(NULL)
+      values <- list()
+      for (cat in cats) {
+        for (override in cat$overrides) {
+          input_id <- .build_override_id("editor_overrides", override)
+          val <- input[[input_id]]
+          if (!is.null(val)) {
+            values <- c(values, list(list(
+              name = override$name,
+              expression = as.character(val),
+              strategy = override$strategy %||% "",
+              group = override$group %||% ""
+            )))
+          }
+        }
+      }
+      values
+    })
+    editor_override_values_debounced <- shiny::debounce(editor_override_values, 1000)
+
+    build_editor_model <- function() {
+      m <- model()
+      vals <- editor_override_values_debounced()
+      if (is.null(m)) return(NULL)
+      if (!is.null(vals) && length(vals) > 0) {
+        m <- openqaly::set_override_expressions(m, vals)
+      }
+      m
+    }
+
+    # --- Async model run with progress reporting ---
+    run_state <- shiny::reactiveValues(
+      running = FALSE,
+      progress_file = NULL,
+      needs_rerun = FALSE,
+      last_error = FALSE
+    )
+    rerun_trigger <- shiny::reactiveVal(0L)
+
+    # Open the results sidebar when navigating to the results page
+    shiny::observeEvent(input$active_page, {
+      if (input$active_page == "results") {
+        bslib::toggle_sidebar("results_sidebar", open = TRUE)
+      }
+      if (input$active_page == "diagnostics") {
+        bslib::toggle_sidebar("diagnostics_sidebar", open = TRUE)
+      }
+    })
+
+    # Track whether we're on a run-eligible page using a reactiveVal.
+    # Only update when the boolean actually changes, so switching between
+    # results and diagnostics (both TRUE) does not re-trigger the observer.
+    on_run_page <- shiny::reactiveVal(FALSE)
+    shiny::observeEvent(input$active_page, {
+      is_run_page <- input$active_page %in% c("results", "diagnostics")
+      if (!identical(is_run_page, shiny::isolate(on_run_page()))) {
+        on_run_page(is_run_page)
+      }
+    })
+
+    # Main run observer
+    shiny::observe({
+      shiny::req(on_run_page())
+      m <- build_editor_model()
+      rerun_trigger()
+      shiny::req(m)
+
+      if (shiny::isolate(run_state$running)) {
+        run_state$needs_rerun <- TRUE
+        return(NULL)
+      }
+
+      pf <- create_progress_file()
+      run_state$running <- TRUE
+      run_state$progress_file <- pf
+      run_state$last_error <- FALSE
+      session$sendCustomMessage("editor_progress", list(state = "running", pct = 0))
+
+      p <- promises::future_promise({
+        cb <- make_file_progress_callback(pf)
+        openqaly::run_model(m, progress = cb)
+      }, seed = TRUE)
+
+      promises::then(p,
+        onFulfilled = function(res) {
+          editor_results_rv$results <- res
+          editor_results_rv$metadata <- res$metadata
+          session$sendCustomMessage("editor_progress", list(state = "done"))
+          run_state$running <- FALSE
+          unlink(pf)
+          run_state$progress_file <- NULL
+          if (run_state$needs_rerun) {
+            run_state$needs_rerun <- FALSE
+            rerun_trigger(shiny::isolate(rerun_trigger()) + 1L)
+          }
+        },
+        onRejected = function(err) {
+          editor_results_rv$results <- NULL
+          editor_results_rv$metadata <- NULL
+          run_state$last_error <- TRUE
+          session$sendCustomMessage("editor_progress", list(state = "error"))
+          shiny::showNotification(
+            paste("Model run failed:", conditionMessage(err)),
+            type = "error", duration = 10
+          )
+          run_state$running <- FALSE
+          unlink(pf)
+          run_state$progress_file <- NULL
+          if (run_state$needs_rerun) {
+            run_state$needs_rerun <- FALSE
+            rerun_trigger(shiny::isolate(rerun_trigger()) + 1L)
+          }
+        }
+      )
+
+      NULL
+    })
+
+    # Progress polling observer
+    shiny::observe({
+      shiny::req(run_state$running, run_state$progress_file)
+      shiny::invalidateLater(250)
+      prog <- read_file_progress(run_state$progress_file)
+      if (!is.null(prog) && prog$total > 0) {
+        session$sendCustomMessage("editor_progress", list(
+          state = "running",
+          pct = round(prog$pct * 100)
+        ))
+      }
+    })
+
+    # Clean up progress file on session end
+    shiny::onSessionEnded(function() {
+      pf <- shiny::isolate(run_state$progress_file)
+      if (!is.null(pf)) unlink(pf)
+    })
+
+    output$has_editor_results <- shiny::reactive(!is.null(editor_results_rv$results))
+    shiny::outputOptions(output, "has_editor_results", suspendWhenHidden = FALSE)
+
+    editor_results_reactive <- shiny::reactive(editor_results_rv$results)
+    editor_metadata_reactive <- shiny::reactive(editor_results_rv$metadata)
+
+    traceResultsServer("editor_trace", editor_results_reactive, editor_metadata_reactive)
+    outcomesResultsServer("editor_outcomes", editor_results_reactive, editor_metadata_reactive)
+    costsResultsServer("editor_costs", editor_results_reactive, editor_metadata_reactive)
+    nmbResultsServer("editor_nmb", editor_results_reactive, editor_metadata_reactive)
+    pairwiseCeResultsServer("editor_pairwise_ce", editor_results_reactive, editor_metadata_reactive)
+    incrementalCeResultsServer("editor_incremental_ce", editor_results_reactive, editor_metadata_reactive)
+
+    # --- Diagnostics page ---
+    output$diagnostics_override_panel <- shiny::renderUI({
+      m <- model()
+      if (is.null(m)) return(NULL)
+      cats <- openqaly::get_override_categories(m)
+      if (length(cats) == 0) {
+        return(htmltools::tagList(
+          override_input_dependency(),
+          override_manager_dependency(),
+          tags$div(class = "text-muted p-3",
+            tags$p("This model has no overrides."),
+            tags$button(
+              type = "button",
+              class = "override-manage-btn btn btn-outline-secondary btn-sm",
+              `data-input-id` = "editor_overrides",
+              "\u2699 Manage Overrides"
+            )
+          )
+        ))
+      }
+      overrideInput("editor_overrides", m)
+    })
+
+    variableDiagnosticsServer("editor_variable_diagnostics",
+      editor_results_reactive, editor_metadata_reactive)
+
+    decisionTreeResultsServer("editor_decision_trees",
+      editor_results_reactive, editor_metadata_reactive)
+
+    transitionHeatmapServer("editor_transitions",
+      editor_results_reactive, editor_metadata_reactive)
 
     # --- Documentation tab ---
     output$documentation_tab <- shiny::renderUI({
@@ -3217,5 +3613,8 @@ run_model_editor <- function(path = NULL) {
     })
   }
 
-  shiny::shinyApp(ui, server)
+  shiny::shinyApp(ui, server, onStart = function() {
+    old_plan <- future::plan(list(future::multisession, future::sequential))
+    shiny::onStop(function() future::plan(old_plan))
+  })
 }

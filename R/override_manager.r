@@ -23,8 +23,6 @@ overrideManagerServer <- function(id, model, on_apply) {
       m <- model()
       if (is.null(m)) return()
       categories <- openqaly::get_override_categories(m)
-      if (length(categories) == 0) return()
-
       # Build and show modal
       modal <- .build_manager_modal(ns, categories)
       shiny::showModal(modal)
