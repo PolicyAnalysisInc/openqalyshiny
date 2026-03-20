@@ -4,7 +4,7 @@
 \alias{overrideManagerServer}
 \title{Override Manager Server}
 \usage{
-overrideManagerServer(id, model, on_apply)
+overrideManagerServer(id, model, on_action)
 }
 \arguments{
 \item{id}{The module namespace ID. Must match the base input ID used by
@@ -13,8 +13,8 @@ the corresponding \code{\link{overrideInput}}.}
 \item{model}{A reactive expression returning an openqaly model object that
 contains \code{override_categories}.}
 
-\item{on_apply}{A callback function that receives the updated
-\code{override_categories} list when the user clicks Apply.}
+\item{on_action}{A callback function that receives an action list and returns
+the result of applying it (e.g., via \code{apply_action}).}
 }
 \value{
 Invisible NULL. Called for side effects.
@@ -22,5 +22,6 @@ Invisible NULL. Called for side effects.
 \description{
 Shiny module server that provides a full-screen modal for managing override
 categories and their overrides. Users can create, edit, delete, and reorder
-overrides via a Kanban-style drag-and-drop interface.
+overrides via a Kanban-style drag-and-drop interface. Each operation is
+dispatched individually through openqaly builder functions via \code{on_action}.
 }

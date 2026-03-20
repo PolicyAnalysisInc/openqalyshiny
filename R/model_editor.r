@@ -434,7 +434,7 @@ dispatch_model_action <- function(model, action) {
       openqaly::remove_summary(model, name = action$name, error_on_dependencies = FALSE)
     },
     "add_tree_node" = {
-      args <- list(model = model, name = action$tree_name, node = action$node)
+      args <- list(model = model, tree_name = action$tree_name, node = action$node)
       if (nzchar(action$parent %||% "")) args$parent <- action$parent
       if (nzchar(action$formula %||% "")) {
         args$formula <- rlang::parse_expr(action$formula)
@@ -443,7 +443,7 @@ dispatch_model_action <- function(model, action) {
       rlang::inject(openqaly::add_tree_node(!!!args))
     },
     "edit_tree_node" = {
-      args <- list(model = model, name = action$tree_name, node = action$node)
+      args <- list(model = model, tree_name = action$tree_name, node = action$node)
       field <- action$field
       value <- action$value
       if (field == "node") {
@@ -458,10 +458,10 @@ dispatch_model_action <- function(model, action) {
       rlang::inject(openqaly::edit_tree_node(!!!args))
     },
     "remove_tree_node" = {
-      openqaly::remove_tree_node(model, name = action$tree_name, node = action$node)
+      openqaly::remove_tree_node(model, tree_name = action$tree_name, node = action$node)
     },
     "remove_tree" = {
-      openqaly::remove_tree(model, name = action$tree_name)
+      openqaly::remove_tree(model, tree_name = action$tree_name)
     },
     "edit_decision_tree" = {
       args <- list(model = model)
@@ -472,7 +472,7 @@ dispatch_model_action <- function(model, action) {
       rlang::inject(openqaly::edit_decision_tree(!!!args))
     },
     "set_decision_tree" = {
-      args <- list(model = model, name = action$tree_name)
+      args <- list(model = model, tree_name = action$tree_name)
       if (nzchar(action$duration %||% "")) {
         args$duration <- rlang::parse_expr(action$duration)
       }
@@ -489,6 +489,72 @@ dispatch_model_action <- function(model, action) {
     },
     "set_override_categories" = {
       openqaly::set_override_categories(model, action$categories)
+    },
+    "add_override_category" = {
+      openqaly::add_override_category(
+        model, name = action$name, general = isTRUE(action$general)
+      )
+    },
+    "edit_override_category" = {
+      args <- list(model = model, name = action$name)
+      if (!is.null(action$new_name)) args$new_name <- action$new_name
+      if (!is.null(action$general)) args$general <- action$general
+      rlang::inject(openqaly::edit_override_category(!!!args))
+    },
+    "remove_override_category" = {
+      openqaly::remove_override_category(model, name = action$name)
+    },
+    "add_override" = {
+      args <- list(
+        model = model,
+        category = action$category,
+        title = action$title,
+        name = action$name,
+        type = action$override_type %||% "variable",
+        input_type = action$input_type %||% "numeric",
+        expression = action$expression %||% "0",
+        description = action$description,
+        strategy = action$strategy %||% "",
+        group = action$group %||% ""
+      )
+      if (!is.null(action$min)) args$min <- action$min
+      if (!is.null(action$max)) args$max <- action$max
+      if (!is.null(action$step_size)) args$step_size <- action$step_size
+      if (!is.null(action$options)) args$options <- action$options
+      rlang::inject(openqaly::add_override(!!!args))
+    },
+    "edit_override" = {
+      args <- list(
+        model = model,
+        category = action$category,
+        type = action$override_type,
+        name = action$name,
+        strategy = action$strategy %||% "",
+        group = action$group %||% ""
+      )
+      if (!is.null(action$new_type)) args$new_type <- action$new_type
+      if (!is.null(action$new_name)) args$new_name <- action$new_name
+      if (!is.null(action$new_strategy)) args$new_strategy <- action$new_strategy
+      if (!is.null(action$new_group)) args$new_group <- action$new_group
+      if (!is.null(action$title)) args$title <- action$title
+      if (!is.null(action$description)) args$description <- action$description
+      if (!is.null(action$expression)) args$expression <- action$expression
+      if (!is.null(action$input_type)) args$input_type <- action$input_type
+      if (!is.null(action$min)) args$min <- action$min
+      if (!is.null(action$max)) args$max <- action$max
+      if (!is.null(action$step_size)) args$step_size <- action$step_size
+      if (!is.null(action$options)) args$options <- action$options
+      rlang::inject(openqaly::edit_override(!!!args))
+    },
+    "remove_override" = {
+      openqaly::remove_override(
+        model,
+        category = action$category,
+        type = action$override_type,
+        name = action$name,
+        strategy = action$strategy %||% "",
+        group = action$group %||% ""
+      )
     },
     stop("Unknown action type: ", action$type)
   )
@@ -991,6 +1057,21 @@ run_model_editor <- function(path = NULL) {
           }
         });
 
+        Shiny.addCustomMessageHandler('dsa_progress', function(data) {
+          var snackbar = document.getElementById('dsa_progress_snackbar');
+          var bar = document.getElementById('dsa_progress_bar');
+          var pct = document.getElementById('dsa_progress_pct');
+          if (data.state === 'running') {
+            if (bar) bar.style.width = data.pct + '%';
+            if (pct) pct.textContent = data.pct + '%';
+            if (snackbar) snackbar.classList.add('visible');
+          } else {
+            if (snackbar) snackbar.classList.remove('visible');
+            if (bar) bar.style.width = '0%';
+            if (pct) pct.textContent = '0%';
+          }
+        });
+
         Shiny.addCustomMessageHandler('trees_toggle_preview', function(msg) {
           var panel = document.querySelector('.trees-preview-panel');
           if (panel) {
@@ -1028,6 +1109,14 @@ run_model_editor <- function(path = NULL) {
           tags$li(
             tags$button(
               class = "dropdown-item app-page-link",
+              `data-page` = "overrides",
+              onclick = "switchAppPage('overrides')",
+              "Overrides"
+            )
+          ),
+          tags$li(
+            tags$button(
+              class = "dropdown-item app-page-link",
               `data-page` = "results",
               onclick = "switchAppPage('results')",
               "Results"
@@ -1039,6 +1128,14 @@ run_model_editor <- function(path = NULL) {
               `data-page` = "diagnostics",
               onclick = "switchAppPage('diagnostics')",
               "Diagnostics"
+            )
+          ),
+          tags$li(
+            tags$button(
+              class = "dropdown-item app-page-link",
+              `data-page` = "dsa",
+              onclick = "switchAppPage('dsa')",
+              "DSA"
             )
           )
         )
@@ -1164,6 +1261,16 @@ run_model_editor <- function(path = NULL) {
           bslib::nav_panel("Model Diff", diffResultsUI("diff"))
         )
       ),
+      # Overrides page
+      tags$div(
+        id = "page_overrides",
+        class = "app-page",
+        style = "overflow: auto; padding: 16px;",
+        tags$div(
+          style = "max-width: 600px;",
+          shiny::uiOutput("override_panel")
+        )
+      ),
       # Results page
       tags$div(
         id = "page_results",
@@ -1172,8 +1279,13 @@ run_model_editor <- function(path = NULL) {
         bslib::layout_sidebar(
           sidebar = bslib::sidebar(
             id = "results_sidebar",
-            width = "33%",
-            shiny::uiOutput("results_override_panel")
+            width = "250px",
+            tags$button(
+              type = "button",
+              class = "btn btn-outline-secondary btn-sm w-100",
+              onclick = "switchAppPage('overrides')",
+              "Manage Overrides"
+            )
           ),
           shiny::conditionalPanel(
             condition = "!output.has_editor_results",
@@ -1203,8 +1315,13 @@ run_model_editor <- function(path = NULL) {
         bslib::layout_sidebar(
           sidebar = bslib::sidebar(
             id = "diagnostics_sidebar",
-            width = "33%",
-            shiny::uiOutput("diagnostics_override_panel")
+            width = "250px",
+            tags$button(
+              type = "button",
+              class = "btn btn-outline-secondary btn-sm w-100",
+              onclick = "switchAppPage('overrides')",
+              "Manage Overrides"
+            )
           ),
           shiny::conditionalPanel(
             condition = "!output.has_editor_results",
@@ -1222,6 +1339,34 @@ run_model_editor <- function(path = NULL) {
             )
           )
         )
+      ),
+      # DSA page
+      tags$div(
+        id = "page_dsa",
+        class = "app-page results-page",
+        style = "overflow: auto;",
+        bslib::layout_sidebar(
+          sidebar = bslib::sidebar(
+            id = "dsa_sidebar",
+            width = "250px",
+            tags$button(
+              type = "button",
+              class = "btn btn-outline-secondary btn-sm w-100",
+              onclick = "switchAppPage('overrides')",
+              "Manage Overrides"
+            )
+          ),
+          bslib::navset_card_tab(
+            bslib::nav_panel("DSA Inputs",
+              shiny::uiOutput("dsa_inputs_panel")
+            ),
+            bslib::nav_panel("Outcomes", dsaResultTabUI("editor_dsa_outcomes")),
+            bslib::nav_panel("Costs", dsaResultTabUI("editor_dsa_costs")),
+            bslib::nav_panel("NMB", dsaResultTabUI("editor_dsa_nmb")),
+            bslib::nav_panel("CE", dsaResultTabUI("editor_dsa_ce")),
+            bslib::nav_panel("VBP", dsaResultTabUI("editor_dsa_vbp"))
+          )
+        )
       )
     ),
     # Progress snackbar
@@ -1234,6 +1379,17 @@ run_model_editor <- function(path = NULL) {
         tags$div(id = "editor_progress_bar", class = "progress-snackbar-fill")
       ),
       tags$span(id = "editor_progress_pct", class = "progress-snackbar-pct", "0%")
+    ),
+    # DSA progress snackbar
+    tags$div(
+      id = "dsa_progress_snackbar",
+      class = "progress-snackbar",
+      tags$span(class = "progress-snackbar-label", "Running DSA..."),
+      tags$div(
+        class = "progress-snackbar-track",
+        tags$div(id = "dsa_progress_bar", class = "progress-snackbar-fill")
+      ),
+      tags$span(id = "dsa_progress_pct", class = "progress-snackbar-pct", "0%")
     )
   )
 
@@ -1628,7 +1784,7 @@ run_model_editor <- function(path = NULL) {
     # --- Results page ---
     editor_results_rv <- shiny::reactiveValues(results = NULL, metadata = NULL)
 
-    output$results_override_panel <- shiny::renderUI({
+    output$override_panel <- shiny::renderUI({
       m <- model()
       if (is.null(m)) return(NULL)
       cats <- openqaly::get_override_categories(m)
@@ -1652,8 +1808,8 @@ run_model_editor <- function(path = NULL) {
 
     overrideManagerServer("editor_overrides",
       model = shiny::reactive(model()),
-      on_apply = function(new_cats) {
-        apply_action(list(type = "set_override_categories", categories = new_cats))
+      on_action = function(action) {
+        apply_action(action)
       }
     )
 
@@ -1708,6 +1864,9 @@ run_model_editor <- function(path = NULL) {
       if (input$active_page == "diagnostics") {
         bslib::toggle_sidebar("diagnostics_sidebar", open = TRUE)
       }
+      if (input$active_page == "dsa") {
+        bslib::toggle_sidebar("dsa_sidebar", open = TRUE)
+      }
     })
 
     # Track whether we're on a run-eligible page using a reactiveVal.
@@ -1739,10 +1898,10 @@ run_model_editor <- function(path = NULL) {
       run_state$last_error <- FALSE
       session$sendCustomMessage("editor_progress", list(state = "running", pct = 0))
 
-      p <- promises::future_promise({
+      p <- suppressWarnings(promises::future_promise({
         cb <- make_file_progress_callback(pf)
         openqaly::run_model(m, progress = cb)
-      }, seed = TRUE)
+      }, seed = TRUE))
 
       promises::then(p,
         onFulfilled = function(res) {
@@ -1750,8 +1909,8 @@ run_model_editor <- function(path = NULL) {
           editor_results_rv$metadata <- res$metadata
           session$sendCustomMessage("editor_progress", list(state = "done"))
           run_state$running <- FALSE
-          unlink(pf)
           run_state$progress_file <- NULL
+          unlink(pf)
           if (run_state$needs_rerun) {
             run_state$needs_rerun <- FALSE
             rerun_trigger(shiny::isolate(rerun_trigger()) + 1L)
@@ -1767,8 +1926,8 @@ run_model_editor <- function(path = NULL) {
             type = "error", duration = 10
           )
           run_state$running <- FALSE
-          unlink(pf)
           run_state$progress_file <- NULL
+          unlink(pf)
           if (run_state$needs_rerun) {
             run_state$needs_rerun <- FALSE
             rerun_trigger(shiny::isolate(rerun_trigger()) + 1L)
@@ -1792,10 +1951,16 @@ run_model_editor <- function(path = NULL) {
       }
     })
 
-    # Clean up progress file on session end
+    # DSA reactive state (defined here so onSessionEnded can reference it)
+    dsa_results_rv <- shiny::reactiveValues(results = NULL, metadata = NULL)
+    dsa_run_state <- shiny::reactiveValues(running = FALSE, progress_file = NULL)
+
+    # Clean up progress files on session end
     shiny::onSessionEnded(function() {
       pf <- shiny::isolate(run_state$progress_file)
       if (!is.null(pf)) unlink(pf)
+      dpf <- shiny::isolate(dsa_run_state$progress_file)
+      if (!is.null(dpf)) unlink(dpf)
     })
 
     output$has_editor_results <- shiny::reactive(!is.null(editor_results_rv$results))
@@ -1812,28 +1977,6 @@ run_model_editor <- function(path = NULL) {
     incrementalCeResultsServer("editor_incremental_ce", editor_results_reactive, editor_metadata_reactive)
 
     # --- Diagnostics page ---
-    output$diagnostics_override_panel <- shiny::renderUI({
-      m <- model()
-      if (is.null(m)) return(NULL)
-      cats <- openqaly::get_override_categories(m)
-      if (length(cats) == 0) {
-        return(htmltools::tagList(
-          override_input_dependency(),
-          override_manager_dependency(),
-          tags$div(class = "text-muted p-3",
-            tags$p("This model has no overrides."),
-            tags$button(
-              type = "button",
-              class = "override-manage-btn btn btn-outline-secondary btn-sm",
-              `data-input-id` = "editor_overrides",
-              "\u2699 Manage Overrides"
-            )
-          )
-        ))
-      }
-      overrideInput("editor_overrides", m)
-    })
-
     variableDiagnosticsServer("editor_variable_diagnostics",
       editor_results_reactive, editor_metadata_reactive)
 
@@ -1842,6 +1985,223 @@ run_model_editor <- function(path = NULL) {
 
     transitionHeatmapServer("editor_transitions",
       editor_results_reactive, editor_metadata_reactive)
+
+    # --- DSA page ---
+    output$dsa_inputs_panel <- shiny::renderUI({
+      m <- model()
+      if (is.null(m)) {
+        return(tags$div(class = "text-muted p-3",
+          "Load a model first."
+        ))
+      }
+
+      var_choices <- openqaly::get_variable_names(m)
+      var_targeting <- openqaly::get_variable_targeting(m)
+
+      strategies_df <- openqaly::get_strategies(m)
+      strategy_choices <- if (nrow(strategies_df) > 0) {
+        setNames(strategies_df$name, strategies_df$display_name)
+      } else {
+        character(0)
+      }
+
+      groups_df <- openqaly::get_groups(m)
+      group_choices <- if (nrow(groups_df) > 0) {
+        c(
+          "Overall" = "overall",
+          "All (Overall + Groups)" = "all",
+          "All Groups" = "all_groups",
+          setNames(groups_df$name, groups_df$display_name)
+        )
+      } else {
+        character(0)
+      }
+      individual_groups <- group_choices[
+        !group_choices %in% c("overall", "all", "all_groups")
+      ]
+      setting_choices <- get_dsa_setting_choices()
+
+      param_table <- shiny::tags$div(
+        dsa_params_dependency(),
+        formula_input_dependency(),
+        shiny::tags$button(
+          type = "button",
+          class = "btn btn-sm btn-outline-secondary dsa-add-row-btn",
+          "+ Add Parameter"
+        ),
+        shiny::tags$div(
+          id = "dsa_params_grid",
+          class = "dsa-params-container",
+          `data-input-id` = "editor_dsa_params",
+          `data-variables` = jsonlite::toJSON(var_choices, auto_unbox = TRUE),
+          `data-settings` = jsonlite::toJSON(
+            as.list(setting_choices), auto_unbox = TRUE
+          ),
+          `data-strategies` = jsonlite::toJSON(
+            as.list(strategy_choices), auto_unbox = TRUE
+          ),
+          `data-groups` = jsonlite::toJSON(
+            as.list(individual_groups), auto_unbox = TRUE
+          ),
+          `data-variable-targeting` = jsonlite::toJSON(
+            var_targeting, auto_unbox = TRUE
+          ),
+          `data-initial` = "[]",
+          `data-terms` = jsonlite::toJSON(
+            get_model_terms(m, "dsa_bound"), auto_unbox = FALSE
+          ),
+          `data-suggestions` = jsonlite::toJSON(
+            get_model_suggestions(m, "dsa_bound"), auto_unbox = FALSE
+          )
+        )
+      )
+
+      vbp_config <- bslib::accordion(
+        bslib::accordion_panel(
+          "VBP Configuration (for DSA+VBP analysis)",
+          shiny::checkboxInput("editor_dsa_include_vbp", "Include VBP Analysis",
+            value = FALSE),
+          shiny::conditionalPanel(
+            condition = "input.editor_dsa_include_vbp == true",
+            shiny::selectInput("editor_dsa_vbp_price_variable", "Price Variable",
+              choices = get_variable_choices(m),
+              selected = NULL
+            ),
+            shiny::selectInput("editor_dsa_vbp_intervention", "Intervention Strategy",
+              choices = strategy_choices,
+              selected = if (length(strategy_choices) > 1) strategy_choices[2] else
+                if (length(strategy_choices) > 0) strategy_choices[1] else NULL
+            ),
+            shiny::selectInput("editor_dsa_vbp_outcome", "Outcome Summary",
+              choices = {
+                sdf <- m$summaries
+                if (!is.null(sdf) && nrow(sdf) > 0) {
+                  odf <- sdf[sdf$type == "outcome", , drop = FALSE]
+                  if (nrow(odf) > 0) setNames(odf$name, odf$display_name)
+                  else character(0)
+                } else character(0)
+              },
+              selected = NULL
+            ),
+            shiny::selectInput("editor_dsa_vbp_cost", "Cost Summary",
+              choices = {
+                sdf <- m$summaries
+                if (!is.null(sdf) && nrow(sdf) > 0) {
+                  cdf <- sdf[sdf$type == "cost", , drop = FALSE]
+                  if (nrow(cdf) > 0) setNames(cdf$name, cdf$display_name)
+                  else character(0)
+                } else character(0)
+              },
+              selected = NULL
+            )
+          )
+        ),
+        open = FALSE
+      )
+
+      shiny::tagList(
+        param_table,
+        vbp_config,
+        shiny::tags$button(
+          type = "button",
+          class = "btn btn-primary mt-2 w-100 dsa-run-btn",
+          "Run DSA Analysis"
+        )
+      )
+    })
+
+    shiny::observeEvent(input$run_dsa_action, {
+      params <- normalize_dsa_params(input$run_dsa_action$params)
+      if (length(params) == 0) {
+        params <- normalize_dsa_params(input$editor_dsa_params)
+      }
+      if (length(params) == 0) {
+        shiny::showNotification("Please add at least one parameter.",
+          type = "warning")
+        return()
+      }
+
+      m <- build_editor_model()
+      if (is.null(m)) {
+        shiny::showNotification("No model loaded.", type = "warning")
+        return()
+      }
+
+      m <- apply_dsa_params(m, params)
+
+      dsa_args <- list(m)
+      if (isTRUE(input$editor_dsa_include_vbp)) {
+        dsa_args$vbp_price_variable <- input$editor_dsa_vbp_price_variable
+        dsa_args$vbp_intervention <- input$editor_dsa_vbp_intervention
+        dsa_args$vbp_outcome_summary <- input$editor_dsa_vbp_outcome
+        dsa_args$vbp_cost_summary <- input$editor_dsa_vbp_cost
+      }
+
+      pf <- create_progress_file()
+      dsa_run_state$running <- TRUE
+      dsa_run_state$progress_file <- pf
+      session$sendCustomMessage("dsa_progress", list(state = "running", pct = 0))
+
+      dsa_args$progress <- make_file_progress_callback(pf)
+
+      p <- suppressWarnings(promises::future_promise({
+        do.call(openqaly::run_dsa, dsa_args)
+      }, seed = TRUE))
+
+      promises::then(p,
+        onFulfilled = function(res) {
+          dsa_results_rv$results <- res
+          dsa_results_rv$metadata <- res$metadata
+          session$sendCustomMessage("dsa_progress", list(state = "done"))
+          dsa_run_state$running <- FALSE
+          dsa_run_state$progress_file <- NULL
+          unlink(pf)
+          shiny::showNotification("DSA analysis complete.", type = "message")
+        },
+        onRejected = function(err) {
+          dsa_results_rv$results <- NULL
+          dsa_results_rv$metadata <- NULL
+          session$sendCustomMessage("dsa_progress", list(state = "error"))
+          dsa_run_state$running <- FALSE
+          dsa_run_state$progress_file <- NULL
+          unlink(pf)
+          shiny::showNotification(
+            paste("DSA analysis failed:", conditionMessage(err)),
+            type = "error", duration = 10
+          )
+        }
+      )
+
+      NULL
+    })
+
+    # DSA progress polling
+    shiny::observe({
+      shiny::req(dsa_run_state$running, dsa_run_state$progress_file)
+      shiny::invalidateLater(250)
+      prog <- read_file_progress(dsa_run_state$progress_file)
+      if (!is.null(prog) && prog$total > 0) {
+        session$sendCustomMessage("dsa_progress", list(
+          state = "running",
+          pct = round(prog$pct * 100)
+        ))
+      }
+    })
+
+    output$has_dsa_results <- shiny::reactive(!is.null(dsa_results_rv$results))
+    shiny::outputOptions(output, "has_dsa_results", suspendWhenHidden = FALSE)
+
+    dsa_results_reactive <- shiny::reactive(dsa_results_rv$results)
+    dsaResultTabServer("editor_dsa_outcomes", "outcomes",
+      dsa_results_reactive, editor_metadata_reactive)
+    dsaResultTabServer("editor_dsa_costs", "costs",
+      dsa_results_reactive, editor_metadata_reactive)
+    dsaResultTabServer("editor_dsa_nmb", "nmb",
+      dsa_results_reactive, editor_metadata_reactive)
+    dsaResultTabServer("editor_dsa_ce", "ce",
+      dsa_results_reactive, editor_metadata_reactive)
+    dsaResultTabServer("editor_dsa_vbp", "vbp",
+      dsa_results_reactive, editor_metadata_reactive)
 
     # --- Documentation tab ---
     output$documentation_tab <- shiny::renderUI({
@@ -1863,6 +2223,7 @@ run_model_editor <- function(path = NULL) {
 
       tags$div(
         class = "settings-form",
+        style = "overflow-y: auto; height: 100%; padding: 1px;",
         bslib::card(
           bslib::card_header("Model Settings"),
           bslib::card_body(
@@ -1904,9 +2265,96 @@ run_model_editor <- function(path = NULL) {
             shiny::numericInput("setting_days_per_year", "Days Per Year",
                                 value = s$days_per_year %||% 365.25, min = 1),
             shiny::checkboxInput("setting_reduce_state_cycle", "Reduce State Cycle",
-                                  value = s$reduce_state_cycle %||% FALSE)
+                                  value = s$reduce_state_cycle %||% FALSE),
+            bslib::layout_columns(
+              col_widths = c(6, 6),
+              shiny::selectInput("setting_country", "Country",
+                                  choices = c(
+                                    "United States (US)" = "US",
+                                    "United Kingdom (GB)" = "GB",
+                                    "Canada (CA)" = "CA",
+                                    "India (IN)" = "IN",
+                                    "Germany (DE)" = "DE",
+                                    "Switzerland (CH)" = "CH",
+                                    "France (FR)" = "FR",
+                                    "Italy (IT)" = "IT",
+                                    "Spain (ES)" = "ES",
+                                    "Mexico (MX)" = "MX",
+                                    "Netherlands (NL)" = "NL",
+                                    "Norway (NO)" = "NO",
+                                    "Sweden (SE)" = "SE",
+                                    "Denmark (DK)" = "DK",
+                                    "Finland (FI)" = "FI",
+                                    "Japan (JP)" = "JP",
+                                    "China (CN)" = "CN",
+                                    "South Korea (KR)" = "KR",
+                                    "Brazil (BR)" = "BR",
+                                    "Poland (PL)" = "PL",
+                                    "Czech Republic (CZ)" = "CZ",
+                                    "Hungary (HU)" = "HU",
+                                    "Russia (RU)" = "RU",
+                                    "Ukraine (UA)" = "UA",
+                                    "Israel (IL)" = "IL"
+                                  ),
+                                  selected = s$country %||% "US"),
+              shiny::selectInput("setting_number_country", "Number Country",
+                                  choices = c(
+                                    "Same as Country" = "",
+                                    "United States (US)" = "US",
+                                    "United Kingdom (GB)" = "GB",
+                                    "Canada (CA)" = "CA",
+                                    "India (IN)" = "IN",
+                                    "Germany (DE)" = "DE",
+                                    "Switzerland (CH)" = "CH",
+                                    "France (FR)" = "FR",
+                                    "Italy (IT)" = "IT",
+                                    "Spain (ES)" = "ES",
+                                    "Mexico (MX)" = "MX",
+                                    "Netherlands (NL)" = "NL",
+                                    "Norway (NO)" = "NO",
+                                    "Sweden (SE)" = "SE",
+                                    "Denmark (DK)" = "DK",
+                                    "Finland (FI)" = "FI",
+                                    "Japan (JP)" = "JP",
+                                    "China (CN)" = "CN",
+                                    "South Korea (KR)" = "KR",
+                                    "Brazil (BR)" = "BR",
+                                    "Poland (PL)" = "PL",
+                                    "Czech Republic (CZ)" = "CZ",
+                                    "Hungary (HU)" = "HU",
+                                    "Russia (RU)" = "RU",
+                                    "Ukraine (UA)" = "UA",
+                                    "Israel (IL)" = "IL"
+                                  ),
+                                  selected = s$number_country %||% "")
+            )
           )
-        )
+        ),
+        if (openqaly::get_model_type(m) != "decision_tree") {
+          tnames <- openqaly::get_tree_names(m)
+          tree_choices <- stats::setNames(tnames, tnames)
+          current_tree <- m$decision_tree$tree_name %||% ""
+          current_duration <- m$decision_tree$duration %||% ""
+          current_unit <- m$decision_tree$duration_unit %||% "days"
+          bslib::card(
+            bslib::card_header("Decision Tree"),
+            bslib::card_body(
+              shiny::selectInput("setting_dt_tree", "Active Tree",
+                                 choices = c("None" = "", tree_choices),
+                                 selected = current_tree),
+              bslib::layout_columns(
+                col_widths = c(6, 6),
+                shiny::textInput("setting_dt_duration", "Duration",
+                                 value = current_duration,
+                                 placeholder = "e.g. 30 or variable name"),
+                shiny::selectInput("setting_dt_duration_unit", "Duration Unit",
+                                   choices = c("Days" = "days", "Weeks" = "weeks",
+                                               "Months" = "months", "Years" = "years"),
+                                   selected = current_unit)
+              )
+            )
+          )
+        }
       )
     })
 
@@ -1925,6 +2373,8 @@ run_model_editor <- function(path = NULL) {
       shiny::freezeReactiveValue(input, "setting_half_cycle_method")
       shiny::freezeReactiveValue(input, "setting_days_per_year")
       shiny::freezeReactiveValue(input, "setting_reduce_state_cycle")
+      shiny::freezeReactiveValue(input, "setting_country")
+      shiny::freezeReactiveValue(input, "setting_number_country")
 
       shiny::updateNumericInput(session, "setting_timeframe",
                                 value = s$timeframe %||% 10)
@@ -1944,6 +2394,28 @@ run_model_editor <- function(path = NULL) {
                                 value = s$days_per_year %||% 365.25)
       shiny::updateCheckboxInput(session, "setting_reduce_state_cycle",
                                  value = s$reduce_state_cycle %||% FALSE)
+      shiny::updateSelectInput(session, "setting_country",
+                               selected = s$country %||% "US")
+      shiny::updateSelectInput(session, "setting_number_country",
+                               selected = s$number_country %||% "")
+
+      # Sync decision tree inputs (skip for standalone decision_tree models)
+      if (openqaly::get_model_type(m) != "decision_tree") {
+        tnames <- openqaly::get_tree_names(m)
+        tree_choices <- stats::setNames(tnames, tnames)
+
+        shiny::freezeReactiveValue(input, "setting_dt_tree")
+        shiny::freezeReactiveValue(input, "setting_dt_duration")
+        shiny::freezeReactiveValue(input, "setting_dt_duration_unit")
+
+        shiny::updateSelectInput(session, "setting_dt_tree",
+                                 choices = c("None" = "", tree_choices),
+                                 selected = m$decision_tree$tree_name %||% "")
+        shiny::updateTextInput(session, "setting_dt_duration",
+                               value = m$decision_tree$duration %||% "")
+        shiny::updateSelectInput(session, "setting_dt_duration_unit",
+                                 selected = m$decision_tree$duration_unit %||% "days")
+      }
     })
 
     # Setting observers - each dispatches set_settings with one setting
@@ -2042,6 +2514,80 @@ run_model_editor <- function(path = NULL) {
       if (identical(new_val, current)) return()
       tryCatch({
         apply_action(list(type = "set_settings", settings = list(reduce_state_cycle = new_val)))
+      }, error = function(e) {
+        shiny::showNotification(paste("Failed:", conditionMessage(e)), type = "error")
+      })
+    })
+
+    shiny::observeEvent(input$setting_country, {
+      new_val <- input$setting_country
+      current <- openqaly::get_settings(model())$country
+      if (identical(new_val, current)) return()
+      tryCatch({
+        apply_action(list(type = "set_settings", settings = list(country = new_val)))
+      }, error = function(e) {
+        shiny::showNotification(paste("Failed:", conditionMessage(e)), type = "error")
+      })
+    })
+
+    shiny::observeEvent(input$setting_number_country, {
+      new_val <- input$setting_number_country
+      current <- openqaly::get_settings(model())$number_country
+      setting_val <- if (nzchar(new_val)) new_val else NULL
+      if (identical(setting_val, current)) return()
+      tryCatch({
+        apply_action(list(type = "set_settings", settings = list(number_country = setting_val)))
+      }, error = function(e) {
+        shiny::showNotification(paste("Failed:", conditionMessage(e)), type = "error")
+      })
+    })
+
+    # Decision tree setting observers
+    shiny::observeEvent(input$setting_dt_tree, {
+      new_val <- input$setting_dt_tree
+      m <- model()
+      current <- m$decision_tree$tree_name %||% ""
+      if (identical(new_val, current)) return()
+      tryCatch({
+        if (!nzchar(new_val)) {
+          apply_action(list(type = "remove_decision_tree"))
+        } else {
+          dur <- m$decision_tree$duration %||% ""
+          dur_unit <- m$decision_tree$duration_unit %||% ""
+          apply_action(list(
+            type = "set_decision_tree",
+            tree_name = new_val,
+            duration = dur,
+            duration_unit = dur_unit
+          ))
+        }
+      }, error = function(e) {
+        shiny::showNotification(paste("Failed:", conditionMessage(e)), type = "error")
+      })
+    })
+
+    shiny::observeEvent(input$setting_dt_duration, {
+      new_val <- input$setting_dt_duration
+      m <- model()
+      shiny::req(m$decision_tree)
+      current <- m$decision_tree$duration %||% ""
+      if (identical(new_val, current)) return()
+      if (!nzchar(new_val)) return()
+      tryCatch({
+        apply_action(list(type = "edit_decision_tree", duration = new_val))
+      }, error = function(e) {
+        shiny::showNotification(paste("Failed:", conditionMessage(e)), type = "error")
+      })
+    })
+
+    shiny::observeEvent(input$setting_dt_duration_unit, {
+      new_val <- input$setting_dt_duration_unit
+      m <- model()
+      shiny::req(m$decision_tree)
+      current <- m$decision_tree$duration_unit %||% ""
+      if (identical(new_val, current)) return()
+      tryCatch({
+        apply_action(list(type = "edit_decision_tree", duration_unit = new_val))
       }, error = function(e) {
         shiny::showNotification(paste("Failed:", conditionMessage(e)), type = "error")
       })
@@ -3491,6 +4037,11 @@ run_model_editor <- function(path = NULL) {
       tname <- input$trees_delete_click
       shiny::req(tname)
       tryCatch({
+        m <- model()
+        # If the deleted tree is the active decision tree, remove it first
+        if (identical(m$decision_tree$tree_name, tname)) {
+          apply_action(list(type = "remove_decision_tree"))
+        }
         apply_action(list(type = "remove_tree", tree_name = tname))
       }, error = function(e) {
         shiny::showNotification(paste("Failed:", conditionMessage(e)), type = "error")
@@ -3614,7 +4165,11 @@ run_model_editor <- function(path = NULL) {
   }
 
   shiny::shinyApp(ui, server, onStart = function() {
-    old_plan <- future::plan(list(future::multisession, future::sequential))
+    n_cores <- future::availableCores()
+    old_plan <- future::plan(list(
+      future::tweak(future::multisession, workers = 2),
+      future::tweak(future::multisession, workers = I(max(1, n_cores - 2)))
+    ))
     shiny::onStop(function() future::plan(old_plan))
   })
 }

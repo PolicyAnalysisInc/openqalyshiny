@@ -392,3 +392,92 @@ strategies_table_dependency <- function() {
     all_files = FALSE
   )
 }
+
+#' Normalize DSA Parameters from Shiny Input
+#'
+#' Shiny/jsonlite can deserialize a JS array of objects as a data frame,
+#' a flat named list (single-element array), or a list of named character
+#' vectors. This function normalizes all cases to a list of proper R lists.
+#'
+#' @param params Raw DSA parameter input from Shiny.
+#'
+#' @return A list of lists, each representing one DSA parameter.
+#' @keywords internal
+normalize_dsa_params <- function(params) {
+  if (is.null(params) || length(params) == 0) return(list())
+  # Data frame -> split into one list per row
+  if (is.data.frame(params)) {
+    return(lapply(seq_len(nrow(params)), function(i) as.list(params[i, , drop = FALSE])))
+  }
+  # Named list with "type" key - could be a single param (scalars) or
+
+  # multiple params flattened column-wise (vectors of length > 1)
+  if (is.list(params) && !is.null(names(params)) && "type" %in% names(params)) {
+    if (length(params$type) > 1) {
+      # Column-wise list of vectors -> convert to row-wise list of lists
+      n <- length(params$type)
+      return(lapply(seq_len(n), function(i) {
+        lapply(params, function(col) col[[i]])
+      }))
+    }
+    return(list(as.list(params)))
+  }
+  # List of params - ensure each element is a proper list (not atomic vector)
+  if (is.list(params)) {
+    return(lapply(params, as.list))
+  }
+  # Named atomic vector (Shiny deserializes JS array of objects as a flat
+  # character vector with repeated names: type,name,...,type,name,...)
+  if (is.atomic(params) && !is.null(names(params)) && "type" %in% names(params)) {
+    type_idx <- which(names(params) == "type")
+    boundaries <- c(type_idx, length(params) + 1L)
+    return(lapply(seq_along(type_idx), function(i) {
+      as.list(params[boundaries[i]:(boundaries[i + 1L] - 1L)])
+    }))
+  }
+  # Other unexpected type - cannot normalize
+  list()
+}
+
+#' Apply DSA Parameters to a Model
+#'
+#' Takes a list of DSA parameter specifications and adds them to a model
+#' using \code{openqaly::add_dsa_variable} or \code{openqaly::add_dsa_setting}.
+#'
+#' @param model An openqaly model object.
+#' @param params A list of DSA parameter lists (as returned by
+#'   \code{normalize_dsa_params}).
+#'
+#' @return The model with DSA parameters added.
+#' @keywords internal
+apply_dsa_params <- function(model, params) {
+  params <- normalize_dsa_params(params)
+  for (p in params) {
+    if (is.null(p$low) || is.null(p$high) ||
+        nchar(trimws(p$low)) == 0 || nchar(trimws(p$high)) == 0) {
+      next
+    }
+    if (p$type == "variable") {
+      low_expr <- rlang::parse_expr(p$low)
+      high_expr <- rlang::parse_expr(p$high)
+      model <- rlang::inject(openqaly::add_dsa_variable(
+        model,
+        variable = p$name,
+        low = !!low_expr,
+        high = !!high_expr,
+        strategy = p$strategy %||% "",
+        group = p$group %||% "",
+        display_name = p$display_name
+      ))
+    } else {
+      model <- openqaly::add_dsa_setting(
+        model,
+        setting = p$name,
+        low = p$low,
+        high = p$high,
+        display_name = p$display_name
+      )
+    }
+  }
+  model
+}

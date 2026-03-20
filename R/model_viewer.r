@@ -163,8 +163,8 @@ modelViewerServer <- function(id, model = shiny::reactive(NULL)) {
     overrideManagerServer(
       "overrides",
       model = shiny::reactive(rv$model),
-      on_apply = function(new_cats) {
-        rv$model <- openqaly::set_override_categories(rv$model, new_cats)
+      on_action = function(action) {
+        rv$model <- dispatch_model_action(rv$model, action)
       }
     )
 

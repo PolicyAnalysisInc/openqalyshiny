@@ -2,33 +2,33 @@
 #'
 #' Shiny module server that provides a full-screen modal for managing override
 #' categories and their overrides. Users can create, edit, delete, and reorder
-#' overrides via a Kanban-style drag-and-drop interface.
+#' overrides via a Kanban-style drag-and-drop interface. Each operation is
+#' dispatched individually through openqaly builder functions via \code{on_action}.
 #'
 #' @param id The module namespace ID. Must match the base input ID used by
 #'   the corresponding \code{\link{overrideInput}}.
 #' @param model A reactive expression returning an openqaly model object that
 #'   contains \code{override_categories}.
-#' @param on_apply A callback function that receives the updated
-#'   \code{override_categories} list when the user clicks Apply.
+#' @param on_action A callback function that receives an action list and returns
+#'   the result of applying it (e.g., via \code{apply_action}).
 #'
 #' @return Invisible NULL. Called for side effects.
 #'
 #' @export
-overrideManagerServer <- function(id, model, on_apply) {
+overrideManagerServer <- function(id, model, on_action) {
   shiny::moduleServer(id, function(input, output, session) {
     ns <- session$ns
 
-    # Open modal when gear button is clicked
-    shiny::observeEvent(input$manage_click, {
-      m <- model()
-      if (is.null(m)) return()
-      categories <- openqaly::get_override_categories(m)
-      # Build and show modal
-      modal <- .build_manager_modal(ns, categories)
-      shiny::showModal(modal)
+    # Strip trailing dash from namespace prefix so JS can construct
+    # input IDs like "prefix-add_category" without double dashes
+    input_prefix <- sub("-$", "", ns(""))
 
-      # Send categories to JS for rendering
-      cat_data <- lapply(categories, function(cat) {
+    modal_open <- shiny::reactiveVal(FALSE)
+
+    # Helper: build category data for JS from model
+    .build_cat_data <- function(m) {
+      categories <- openqaly::get_override_categories(m)
+      lapply(categories, function(cat) {
         overrides <- lapply(cat$overrides, function(o) {
           list(
             name = o$name,
@@ -59,12 +59,10 @@ overrideManagerServer <- function(id, model, on_apply) {
           overrides = overrides
         )
       })
+    }
 
-      # Strip trailing dash from namespace prefix so JS can construct
-      # input IDs like "prefix-manager_state" without double dashes
-      input_prefix <- sub("-$", "", ns(""))
-
-      # Build model metadata for form dropdowns
+    # Helper: build model metadata for JS form dropdowns
+    .build_model_meta <- function(m) {
       overridable_settings <- c(
         "discount_cost", "discount_outcomes", "timeframe", "cycle_length"
       )
@@ -72,21 +70,40 @@ overrideManagerServer <- function(id, model, on_apply) {
         overridable_settings, names(openqaly::get_settings(m))
       )
 
-      # Build per-variable targeting info
       targeting <- openqaly::get_variable_targeting(m)
+      vars <- openqaly::get_variables(m)
+
       var_meta <- lapply(names(targeting), function(vname) {
+        rows <- vars[vars$name == vname, , drop = FALSE]
+        formulas <- list()
+        for (i in seq_len(nrow(rows))) {
+          strat_val <- rows$strategy[i]
+          grp_val <- rows$group[i]
+          if (is.null(strat_val) || is.na(strat_val)) strat_val <- ""
+          if (is.null(grp_val) || is.na(grp_val)) grp_val <- ""
+          key <- paste0(strat_val, "|", grp_val)
+          formulas[[key]] <- as.character(rows$formula[i])
+        }
         list(
           name = vname,
           strategies = as.list(targeting[[vname]]$strategies %||% character(0)),
-          groups = as.list(targeting[[vname]]$groups %||% character(0))
+          groups = as.list(targeting[[vname]]$groups %||% character(0)),
+          formulas = formulas
         )
       })
 
       strategies <- openqaly::get_strategies(m)
       groups <- openqaly::get_groups(m)
-      model_meta <- list(
+
+      settings <- openqaly::get_settings(m)
+      setting_values <- lapply(available_settings, function(s) {
+        list(name = s, value = as.character(settings[[s]]))
+      })
+
+      list(
         variables = var_meta,
         settings = available_settings,
+        setting_values = setting_values,
         strategies = if (nrow(strategies) > 0) {
           as.list(setNames(strategies$display_name, strategies$name))
         } else {
@@ -98,6 +115,37 @@ overrideManagerServer <- function(id, model, on_apply) {
           list()
         }
       )
+    }
+
+    # Helper: send error to JS
+    .send_error <- function(msg) {
+      session$sendCustomMessage("override-manager-error", list(
+        inputId = input_prefix,
+        message = msg
+      ))
+    }
+
+    # Helper: run an action via on_action with error handling
+    .run_action <- function(action) {
+      tryCatch({
+        on_action(action)
+      }, error = function(e) {
+        .send_error(conditionMessage(e))
+        NULL
+      })
+    }
+
+    # Open modal when gear button is clicked
+    shiny::observeEvent(input$manage_click, {
+      m <- model()
+      if (is.null(m)) return()
+      categories <- openqaly::get_override_categories(m)
+      modal <- .build_manager_modal(ns, categories)
+      shiny::showModal(modal)
+      modal_open(TRUE)
+
+      cat_data <- .build_cat_data(m)
+      model_meta <- .build_model_meta(m)
 
       session$sendCustomMessage("override-manager-init", list(
         inputId = input_prefix,
@@ -106,27 +154,124 @@ overrideManagerServer <- function(id, model, on_apply) {
       ))
     })
 
-    # Handle Apply
-    shiny::observeEvent(input$manager_state, {
-      raw_state <- input$manager_state
-      if (is.null(raw_state)) return()
-
-      tryCatch({
-        new_categories <- .parse_manager_state(raw_state)
-        on_apply(new_categories)
-        shiny::removeModal()
-      }, error = function(e) {
-        shiny::showNotification(
-          paste("Failed to apply changes:", conditionMessage(e)),
-          type = "error",
-          duration = 8
-        )
-      })
+    # Handle Close
+    shiny::observeEvent(input$manager_close, {
+      modal_open(FALSE)
+      shiny::removeModal()
     })
 
-    # Handle Cancel
-    shiny::observeEvent(input$manager_cancel, {
-      shiny::removeModal()
+    # Subscribe: whenever model changes while modal is open, send updated state
+    shiny::observe({
+      shiny::req(modal_open())
+      m <- model()
+      shiny::req(m)
+      cat_data <- .build_cat_data(m)
+      model_meta <- .build_model_meta(m)
+      session$sendCustomMessage("override-manager-update", list(
+        inputId = input_prefix,
+        categories = cat_data,
+        model_meta = model_meta
+      ))
+    })
+
+    # --- Individual operation observers ---
+
+    shiny::observeEvent(input$add_category, {
+      data <- input$add_category
+      .run_action(list(
+        type = "add_override_category",
+        name = data$name,
+        general = isTRUE(data$general)
+      ))
+    })
+
+    shiny::observeEvent(input$edit_category, {
+      data <- input$edit_category
+      action <- list(
+        type = "edit_override_category",
+        name = data$name
+      )
+      if (!is.null(data$new_name)) action$new_name <- data$new_name
+      if (!is.null(data$general)) action$general <- data$general
+      .run_action(action)
+    })
+
+    shiny::observeEvent(input$remove_category, {
+      data <- input$remove_category
+      .run_action(list(
+        type = "remove_override_category",
+        name = data$name
+      ))
+    })
+
+    shiny::observeEvent(input$add_override, {
+      data <- input$add_override
+      action <- list(
+        type = "add_override",
+        category = data$category,
+        title = data$title,
+        name = data$name,
+        override_type = data$override_type %||% "variable",
+        input_type = data$input_type %||% "numeric",
+        expression = data$expression %||% "0",
+        description = data$description %||% NULL,
+        strategy = data$strategy %||% "",
+        group = data$group %||% ""
+      )
+      if (!is.null(data$min)) action$min <- as.numeric(data$min)
+      if (!is.null(data$max)) action$max <- as.numeric(data$max)
+      if (!is.null(data$step_size)) action$step_size <- as.numeric(data$step_size)
+      if (!is.null(data$options)) action$options <- data$options
+      .run_action(action)
+    })
+
+    shiny::observeEvent(input$edit_override, {
+      data <- input$edit_override
+      action <- list(
+        type = "edit_override",
+        category = data$category,
+        override_type = data$override_type %||% "variable",
+        name = data$name,
+        strategy = data$strategy %||% "",
+        group = data$group %||% ""
+      )
+      if (!is.null(data$new_type)) action$new_type <- data$new_type
+      if (!is.null(data$new_name)) action$new_name <- data$new_name
+      if (!is.null(data$new_strategy)) action$new_strategy <- data$new_strategy
+      if (!is.null(data$new_group)) action$new_group <- data$new_group
+      if (!is.null(data$title)) action$title <- data$title
+      if (!is.null(data$description)) action$description <- data$description
+      if (!is.null(data$expression)) action$expression <- data$expression
+      if (!is.null(data$input_type)) action$input_type <- data$input_type
+      if (!is.null(data$min)) action$min <- as.numeric(data$min)
+      if (!is.null(data$max)) action$max <- as.numeric(data$max)
+      if (!is.null(data$step_size)) action$step_size <- as.numeric(data$step_size)
+      if (!is.null(data$options)) action$options <- data$options
+      .run_action(action)
+    })
+
+    shiny::observeEvent(input$remove_override, {
+      data <- input$remove_override
+      .run_action(list(
+        type = "remove_override",
+        category = data$category,
+        override_type = data$override_type %||% "variable",
+        name = data$name,
+        strategy = data$strategy %||% "",
+        group = data$group %||% ""
+      ))
+    })
+
+    # Reorder uses batch set_override_categories (no individual builder for reorder)
+    shiny::observeEvent(input$reorder_overrides, {
+      raw_state <- input$reorder_overrides
+      if (is.null(raw_state)) return()
+      tryCatch({
+        new_categories <- .parse_manager_state(raw_state)
+        on_action(list(type = "set_override_categories", categories = new_categories))
+      }, error = function(e) {
+        .send_error(conditionMessage(e))
+      })
     })
   })
 }
@@ -161,14 +306,8 @@ overrideManagerServer <- function(id, model, on_apply) {
       htmltools::tags$button(
         type = "button",
         class = "btn btn-secondary",
-        `data-action` = "manager-cancel",
-        "Cancel"
-      ),
-      htmltools::tags$button(
-        type = "button",
-        class = "btn btn-primary",
-        `data-action` = "manager-apply",
-        "Apply"
+        `data-action` = "manager-close",
+        "Close"
       )
     )
   )

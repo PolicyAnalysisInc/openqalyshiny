@@ -445,6 +445,30 @@
   margin-top: 2px;
 }
 
+/* Error banner at top of manager body */
+.override-manager-error-banner {
+  background-color: #f8d7da;
+  color: #842029;
+  border: 1px solid #f5c2c7;
+  border-radius: 6px;
+  padding: 8px 14px;
+  font-size: 13px;
+  margin-bottom: 8px;
+  flex-shrink: 0;
+  min-width: 100%;
+}
+
+/* Base case formula display */
+.override-manager-formula-display {
+  display: block;
+  padding: 4px 8px;
+  background: #f8f9fa;
+  border: 1px solid #dee2e6;
+  border-radius: 3px;
+  font-size: 12px;
+  word-break: break-all;
+}
+
 /* Modal footer */
 .override-manager-footer {
   display: flex;

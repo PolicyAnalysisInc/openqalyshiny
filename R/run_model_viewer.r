@@ -227,9 +227,9 @@ run_model_viewer <- function(model = NULL, model_dir = NULL, example = FALSE) {
     overrideManagerServer(
       "overrides",
       model = shiny::reactive(model_rv()),
-      on_apply = function(new_cats) {
+      on_action = function(action) {
         m <- model_rv()
-        m <- openqaly::set_override_categories(m, new_cats)
+        m <- dispatch_model_action(m, action)
         model_rv(m)
       }
     )
@@ -259,80 +259,6 @@ run_model_viewer <- function(model = NULL, model_dir = NULL, example = FALSE) {
     })
 
     override_values_debounced <- shiny::debounce(override_values, 1000)
-
-    # ---- Helper: normalize DSA params from Shiny input ----
-    # Shiny/jsonlite can deserialize a JS array of objects as:
-    #   - a data frame (simplifyDataFrame)
-    #   - a flat named list (single-element array)
-    #   - a list of named character vectors (instead of lists)
-    # Normalize all cases to a list of proper R lists.
-    normalize_dsa_params <- function(params) {
-      if (is.null(params) || length(params) == 0) return(list())
-      # Data frame → split into one list per row
-      if (is.data.frame(params)) {
-        return(lapply(seq_len(nrow(params)), function(i) as.list(params[i, , drop = FALSE])))
-      }
-      # Named list with "type" key — could be a single param (scalars) or
-      # multiple params flattened column-wise (vectors of length > 1)
-      if (is.list(params) && !is.null(names(params)) && "type" %in% names(params)) {
-        if (length(params$type) > 1) {
-          # Column-wise list of vectors → convert to row-wise list of lists
-          n <- length(params$type)
-          return(lapply(seq_len(n), function(i) {
-            lapply(params, function(col) col[[i]])
-          }))
-        }
-        return(list(as.list(params)))
-      }
-      # List of params — ensure each element is a proper list (not atomic vector)
-      if (is.list(params)) {
-        return(lapply(params, as.list))
-      }
-      # Named atomic vector (Shiny deserializes JS array of objects as a flat
-      # character vector with repeated names: type,name,...,type,name,...)
-      if (is.atomic(params) && !is.null(names(params)) && "type" %in% names(params)) {
-        type_idx <- which(names(params) == "type")
-        boundaries <- c(type_idx, length(params) + 1L)
-        return(lapply(seq_along(type_idx), function(i) {
-          as.list(params[boundaries[i]:(boundaries[i + 1L] - 1L)])
-        }))
-      }
-      # Other unexpected type — cannot normalize
-      list()
-    }
-
-    # ---- Helper: add DSA parameters to a model ----
-    apply_dsa_params <- function(model, params) {
-      params <- normalize_dsa_params(params)
-      for (p in params) {
-        if (is.null(p$low) || is.null(p$high) ||
-            nchar(trimws(p$low)) == 0 || nchar(trimws(p$high)) == 0) {
-          next
-        }
-        if (p$type == "variable") {
-          low_expr <- rlang::parse_expr(p$low)
-          high_expr <- rlang::parse_expr(p$high)
-          model <- rlang::inject(openqaly::add_dsa_variable(
-            model,
-            variable = p$name,
-            low = !!low_expr,
-            high = !!high_expr,
-            strategy = p$strategy %||% "",
-            group = p$group %||% "",
-            display_name = p$display_name
-          ))
-        } else {
-          model <- openqaly::add_dsa_setting(
-            model,
-            setting = p$name,
-            low = p$low,
-            high = p$high,
-            display_name = p$display_name
-          )
-        }
-      }
-      model
-    }
 
     # ---- Helper: build model with current overrides applied ----
     build_overridden_model <- function() {

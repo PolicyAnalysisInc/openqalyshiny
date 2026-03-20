@@ -3,7 +3,9 @@
 #' @return Path to the created temp file
 #' @keywords internal
 create_progress_file <- function() {
-  tempfile(fileext = ".progress")
+  pf <- tempfile(fileext = ".progress")
+  file.create(pf)
+  pf
 }
 
 #' Create a file-based progress callback for openqaly's progress parameter
@@ -31,8 +33,12 @@ make_file_progress_callback <- function(progress_file) {
 #' @return A list with total, completed, and pct (0-1)
 #' @keywords internal
 read_file_progress <- function(progress_file) {
+  if (!file.exists(progress_file)) {
+    return(list(total = 0L, completed = 0L, pct = 0))
+  }
   lines <- tryCatch(
     readLines(progress_file, warn = FALSE),
+    warning = function(w) character(0),
     error = function(e) character(0)
   )
   if (length(lines) == 0) {

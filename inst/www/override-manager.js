@@ -1,5 +1,5 @@
 // Override Manager - Kanban-style CRUD management for override categories
-// Manages all UI interactions in JavaScript; serializes state to R on Apply.
+// Each CRUD operation dispatches to R individually; JS re-renders from R state.
 
 (function() {
   "use strict";
@@ -44,6 +44,7 @@
     modelMeta: null,
     _nextId: 1,
     _sortables: [],
+    _editingState: null, // track in-progress edit form {categoryIndex, override, isNew}
 
     init: function(data) {
       console.log("[OverrideManager] init called");
@@ -53,6 +54,7 @@
         variables: [], settings: [], strategies: {}, groups: {}
       };
       this._nextId = 1;
+      this._editingState = null;
 
       for (var i = 0; i < this.categories.length; i++) {
         var cat = this.categories[i];
@@ -84,6 +86,26 @@
       findContainer();
     },
 
+    // Called when R sends updated state (reactive subscription)
+    update: function(data) {
+      console.log("[OverrideManager] update from R");
+      this.categories = JSON.parse(JSON.stringify(data.categories || []));
+      this.modelMeta = data.model_meta || this.modelMeta;
+      this._nextId = 1;
+
+      for (var i = 0; i < this.categories.length; i++) {
+        var cat = this.categories[i];
+        if (!cat.overrides) cat.overrides = [];
+        for (var j = 0; j < cat.overrides.length; j++) {
+          cat.overrides[j]._id = this._nextId++;
+        }
+      }
+
+      if (this.container) {
+        this._fullRender();
+      }
+    },
+
     _destroySortables: function() {
       for (var i = 0; i < this._sortables.length; i++) {
         this._sortables[i].destroy();
@@ -102,7 +124,7 @@
 
     render: function() {
       if (!this.container) return;
-      this.container.innerHTML = "";
+      this.container.textContent = "";
 
       for (var i = 0; i < this.categories.length; i++) {
         this.container.appendChild(this._buildColumn(this.categories[i], i));
@@ -111,9 +133,12 @@
       // Add Category button
       var addCol = document.createElement("div");
       addCol.className = "override-manager-add-column";
-      addCol.innerHTML =
-        '<button type="button" class="override-manager-add-column-btn" ' +
-        'data-action="add-category">+ Add Category</button>';
+      var addBtn = document.createElement("button");
+      addBtn.type = "button";
+      addBtn.className = "override-manager-add-column-btn";
+      addBtn.dataset.action = "add-category";
+      addBtn.textContent = "+ Add Category";
+      addCol.appendChild(addBtn);
       this.container.appendChild(addCol);
     },
 
@@ -133,9 +158,13 @@
 
       var actions = document.createElement("div");
       actions.className = "override-manager-column-actions";
-      actions.innerHTML =
-        '<button type="button" data-action="delete-category" data-category-index="' +
-        index + '" title="Delete category">&times;</button>';
+      var delBtn = document.createElement("button");
+      delBtn.type = "button";
+      delBtn.dataset.action = "delete-category";
+      delBtn.dataset.categoryIndex = index;
+      delBtn.title = "Delete category";
+      delBtn.textContent = "\u00D7";
+      actions.appendChild(delBtn);
 
       header.appendChild(title);
       header.appendChild(actions);
@@ -224,16 +253,27 @@
       menuBtn.className = "override-manager-card-menu-btn";
       menuBtn.dataset.action = "toggle-menu";
       menuBtn.dataset.overrideId = override._id;
-      menuBtn.innerHTML = "&#8230;";
+      menuBtn.textContent = "\u2026";
 
       var menu = document.createElement("div");
       menu.className = "override-manager-card-menu";
       menu.dataset.overrideId = override._id;
-      menu.innerHTML =
-        '<button type="button" data-action="edit-card" data-override-id="' +
-        override._id + '">Edit</button>' +
-        '<button type="button" class="danger" data-action="delete-card" data-override-id="' +
-        override._id + '">Delete</button>';
+
+      var editBtn = document.createElement("button");
+      editBtn.type = "button";
+      editBtn.dataset.action = "edit-card";
+      editBtn.dataset.overrideId = override._id;
+      editBtn.textContent = "Edit";
+
+      var deleteBtn = document.createElement("button");
+      deleteBtn.type = "button";
+      deleteBtn.className = "danger";
+      deleteBtn.dataset.action = "delete-card";
+      deleteBtn.dataset.overrideId = override._id;
+      deleteBtn.textContent = "Delete";
+
+      menu.appendChild(editBtn);
+      menu.appendChild(deleteBtn);
 
       top.appendChild(info);
       top.appendChild(menuBtn);
@@ -297,26 +337,145 @@
         });
       }
       this.categories = newCategories;
+
+      // Send reorder to R
+      Shiny.setInputValue(
+        this.inputId + "-reorder_overrides",
+        JSON.stringify(this.serialize()),
+        { priority: "event" }
+      );
+    },
+
+    // ---- Form validation ----
+
+    _clearFieldErrors: function(form) {
+      var errors = form.querySelectorAll(".override-manager-error");
+      for (var i = 0; i < errors.length; i++) errors[i].remove();
+      var inputs = form.querySelectorAll("input, select, textarea");
+      for (var j = 0; j < inputs.length; j++) inputs[j].style.borderColor = "";
+    },
+
+    _showFieldError: function(el, message) {
+      if (!el) return;
+      // Set red border on input/select elements
+      if (el.tagName === "INPUT" || el.tagName === "SELECT" || el.tagName === "TEXTAREA") {
+        el.style.borderColor = "#dc3545";
+      }
+      var parent = el.closest(".override-manager-field-group");
+      if (!parent) parent = el.parentNode;
+      var errDiv = document.createElement("div");
+      errDiv.className = "override-manager-error";
+      errDiv.textContent = message;
+      parent.appendChild(errDiv);
+    },
+
+    _validateCard: function(form, inputType) {
+      var valid = true;
+
+      // Title required
+      var titleEl = form.querySelector('[name="title"]');
+      if (titleEl && !titleEl.value.trim()) {
+        this._showFieldError(titleEl, "Title is required.");
+        valid = false;
+      }
+
+      // Numeric: default_value must parse as number if provided
+      if (inputType === "numeric") {
+        var defEl = form.querySelector('[name="default_value"]');
+        if (defEl && defEl.value.trim() !== "" && isNaN(parseFloat(defEl.value))) {
+          this._showFieldError(defEl, "Must be a valid number.");
+          valid = false;
+        }
+        var minEl = form.querySelector('[name="config_min"]');
+        var maxEl = form.querySelector('[name="config_max"]');
+        if (minEl && maxEl && minEl.value.trim() !== "" && maxEl.value.trim() !== "") {
+          if (parseFloat(minEl.value) >= parseFloat(maxEl.value)) {
+            this._showFieldError(maxEl, "Max must be greater than min.");
+            valid = false;
+          }
+        }
+      }
+
+      // Slider: min, max, step_size, default_value all required and valid
+      if (inputType === "slider") {
+        var sMinEl = form.querySelector('[name="config_min"]');
+        var sMaxEl = form.querySelector('[name="config_max"]');
+        var stepEl = form.querySelector('[name="config_step_size"]');
+        var sDefEl = form.querySelector('[name="default_value"]');
+
+        if (!sMinEl || sMinEl.value.trim() === "" || isNaN(parseFloat(sMinEl.value))) {
+          this._showFieldError(sMinEl, "Min is required and must be a number.");
+          valid = false;
+        }
+        if (!sMaxEl || sMaxEl.value.trim() === "" || isNaN(parseFloat(sMaxEl.value))) {
+          this._showFieldError(sMaxEl, "Max is required and must be a number.");
+          valid = false;
+        }
+        if (sMinEl && sMaxEl && sMinEl.value.trim() !== "" && sMaxEl.value.trim() !== "" &&
+            !isNaN(parseFloat(sMinEl.value)) && !isNaN(parseFloat(sMaxEl.value))) {
+          if (parseFloat(sMinEl.value) >= parseFloat(sMaxEl.value)) {
+            this._showFieldError(sMaxEl, "Max must be greater than min.");
+            valid = false;
+          }
+        }
+        if (!stepEl || stepEl.value.trim() === "" || isNaN(parseFloat(stepEl.value)) ||
+            parseFloat(stepEl.value) <= 0) {
+          this._showFieldError(stepEl, "Step size must be a positive number.");
+          valid = false;
+        }
+        if (!sDefEl || sDefEl.value.trim() === "" || isNaN(parseFloat(sDefEl.value))) {
+          this._showFieldError(sDefEl, "Default value is required and must be a number.");
+          valid = false;
+        } else if (sMinEl && sMaxEl &&
+                   !isNaN(parseFloat(sMinEl.value)) && !isNaN(parseFloat(sMaxEl.value))) {
+          var defVal = parseFloat(sDefEl.value);
+          if (defVal < parseFloat(sMinEl.value) || defVal > parseFloat(sMaxEl.value)) {
+            this._showFieldError(sDefEl, "Default must be between min and max.");
+            valid = false;
+          }
+        }
+      }
+
+      // Dropdown: at least 1 non-empty option
+      if (inputType === "dropdown") {
+        var optInputs = form.querySelectorAll('[name="config_option"]');
+        var hasOption = false;
+        for (var i = 0; i < optInputs.length; i++) {
+          if (optInputs[i].value.trim() !== "") { hasOption = true; break; }
+        }
+        if (!hasOption) {
+          var optContainer = form.querySelector(".override-manager-options-list");
+          if (optContainer) {
+            this._showFieldError(optContainer, "At least one option is required.");
+          }
+          valid = false;
+        }
+      }
+
+      // Timeframe: at least 1 checked unit
+      if (inputType === "timeframe") {
+        var checked = form.querySelectorAll('[name="config_unit"]:checked');
+        if (checked.length === 0) {
+          var unitContainer = form.querySelector(".override-manager-units-list");
+          if (unitContainer) {
+            this._showFieldError(unitContainer, "At least one unit must be selected.");
+          }
+          valid = false;
+        }
+      }
+
+      return valid;
     },
 
     // ---- CRUD operations ----
 
     addCategory: function() {
-      // Create a new empty column with inline rename
-      this.categories.push({
-        name: "New Category",
-        general: false,
-        overrides: []
-      });
-      this._fullRender();
-
-      // Trigger rename on the new column title
-      var cols = this.container.querySelectorAll(".override-manager-column");
-      var lastCol = cols[cols.length - 1];
-      if (lastCol) {
-        var titleEl = lastCol.querySelector(".override-manager-column-title");
-        if (titleEl) this.renameCategory(this.categories.length - 1, titleEl);
-      }
+      // Send to R -- do NOT update local state
+      Shiny.setInputValue(
+        this.inputId + "-add_category",
+        { name: "New Category", general: false },
+        { priority: "event" }
+      );
     },
 
     renameCategory: function(categoryIndex, titleEl) {
@@ -340,8 +499,17 @@
         if (committed) return;
         committed = true;
         var newName = input.value.trim();
-        if (newName) cat.name = newName;
-        self._fullRender();
+        if (newName && newName !== currentName) {
+          // Send rename to R
+          Shiny.setInputValue(
+            self.inputId + "-edit_category",
+            { name: currentName, new_name: newName },
+            { priority: "event" }
+          );
+        } else {
+          // No change -- just re-render
+          self._fullRender();
+        }
       };
 
       input.addEventListener("blur", commit);
@@ -361,8 +529,12 @@
       msg += "?";
       if (!confirm(msg)) return;
 
-      this.categories.splice(categoryIndex, 1);
-      this._fullRender();
+      // Send to R -- do NOT splice locally
+      Shiny.setInputValue(
+        this.inputId + "-remove_category",
+        { name: cat.name },
+        { priority: "event" }
+      );
     },
 
     editCard: function(overrideId) {
@@ -371,17 +543,36 @@
       );
       if (!cardEl) return;
       var override = JSON.parse(cardEl.dataset.override);
+
+      // Find which category this override belongs to
+      var catIndex = this._findCategoryIndex(overrideId);
+
+      this._editingState = {
+        categoryIndex: catIndex,
+        override: override,
+        isNew: false
+      };
+
       cardEl.classList.add("editing");
-      cardEl.innerHTML = this._buildEditForm(override);
+      this._renderEditForm(cardEl, override);
     },
 
     addCard: function(categoryIndex) {
+      // Show blank edit form inline -- local UI only, do NOT push to this.categories
       var newOverride = {
         _id: this._nextId++,
         name: "", title: "", description: "",
         type: "variable", strategy: "", group: "",
         input_type: "numeric", input_config: {}, default_value: ""
       };
+
+      this._editingState = {
+        categoryIndex: categoryIndex,
+        override: newOverride,
+        isNew: true
+      };
+
+      // Temporarily add to categories for rendering
       if (!this.categories[categoryIndex]) return;
       this.categories[categoryIndex].overrides.push(newOverride);
       this._fullRender();
@@ -391,294 +582,295 @@
       );
       if (cardEl) {
         cardEl.classList.add("editing");
-        cardEl.innerHTML = this._buildEditForm(newOverride);
+        this._renderEditForm(cardEl, newOverride);
       }
     },
 
-    saveCard: function(triggerEl) {
-      var cardEl = triggerEl.closest(".override-manager-card");
-      if (!cardEl) return;
-      var form = cardEl.querySelector(".override-manager-edit-form");
-      if (!form) return;
-
-      var overrideType = form.querySelector('[name="override_type"]').value;
-      var nameEl = form.querySelector('[name="name"]');
-      var name = nameEl.value.trim();
-      if (!name) {
-        nameEl.style.borderColor = "#dc3545";
-        nameEl.focus();
-        return;
-      }
-
-      var strategy = "";
-      var group = "";
-      var stratEl = form.querySelector('[name="strategy"]');
-      var grpEl = form.querySelector('[name="group"]');
-      if (stratEl) strategy = stratEl.value;
-      if (grpEl) group = grpEl.value;
-
-      // Duplicate validation
-      var override = JSON.parse(cardEl.dataset.override);
-      if (this._isDuplicateOverride(overrideType, name, strategy, group, override._id)) {
-        nameEl.style.borderColor = "#dc3545";
-        var errEl = form.querySelector(".override-manager-error");
-        if (!errEl) {
-          errEl = document.createElement("div");
-          errEl.className = "override-manager-error";
-          nameEl.parentNode.appendChild(errEl);
-        }
-        errEl.textContent = "This combination already exists.";
-        return;
-      }
-
-      override.type = overrideType;
-      override.name = name;
-      override.strategy = strategy;
-      override.group = group;
-      override.title = form.querySelector('[name="title"]').value.trim();
-      override.description = form.querySelector('[name="description"]').value.trim();
-      override.input_type = form.querySelector('[name="input_type"]').value;
-      override.default_value = form.querySelector('[name="default_value"]').value.trim();
-      override.input_config = this._readConfigFields(form, override.input_type);
-
-      cardEl.dataset.override = JSON.stringify(override);
-      this._updateOverrideInCategories(override);
-      this._fullRender();
+    _renderEditForm: function(cardEl, override) {
+      // Build the edit form using DOM methods
+      var form = this._buildEditFormDOM(override);
+      cardEl.textContent = "";
+      cardEl.appendChild(form);
     },
 
-    cancelCardEdit: function(triggerEl) {
-      var cardEl = triggerEl.closest(".override-manager-card");
-      if (!cardEl) return;
-      var override = JSON.parse(cardEl.dataset.override);
-      if (!override.name) this._removeOverrideFromCategories(override._id);
-      this._fullRender();
-    },
-
-    deleteCard: function(overrideId) {
-      this._removeOverrideFromCategories(overrideId);
-      this._fullRender();
-    },
-
-    serialize: function() {
-      var result = [];
-      for (var i = 0; i < this.categories.length; i++) {
-        var cat = this.categories[i];
-        var overrides = [];
-        for (var j = 0; j < (cat.overrides || []).length; j++) {
-          var o = cat.overrides[j];
-          overrides.push({
-            name: o.name,
-            title: o.title || null,
-            display_name: o.display_name || o.title || null,
-            description: o.description || null,
-            type: o.type || "variable",
-            strategy: o.strategy || "",
-            group: o.group || "",
-            input_type: o.input_type || "numeric",
-            input_config: o.input_config || {},
-            default_value: o.default_value || "",
-            overridden_expression: o.overridden_expression || null
-          });
-        }
-        result.push({ name: cat.name, general: cat.general || false, overrides: overrides });
-      }
-      return result;
-    },
-
-    apply: function() {
-      Shiny.setInputValue(
-        this.inputId + "-manager_state",
-        JSON.stringify(this.serialize()),
-        { priority: "event" }
-      );
-    },
-
-    cancel: function() {
-      Shiny.setInputValue(
-        this.inputId + "-manager_cancel",
-        Date.now(),
-        { priority: "event" }
-      );
-    },
-
-    // ---- Edit form helpers ----
-
-    _buildEditForm: function(override) {
+    _buildEditFormDOM: function(override) {
       var inputType = override.input_type || "numeric";
-      var configHtml = this._buildConfigFields(inputType, override.input_config || {});
       var oType = override.type || "variable";
       var meta = this.modelMeta || { variables: [], settings: [], strategies: {}, groups: {} };
+      var self = this;
 
-      // Build name dropdown using smart filtering
+      var form = document.createElement("div");
+      form.className = "override-manager-edit-form";
+
+      // Override Type field
+      var typeGroup = this._createFieldGroup("Override Type");
+      var typeSelect = document.createElement("select");
+      typeSelect.name = "override_type";
+      typeSelect.className = "override-manager-override-type";
+      this._addOption(typeSelect, "variable", "Variable", oType === "variable");
+      this._addOption(typeSelect, "setting", "Setting", oType === "setting");
+      typeGroup.appendChild(typeSelect);
+      form.appendChild(typeGroup);
+
+      // Name field
+      var nameGroup = this._createFieldGroup("Name");
+      var nameSelect = document.createElement("select");
+      nameSelect.name = "name";
+      nameSelect.className = "override-manager-name-select";
       var availableNames = this._getAvailableNames(oType, override._id);
-      // Ensure the current override's own name is included when editing
       if (override.name && availableNames.indexOf(override.name) === -1) {
         availableNames.unshift(override.name);
       }
-      var nameOptsHtml = '<option value="">-- Select --</option>';
+      this._addOption(nameSelect, "", "-- Select --", !override.name);
       for (var i = 0; i < availableNames.length; i++) {
-        nameOptsHtml += '<option value="' + this._esc(availableNames[i]) + '"' +
-          (availableNames[i] === override.name ? " selected" : "") + ">" +
-          this._esc(availableNames[i]) + "</option>";
+        this._addOption(nameSelect, availableNames[i], availableNames[i], availableNames[i] === override.name);
       }
+      nameGroup.appendChild(nameSelect);
+      form.appendChild(nameGroup);
 
-      // Build strategy/group dropdowns based on selected variable's metadata
-      var stratHtml = "";
-      var grpHtml = "";
+      // Base formula display (hidden by default)
+      var formulaGroup = document.createElement("div");
+      formulaGroup.className = "override-manager-field-group override-manager-base-formula";
+      formulaGroup.style.display = "none";
+      var formulaLabel = document.createElement("label");
+      formulaLabel.textContent = "Base Case";
+      var formulaCode = document.createElement("code");
+      formulaCode.className = "override-manager-formula-display";
+      formulaGroup.appendChild(formulaLabel);
+      formulaGroup.appendChild(formulaCode);
+      form.appendChild(formulaGroup);
+
+      // Strategy field
+      var stratGroup = document.createElement("div");
+      stratGroup.className = "override-manager-field-group override-manager-targeting override-manager-strategy-field";
+      var stratLabel = document.createElement("label");
+      stratLabel.textContent = "Strategy";
+      var stratSelect = document.createElement("select");
+      stratSelect.name = "strategy";
+      stratGroup.appendChild(stratLabel);
+      stratGroup.appendChild(stratSelect);
+
+      // Group field
+      var grpGroup = document.createElement("div");
+      grpGroup.className = "override-manager-field-group override-manager-targeting override-manager-group-field";
+      var grpLabel = document.createElement("label");
+      grpLabel.textContent = "Group";
+      var grpSelect = document.createElement("select");
+      grpSelect.name = "group";
+      grpGroup.appendChild(grpLabel);
+      grpGroup.appendChild(grpSelect);
+
+      // Populate strategy/group if applicable
       var showStrategy = false;
       var showGroup = false;
-
       if (oType === "variable" && override.name) {
         var vm = this._getVarMeta(override.name);
         if (vm) {
           var unclaimed = this._getUnclaimedTargets(override.name, override._id);
-
           if (vm.strategies && vm.strategies.length > 0) {
             showStrategy = true;
             var strats = unclaimed.strategies;
-            // Include current override's own strategy even if claimed
             if (override.strategy && strats.indexOf(override.strategy) === -1) {
               strats = [override.strategy].concat(strats);
             }
             for (var s = 0; s < strats.length; s++) {
-              stratHtml += '<option value="' + this._esc(strats[s]) + '"' +
-                (strats[s] === (override.strategy || "") ? " selected" : "") + ">" +
-                this._esc(meta.strategies[strats[s]] || strats[s]) + "</option>";
+              this._addOption(stratSelect, strats[s], meta.strategies[strats[s]] || strats[s], strats[s] === (override.strategy || ""));
             }
           }
-
           if (vm.groups && vm.groups.length > 0) {
             showGroup = true;
             var grps = unclaimed.groups;
-            // Include current override's own group even if claimed
             if (override.group && grps.indexOf(override.group) === -1) {
               grps = [override.group].concat(grps);
             }
             for (var g = 0; g < grps.length; g++) {
-              grpHtml += '<option value="' + this._esc(grps[g]) + '"' +
-                (grps[g] === (override.group || "") ? " selected" : "") + ">" +
-                this._esc(meta.groups[grps[g]] || grps[g]) + "</option>";
+              this._addOption(grpSelect, grps[g], meta.groups[grps[g]] || grps[g], grps[g] === (override.group || ""));
             }
           }
         }
       }
+      stratGroup.style.display = showStrategy ? "" : "none";
+      grpGroup.style.display = showGroup ? "" : "none";
 
-      var stratStyle = showStrategy ? "" : ' style="display:none"';
-      var grpStyle = showGroup ? "" : ' style="display:none"';
+      form.appendChild(stratGroup);
+      form.appendChild(grpGroup);
 
-      return (
-        '<div class="override-manager-edit-form">' +
-          '<div class="override-manager-field-group">' +
-            '<label>Override Type</label>' +
-            '<select name="override_type" class="override-manager-override-type">' +
-              '<option value="variable"' + (oType === "variable" ? " selected" : "") + '>Variable</option>' +
-              '<option value="setting"' + (oType === "setting" ? " selected" : "") + '>Setting</option>' +
-            "</select>" +
-          "</div>" +
-          '<div class="override-manager-field-group">' +
-            '<label>Name</label>' +
-            '<select name="name" class="override-manager-name-select">' + nameOptsHtml + "</select>" +
-          "</div>" +
-          '<div class="override-manager-field-group override-manager-targeting override-manager-strategy-field"' + stratStyle + '>' +
-            '<label>Strategy</label>' +
-            '<select name="strategy">' + stratHtml + "</select>" +
-          "</div>" +
-          '<div class="override-manager-field-group override-manager-targeting override-manager-group-field"' + grpStyle + '>' +
-            '<label>Group</label>' +
-            '<select name="group">' + grpHtml + "</select>" +
-          "</div>" +
-          '<div class="override-manager-field-group">' +
-            '<label>Title</label>' +
-            '<input type="text" name="title" value="' + this._esc(override.title || "") +
-            '" placeholder="Display title" />' +
-          "</div>" +
-          '<div class="override-manager-field-group">' +
-            '<label>Description</label>' +
-            '<textarea name="description" placeholder="Optional description">' +
-            this._esc(override.description || "") + "</textarea>" +
-          "</div>" +
-          '<div class="override-manager-field-group">' +
-            '<label>Input Type</label>' +
-            '<select name="input_type" class="override-manager-input-type">' +
-              this._opt("numeric", inputType) +
-              this._opt("slider", inputType) +
-              this._opt("dropdown", inputType) +
-              this._opt("formula", inputType) +
-              this._opt("timeframe", inputType) +
-            "</select>" +
-          "</div>" +
-          '<div class="override-manager-field-group">' +
-            '<label>Default Value</label>' +
-            '<input type="text" name="default_value" value="' +
-            this._esc(override.default_value != null ? String(override.default_value) : "") +
-            '" placeholder="Default value or expression" />' +
-          "</div>" +
-          '<div class="override-manager-config-fields">' + configHtml + "</div>" +
-          '<div class="override-manager-edit-actions">' +
-            '<button type="button" class="btn-cancel" data-action="cancel-card-edit">Cancel</button>' +
-            '<button type="button" class="btn-save" data-action="save-card">Save</button>' +
-          "</div>" +
-        "</div>"
-      );
+      // Title field
+      var titleGroup = this._createFieldGroup("Title");
+      var titleInput = document.createElement("input");
+      titleInput.type = "text";
+      titleInput.name = "title";
+      titleInput.value = override.title || "";
+      titleInput.placeholder = "Display title";
+      titleGroup.appendChild(titleInput);
+      form.appendChild(titleGroup);
+
+      // Description field
+      var descGroup = this._createFieldGroup("Description");
+      var descArea = document.createElement("textarea");
+      descArea.name = "description";
+      descArea.placeholder = "Optional description";
+      descArea.textContent = override.description || "";
+      descGroup.appendChild(descArea);
+      form.appendChild(descGroup);
+
+      // Input Type field
+      var itGroup = this._createFieldGroup("Input Type");
+      var itSelect = document.createElement("select");
+      itSelect.name = "input_type";
+      itSelect.className = "override-manager-input-type";
+      var inputTypes = ["numeric", "slider", "dropdown", "formula", "timeframe"];
+      for (var t = 0; t < inputTypes.length; t++) {
+        this._addOption(itSelect, inputTypes[t], inputTypes[t].charAt(0).toUpperCase() + inputTypes[t].slice(1), inputTypes[t] === inputType);
+      }
+      itGroup.appendChild(itSelect);
+      form.appendChild(itGroup);
+
+      // Default Value field
+      var dvGroup = this._createFieldGroup("Default Value");
+      var dvInput = document.createElement("input");
+      dvInput.type = "text";
+      dvInput.name = "default_value";
+      dvInput.value = override.default_value != null ? String(override.default_value) : "";
+      dvInput.placeholder = "Default value or expression";
+      dvGroup.appendChild(dvInput);
+      form.appendChild(dvGroup);
+
+      // Config fields container
+      var configDiv = document.createElement("div");
+      configDiv.className = "override-manager-config-fields";
+      this._buildConfigFieldsDOM(configDiv, inputType, override.input_config || {});
+      form.appendChild(configDiv);
+
+      // Action buttons
+      var actionsDiv = document.createElement("div");
+      actionsDiv.className = "override-manager-edit-actions";
+      var cancelBtn = document.createElement("button");
+      cancelBtn.type = "button";
+      cancelBtn.className = "btn-cancel";
+      cancelBtn.dataset.action = "cancel-card-edit";
+      cancelBtn.textContent = "Cancel";
+      var saveBtn = document.createElement("button");
+      saveBtn.type = "button";
+      saveBtn.className = "btn-save";
+      saveBtn.dataset.action = "save-card";
+      saveBtn.textContent = "Save";
+      actionsDiv.appendChild(cancelBtn);
+      actionsDiv.appendChild(saveBtn);
+      form.appendChild(actionsDiv);
+
+      // Update base formula after building the form
+      setTimeout(function() { self._updateBaseFormula(form); }, 0);
+
+      return form;
     },
 
-    _opt: function(value, selected) {
-      var label = value.charAt(0).toUpperCase() + value.slice(1);
-      return '<option value="' + value + '"' +
-        (value === selected ? " selected" : "") + ">" + label + "</option>";
+    _createFieldGroup: function(labelText) {
+      var group = document.createElement("div");
+      group.className = "override-manager-field-group";
+      var label = document.createElement("label");
+      label.textContent = labelText;
+      group.appendChild(label);
+      return group;
     },
 
-    _buildConfigFields: function(inputType, config) {
+    _addOption: function(select, value, text, selected) {
+      var opt = document.createElement("option");
+      opt.value = value;
+      opt.textContent = text;
+      if (selected) opt.selected = true;
+      select.appendChild(opt);
+    },
+
+    _buildConfigFieldsDOM: function(container, inputType, config) {
       config = config || {};
+      container.textContent = "";
+
       switch (inputType) {
         case "numeric":
-          return this._numField("Min", "config_min", config.min) +
-                 this._numField("Max", "config_max", config.max);
+          container.appendChild(this._createNumFieldDOM("Min", "config_min", config.min));
+          container.appendChild(this._createNumFieldDOM("Max", "config_max", config.max));
+          break;
         case "slider":
-          return this._numField("Min", "config_min", config.min != null ? config.min : 0) +
-                 this._numField("Max", "config_max", config.max != null ? config.max : 1) +
-                 this._numField("Step Size", "config_step_size", config.step_size != null ? config.step_size : 0.01);
+          container.appendChild(this._createNumFieldDOM("Min", "config_min", config.min != null ? config.min : 0));
+          container.appendChild(this._createNumFieldDOM("Max", "config_max", config.max != null ? config.max : 1));
+          container.appendChild(this._createNumFieldDOM("Step Size", "config_step_size", config.step_size != null ? config.step_size : 0.01));
+          break;
         case "dropdown":
           var options = config.options || [];
           if (!Array.isArray(options)) options = Object.values(options);
-          var html = '<div class="override-manager-field-group"><label>Options</label>' +
-            '<div class="override-manager-options-list">';
+          var optGroup = this._createFieldGroup("Options");
+          var optList = document.createElement("div");
+          optList.className = "override-manager-options-list";
           for (var i = 0; i < options.length; i++) {
-            html += '<div class="override-manager-option-row">' +
-              '<input type="text" name="config_option" value="' + this._esc(String(options[i])) + '" />' +
-              '<button type="button" data-action="remove-option" title="Remove">&times;</button></div>';
+            var optVal = typeof options[i] === "object" ? (options[i].value || options[i].label || "") : String(options[i]);
+            optList.appendChild(this._createOptionRowDOM(optVal));
           }
-          html += '</div><button type="button" class="override-manager-add-option-btn" ' +
-            'data-action="add-option">+ Add Option</button></div>';
-          return html;
+          optGroup.appendChild(optList);
+          var addOptBtn = document.createElement("button");
+          addOptBtn.type = "button";
+          addOptBtn.className = "override-manager-add-option-btn";
+          addOptBtn.dataset.action = "add-option";
+          addOptBtn.textContent = "+ Add Option";
+          optGroup.appendChild(addOptBtn);
+          container.appendChild(optGroup);
+          break;
         case "timeframe":
           var allUnits = ["day", "week", "month", "year"];
           var sel = config.units || allUnits;
-          var html2 = '<div class="override-manager-field-group"><label>Allowed Units</label>' +
-            '<div class="override-manager-units-list">';
+          var unitGroup = this._createFieldGroup("Allowed Units");
+          var unitList = document.createElement("div");
+          unitList.className = "override-manager-units-list";
           for (var u = 0; u < allUnits.length; u++) {
-            html2 += '<label><input type="checkbox" name="config_unit" value="' +
-              allUnits[u] + '"' + (sel.indexOf(allUnits[u]) >= 0 ? " checked" : "") +
-              " /> " + allUnits[u] + "</label>";
+            var unitLabel = document.createElement("label");
+            var cb = document.createElement("input");
+            cb.type = "checkbox";
+            cb.name = "config_unit";
+            cb.value = allUnits[u];
+            if (sel.indexOf(allUnits[u]) >= 0) cb.checked = true;
+            unitLabel.appendChild(cb);
+            unitLabel.appendChild(document.createTextNode(" " + allUnits[u]));
+            unitList.appendChild(unitLabel);
           }
-          html2 += "</div></div>";
-          return html2;
-        default:
-          return "";
+          unitGroup.appendChild(unitList);
+          container.appendChild(unitGroup);
+          break;
       }
     },
 
-    _numField: function(label, name, value) {
-      return '<div class="override-manager-field-group"><label>' + label +
-        '</label><input type="number" name="' + name + '" value="' +
-        this._esc(value != null ? String(value) : "") + '" step="any" /></div>';
+    _createNumFieldDOM: function(labelText, name, value) {
+      var group = this._createFieldGroup(labelText);
+      var input = document.createElement("input");
+      input.type = "number";
+      input.name = name;
+      input.value = value != null ? String(value) : "";
+      input.step = "any";
+      group.appendChild(input);
+      return group;
+    },
+
+    _createOptionRowDOM: function(value) {
+      var row = document.createElement("div");
+      row.className = "override-manager-option-row";
+      var input = document.createElement("input");
+      input.type = "text";
+      input.name = "config_option";
+      input.value = value;
+      var removeBtn = document.createElement("button");
+      removeBtn.type = "button";
+      removeBtn.dataset.action = "remove-option";
+      removeBtn.title = "Remove";
+      removeBtn.textContent = "\u00D7";
+      row.appendChild(input);
+      row.appendChild(removeBtn);
+      return row;
     },
 
     _updateConfigFields: function(selectEl) {
       var form = selectEl.closest(".override-manager-edit-form");
       if (!form) return;
       var c = form.querySelector(".override-manager-config-fields");
-      if (c) c.innerHTML = this._buildConfigFields(selectEl.value, {});
+      if (c) this._buildConfigFieldsDOM(c, selectEl.value, {});
     },
 
     _readConfigFields: function(form, inputType) {
@@ -719,11 +911,7 @@
     _addOptionRow: function(btn) {
       var list = btn.previousElementSibling;
       if (!list) return;
-      var row = document.createElement("div");
-      row.className = "override-manager-option-row";
-      row.innerHTML =
-        '<input type="text" name="config_option" value="" placeholder="Option value" />' +
-        '<button type="button" data-action="remove-option" title="Remove">&times;</button>';
+      var row = this._createOptionRowDOM("");
       list.appendChild(row);
       row.querySelector("input").focus();
     },
@@ -731,6 +919,61 @@
     _removeOptionRow: function(btn) {
       var row = btn.closest(".override-manager-option-row");
       if (row) row.remove();
+    },
+
+    // ---- Base formula display ----
+
+    _updateBaseFormula: function(form) {
+      var formulaDiv = form.querySelector(".override-manager-base-formula");
+      var codeEl = form.querySelector(".override-manager-formula-display");
+      if (!formulaDiv || !codeEl) return;
+
+      var typeEl = form.querySelector('[name="override_type"]');
+      var nameEl = form.querySelector('[name="name"]');
+      var oType = typeEl ? typeEl.value : "variable";
+      var selectedName = nameEl ? nameEl.value : "";
+
+      if (!selectedName) {
+        formulaDiv.style.display = "none";
+        return;
+      }
+
+      var meta = this.modelMeta || {};
+
+      if (oType === "variable") {
+        var vm = this._getVarMeta(selectedName);
+        if (vm && vm.formulas) {
+          var stratEl = form.querySelector('[name="strategy"]');
+          var grpEl = form.querySelector('[name="group"]');
+          var strat = stratEl ? stratEl.value : "";
+          var grp = grpEl ? grpEl.value : "";
+          var key = (strat || "") + "|" + (grp || "");
+          var formula = vm.formulas[key];
+          // Try fallback keys
+          if (!formula) formula = vm.formulas["|"];
+          if (!formula) {
+            // Try first available formula
+            var keys = Object.keys(vm.formulas);
+            if (keys.length > 0) formula = vm.formulas[keys[0]];
+          }
+          if (formula) {
+            codeEl.textContent = formula;
+            formulaDiv.style.display = "";
+            return;
+          }
+        }
+      } else if (oType === "setting") {
+        var settingValues = meta.setting_values || [];
+        for (var i = 0; i < settingValues.length; i++) {
+          if (settingValues[i].name === selectedName) {
+            codeEl.textContent = settingValues[i].value;
+            formulaDiv.style.display = "";
+            return;
+          }
+        }
+      }
+
+      formulaDiv.style.display = "none";
     },
 
     // ---- Smart filtering helpers ----
@@ -784,7 +1027,6 @@
         var hasGroups = vm.groups && vm.groups.length > 0;
 
         if (!hasStrats && !hasGroups) {
-          // Non-specific: available if no override with that name exists
           var taken = false;
           for (var c = 0; c < claimed.length; c++) {
             if (claimed[c].type === "variable" && claimed[c].name === vm.name) {
@@ -793,7 +1035,6 @@
           }
           if (!taken) available.push(vm.name);
         } else {
-          // Has targeting: available if at least one combo is unclaimed
           var unclaimed = this._getUnclaimedTargets(vm.name, excludeId);
           if (unclaimed.strategies.length > 0 || unclaimed.groups.length > 0 ||
               (!hasStrats && !hasGroups)) {
@@ -834,6 +1075,33 @@
     },
 
     // ---- Data helpers ----
+
+    _findCategoryIndex: function(overrideId) {
+      for (var i = 0; i < this.categories.length; i++) {
+        var ovs = this.categories[i].overrides || [];
+        for (var j = 0; j < ovs.length; j++) {
+          if (ovs[j]._id === overrideId) return i;
+        }
+      }
+      return -1;
+    },
+
+    _findOverrideInfo: function(overrideId) {
+      for (var i = 0; i < this.categories.length; i++) {
+        var ovs = this.categories[i].overrides || [];
+        for (var j = 0; j < ovs.length; j++) {
+          if (ovs[j]._id === overrideId) {
+            return {
+              categoryName: this.categories[i].name,
+              categoryIndex: i,
+              override: ovs[j],
+              overrideIndex: j
+            };
+          }
+        }
+      }
+      return null;
+    },
 
     _updateOverrideInCategories: function(override) {
       for (var i = 0; i < this.categories.length; i++) {
@@ -906,12 +1174,11 @@
       // Rebuild name dropdown with smart filtering
       var nameEl = form.querySelector('[name="name"]');
       var availableNames = this._getAvailableNames(newType, override._id);
-      var html = '<option value="">-- Select --</option>';
+      nameEl.textContent = "";
+      this._addOption(nameEl, "", "-- Select --", true);
       for (var i = 0; i < availableNames.length; i++) {
-        html += '<option value="' + this._esc(availableNames[i]) + '">' +
-          this._esc(availableNames[i]) + '</option>';
+        this._addOption(nameEl, availableNames[i], availableNames[i], false);
       }
-      nameEl.innerHTML = html;
 
       // Hide strategy and group (will be rebuilt when name is selected)
       var stratField = form.querySelector(".override-manager-strategy-field");
@@ -922,8 +1189,11 @@
       // Reset strategy and group
       var stratEl = form.querySelector('[name="strategy"]');
       var grpEl = form.querySelector('[name="group"]');
-      if (stratEl) { stratEl.innerHTML = ""; stratEl.value = ""; }
-      if (grpEl) { grpEl.innerHTML = ""; grpEl.value = ""; }
+      if (stratEl) { stratEl.textContent = ""; stratEl.value = ""; }
+      if (grpEl) { grpEl.textContent = ""; grpEl.value = ""; }
+
+      // Update base formula
+      this._updateBaseFormula(form);
     },
 
     _onNameChange: function(selectEl) {
@@ -945,8 +1215,9 @@
       if (oType === "setting" || !selectedName) {
         if (stratField) stratField.style.display = "none";
         if (grpField) grpField.style.display = "none";
-        if (stratEl) { stratEl.innerHTML = ""; stratEl.value = ""; }
-        if (grpEl) { grpEl.innerHTML = ""; grpEl.value = ""; }
+        if (stratEl) { stratEl.textContent = ""; stratEl.value = ""; }
+        if (grpEl) { grpEl.textContent = ""; grpEl.value = ""; }
+        this._updateBaseFormula(form);
         return;
       }
 
@@ -955,6 +1226,7 @@
       if (!vm) {
         if (stratField) stratField.style.display = "none";
         if (grpField) grpField.style.display = "none";
+        this._updateBaseFormula(form);
         return;
       }
 
@@ -964,37 +1236,239 @@
       if (vm.strategies && vm.strategies.length > 0) {
         if (stratField) stratField.style.display = "";
         var strats = unclaimed.strategies;
-        var stratHtml = "";
-        for (var s = 0; s < strats.length; s++) {
-          stratHtml += '<option value="' + this._esc(strats[s]) + '">' +
-            this._esc(meta.strategies[strats[s]] || strats[s]) + "</option>";
+        if (stratEl) {
+          stratEl.textContent = "";
+          for (var s = 0; s < strats.length; s++) {
+            this._addOption(stratEl, strats[s], meta.strategies[strats[s]] || strats[s], s === 0);
+          }
         }
-        if (stratEl) stratEl.innerHTML = stratHtml;
       } else {
         if (stratField) stratField.style.display = "none";
-        if (stratEl) { stratEl.innerHTML = ""; stratEl.value = ""; }
+        if (stratEl) { stratEl.textContent = ""; stratEl.value = ""; }
       }
 
       // Group dropdown
       if (vm.groups && vm.groups.length > 0) {
         if (grpField) grpField.style.display = "";
         var grps = unclaimed.groups;
-        var grpHtml = "";
-        for (var g = 0; g < grps.length; g++) {
-          grpHtml += '<option value="' + this._esc(grps[g]) + '">' +
-            this._esc(meta.groups[grps[g]] || grps[g]) + "</option>";
+        if (grpEl) {
+          grpEl.textContent = "";
+          for (var g = 0; g < grps.length; g++) {
+            this._addOption(grpEl, grps[g], meta.groups[grps[g]] || grps[g], g === 0);
+          }
         }
-        if (grpEl) grpEl.innerHTML = grpHtml;
       } else {
         if (grpField) grpField.style.display = "none";
-        if (grpEl) { grpEl.innerHTML = ""; grpEl.value = ""; }
+        if (grpEl) { grpEl.textContent = ""; grpEl.value = ""; }
       }
+
+      // Update base formula
+      this._updateBaseFormula(form);
+    },
+
+    saveCard: function(triggerEl) {
+      var cardEl = triggerEl.closest(".override-manager-card");
+      if (!cardEl) return;
+      var form = cardEl.querySelector(".override-manager-edit-form");
+      if (!form) return;
+
+      // Clear previous errors first
+      this._clearFieldErrors(form);
+
+      var overrideType = form.querySelector('[name="override_type"]').value;
+      var nameEl = form.querySelector('[name="name"]');
+      var name = nameEl.value.trim();
+      if (!name) {
+        this._showFieldError(nameEl, "Name is required.");
+        return;
+      }
+
+      var strategy = "";
+      var group = "";
+      var stratEl = form.querySelector('[name="strategy"]');
+      var grpEl = form.querySelector('[name="group"]');
+      if (stratEl) strategy = stratEl.value;
+      if (grpEl) group = grpEl.value;
+
+      // Duplicate validation (local check)
+      var override = JSON.parse(cardEl.dataset.override);
+      if (this._isDuplicateOverride(overrideType, name, strategy, group, override._id)) {
+        this._showFieldError(nameEl, "This combination already exists.");
+        return;
+      }
+
+      // Input-type-specific validation
+      var inputType = form.querySelector('[name="input_type"]').value;
+      if (!this._validateCard(form, inputType)) {
+        return;
+      }
+
+      var title = form.querySelector('[name="title"]').value.trim();
+      var description = form.querySelector('[name="description"]').value.trim();
+      var defaultValue = form.querySelector('[name="default_value"]').value.trim();
+      var config = this._readConfigFields(form, inputType);
+
+      // Determine category name
+      var editing = this._editingState;
+      var categoryName = editing ? this.categories[editing.categoryIndex].name : null;
+      if (!categoryName) {
+        var colEl = cardEl.closest(".override-manager-column");
+        if (colEl) {
+          var ci = parseInt(colEl.dataset.categoryIndex, 10);
+          categoryName = this.categories[ci] ? this.categories[ci].name : null;
+        }
+      }
+
+      if (editing && editing.isNew) {
+        // Remove the temporary local override before sending to R
+        this._removeOverrideFromCategories(override._id);
+        this._editingState = null;
+
+        // ADD: send add_override to R
+        var addData = {
+          category: categoryName,
+          title: title,
+          name: name,
+          override_type: overrideType,
+          input_type: inputType,
+          expression: defaultValue || "0",
+          description: description || null,
+          strategy: strategy,
+          group: group
+        };
+        if (config.min != null) addData.min = config.min;
+        if (config.max != null) addData.max = config.max;
+        if (config.step_size != null) addData.step_size = config.step_size;
+        if (config.options) addData.options = config.options;
+
+        Shiny.setInputValue(
+          this.inputId + "-add_override",
+          addData,
+          { priority: "event" }
+        );
+      } else {
+        // EDIT: send edit_override to R
+        this._editingState = null;
+
+        var editData = {
+          category: categoryName,
+          override_type: override.type || "variable",
+          name: override.name,
+          strategy: override.strategy || "",
+          group: override.group || ""
+        };
+
+        // Only include changed fields
+        if (overrideType !== (override.type || "variable")) editData.new_type = overrideType;
+        if (name !== override.name) editData.new_name = name;
+        if (strategy !== (override.strategy || "")) editData.new_strategy = strategy;
+        if (group !== (override.group || "")) editData.new_group = group;
+        editData.title = title;
+        editData.description = description || null;
+        editData.expression = defaultValue || "0";
+        editData.input_type = inputType;
+        if (config.min != null) editData.min = config.min;
+        if (config.max != null) editData.max = config.max;
+        if (config.step_size != null) editData.step_size = config.step_size;
+        if (config.options) editData.options = config.options;
+
+        Shiny.setInputValue(
+          this.inputId + "-edit_override",
+          editData,
+          { priority: "event" }
+        );
+      }
+    },
+
+    cancelCardEdit: function(triggerEl) {
+      var cardEl = triggerEl.closest(".override-manager-card");
+      if (!cardEl) return;
+      var override = JSON.parse(cardEl.dataset.override);
+      var editing = this._editingState;
+
+      if (editing && editing.isNew) {
+        // Remove the temporary override we added locally
+        this._removeOverrideFromCategories(override._id);
+      }
+
+      this._editingState = null;
+      this._fullRender();
+    },
+
+    deleteCard: function(overrideId) {
+      // Find the override data and its category
+      var info = this._findOverrideInfo(overrideId);
+      if (!info) return;
+
+      // Send to R -- do NOT splice locally
+      Shiny.setInputValue(
+        this.inputId + "-remove_override",
+        {
+          category: info.categoryName,
+          override_type: info.override.type || "variable",
+          name: info.override.name,
+          strategy: info.override.strategy || "",
+          group: info.override.group || ""
+        },
+        { priority: "event" }
+      );
+    },
+
+    close: function() {
+      Shiny.setInputValue(
+        this.inputId + "-manager_close",
+        Date.now(),
+        { priority: "event" }
+      );
+    },
+
+    serialize: function() {
+      var result = [];
+      for (var i = 0; i < this.categories.length; i++) {
+        var cat = this.categories[i];
+        var overrides = [];
+        for (var j = 0; j < (cat.overrides || []).length; j++) {
+          var o = cat.overrides[j];
+          overrides.push({
+            name: o.name,
+            title: o.title || null,
+            display_name: o.display_name || o.title || null,
+            description: o.description || null,
+            type: o.type || "variable",
+            strategy: o.strategy || "",
+            group: o.group || "",
+            input_type: o.input_type || "numeric",
+            input_config: o.input_config || {},
+            default_value: o.default_value || "",
+            overridden_expression: o.overridden_expression || null
+          });
+        }
+        result.push({ name: cat.name, general: cat.general || false, overrides: overrides });
+      }
+      return result;
     },
 
     _esc: function(str) {
       if (str == null) return "";
       return String(str).replace(/&/g, "&amp;").replace(/"/g, "&quot;")
         .replace(/</g, "&lt;").replace(/>/g, "&gt;");
+    },
+
+    showError: function(message) {
+      if (!this.container) return;
+      // Remove existing error banner
+      var existing = this.container.querySelector(".override-manager-error-banner");
+      if (existing) existing.remove();
+
+      var banner = document.createElement("div");
+      banner.className = "override-manager-error-banner";
+      banner.textContent = message;
+      this.container.insertBefore(banner, this.container.firstChild);
+
+      // Auto-dismiss after 6 seconds
+      setTimeout(function() {
+        if (banner.parentNode) banner.remove();
+      }, 6000);
     }
   };
 
@@ -1007,7 +1481,7 @@
     $(document).on("click", "[data-action]", function(e) {
       // Only handle actions inside the manager modal
       if (!$(this).closest(".override-manager-body, .override-manager-footer").length &&
-          !$(this).is('[data-action="manager-apply"], [data-action="manager-cancel"]')) {
+          !$(this).is('[data-action="manager-close"]')) {
         return;
       }
 
@@ -1053,11 +1527,8 @@
         case "remove-option":
           OverrideManager._removeOptionRow(this);
           break;
-        case "manager-apply":
-          OverrideManager.apply();
-          break;
-        case "manager-cancel":
-          OverrideManager.cancel();
+        case "manager-close":
+          OverrideManager.close();
           break;
       }
     });
@@ -1082,6 +1553,12 @@
     // Name dropdown change
     $(document).on("change", ".override-manager-name-select", function() {
       OverrideManager._onNameChange(this);
+    });
+
+    // Strategy/group change -- update base formula
+    $(document).on("change", ".override-manager-strategy-field select, .override-manager-group-field select", function() {
+      var form = $(this).closest(".override-manager-edit-form")[0];
+      if (form) OverrideManager._updateBaseFormula(form);
     });
   }
 
@@ -1108,6 +1585,15 @@
     Shiny.addCustomMessageHandler("override-manager-init", function(data) {
       OverrideManager.init(data);
     });
-    console.log("[OverrideManager] handler registered");
+
+    Shiny.addCustomMessageHandler("override-manager-update", function(data) {
+      OverrideManager.update(data);
+    });
+
+    Shiny.addCustomMessageHandler("override-manager-error", function(data) {
+      OverrideManager.showError(data.message);
+    });
+
+    console.log("[OverrideManager] handlers registered");
   });
 })();
