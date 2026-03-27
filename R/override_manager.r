@@ -64,10 +64,13 @@ overrideManagerServer <- function(id, model, on_action) {
     # Helper: build model metadata for JS form dropdowns
     .build_model_meta <- function(m) {
       overridable_settings <- c(
-        "discount_cost", "discount_outcomes", "timeframe", "cycle_length"
+        "discount_rate", "discount_cost", "discount_outcomes",
+        "timeframe", "cycle_length"
       )
+      settings <- openqaly::get_settings(m)
+      settings$discount_rate <- settings$discount_outcomes
       available_settings <- intersect(
-        overridable_settings, names(openqaly::get_settings(m))
+        overridable_settings, names(settings)
       )
 
       targeting <- openqaly::get_variable_targeting(m)
@@ -95,7 +98,6 @@ overrideManagerServer <- function(id, model, on_action) {
       strategies <- openqaly::get_strategies(m)
       groups <- openqaly::get_groups(m)
 
-      settings <- openqaly::get_settings(m)
       setting_values <- lapply(available_settings, function(s) {
         list(name = s, value = as.character(settings[[s]]))
       })

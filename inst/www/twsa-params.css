@@ -1,0 +1,237 @@
+/* TWSA parameters split layout */
+.twsa-params-wrapper {
+  display: flex;
+  flex-direction: row;
+  min-height: 300px;
+  height: 100%;
+  border: 1px solid #dee2e6;
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+/* Left panel: TWSA analysis list */
+.twsa-list-panel {
+  width: 200px;
+  min-width: 200px;
+  border-right: 1px solid #dee2e6;
+  display: flex;
+  flex-direction: column;
+  background: #f8f9fa;
+}
+
+.twsa-list-toolbar {
+  display: flex;
+  gap: 4px;
+  padding: 6px;
+  border-bottom: 1px solid #dee2e6;
+}
+
+.twsa-list-toolbar .btn {
+  font-size: 0.75rem;
+  padding: 2px 8px;
+}
+
+.twsa-list {
+  flex: 1 1 auto;
+  overflow-y: auto;
+  padding: 0;
+}
+
+.twsa-list-item {
+  padding: 6px 10px;
+  cursor: pointer;
+  font-size: 0.85rem;
+  border-bottom: 1px solid #eee;
+  user-select: none;
+}
+
+.twsa-list-item:hover {
+  background: #e9ecef;
+}
+
+.twsa-list-item-name {
+  font-weight: 500;
+}
+
+.twsa-list-item-desc {
+  font-size: 0.75rem;
+  color: #6c757d;
+  margin-top: 1px;
+}
+
+.twsa-list-item--active {
+  background: #cfe2ff;
+}
+
+.twsa-list-item--active:hover {
+  background: #b6d4fe;
+}
+
+/* Right panel: grid */
+.twsa-grid-panel {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  padding: 6px;
+}
+
+/* Tabulator grid container */
+.twsa-params-container {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-x: auto;
+}
+
+.twsa-params-container .tabulator-row {
+  min-height: 32px;
+}
+
+.twsa-params-container .tabulator-cell,
+.twsa-params-container .tabulator-col-title {
+  font-size: 0.85rem;
+  padding: 0 6px;
+}
+
+.twsa-params-container .tabulator-header {
+  font-size: 0.85rem;
+}
+
+.twsa-delete-btn {
+  border: none;
+  background: none;
+  cursor: pointer;
+  color: var(--bs-danger, #dc3545);
+  opacity: 0.6;
+  font-size: 1rem;
+  line-height: 1;
+  padding: 0.15rem 0.4rem;
+  text-align: center;
+}
+
+.twsa-delete-btn:hover {
+  opacity: 1;
+}
+
+/* Formula overlay */
+.twsa-formula-overlay {
+  position: fixed;
+  z-index: 10000;
+  background: #fff;
+  border: 2px solid #0d6efd;
+  border-radius: 4px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  overflow: visible;
+}
+
+.twsa-formula-placeholder {
+  visibility: hidden;
+  min-height: 18px;
+}
+
+.twsa-ace-container {
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+
+.twsa-ace-container .ace_scrollbar {
+  display: none !important;
+}
+
+.twsa-ace-container .ace_autocomplete {
+  margin-top: 32px;
+}
+
+/* Disabled / non-applicable cells */
+.twsa-params-container .tabulator-cell.cell-disabled {
+  color: #999;
+  font-style: italic;
+  background: #f5f5f5;
+}
+
+/* Values popup editor */
+.twsa-values-popup {
+  position: fixed;
+  z-index: 10000;
+  background: #fff;
+  border: 2px solid #0d6efd;
+  border-radius: 4px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  padding: 8px;
+  min-width: 320px;
+}
+
+.twsa-values-popup .field-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.twsa-values-popup .field-row:last-child {
+  margin-bottom: 0;
+}
+
+.twsa-values-popup .field-label {
+  width: 50px;
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: #495057;
+  flex-shrink: 0;
+}
+
+.twsa-values-popup .field-editor {
+  flex: 1;
+  min-width: 0;
+}
+
+.twsa-values-popup .field-editor input {
+  width: 100%;
+  border: 1px solid #ced4da;
+  border-radius: 3px;
+  padding: 3px 6px;
+  font-size: 0.85rem;
+}
+
+.twsa-values-popup .field-editor input:focus {
+  border-color: #86b7fe;
+  outline: none;
+  box-shadow: 0 0 0 0.2rem rgba(13, 110, 253, 0.25);
+}
+
+.twsa-values-popup .popup-ace-wrap {
+  border: 1px solid #ced4da;
+  border-radius: 3px;
+  min-height: 26px;
+  overflow: visible;
+}
+
+.twsa-values-popup .popup-ace-wrap:focus-within {
+  border-color: #86b7fe;
+  box-shadow: 0 0 0 0.2rem rgba(13, 110, 253, 0.25);
+}
+
+.twsa-values-popup .popup-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 6px;
+  margin-top: 8px;
+  padding-top: 6px;
+  border-top: 1px solid #eee;
+}
+
+.twsa-values-popup .popup-actions .btn {
+  font-size: 0.75rem;
+  padding: 2px 10px;
+}
+
+/* Empty state message */
+.twsa-empty-state {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  color: #6c757d;
+  font-size: 0.9rem;
+}

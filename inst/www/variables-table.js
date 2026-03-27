@@ -307,13 +307,38 @@
     var holder = table.element.querySelector(".tabulator-tableholder");
     var scrollLeft = holder ? holder.scrollLeft : 0;
     var scrollTop = holder ? holder.scrollTop : 0;
-    table.setData(table.getData());
-    if (holder) {
-      requestAnimationFrame(function() {
+
+    table.redraw(true);
+
+    requestAnimationFrame(function() {
+      var containerWidth = table.element.clientWidth;
+      var totalWidth = 0;
+      var growCols = [];
+      var totalGrow = 0;
+
+      table.getColumns().forEach(function(col) {
+        var def = col.getDefinition();
+        var w = col.getWidth();
+        totalWidth += w;
+        if (def.widthGrow && def.widthGrow > 0) {
+          growCols.push({ col: col, grow: def.widthGrow, width: w });
+          totalGrow += def.widthGrow;
+        }
+      });
+
+      if (totalWidth < containerWidth && growCols.length > 0) {
+        var extra = containerWidth - totalWidth;
+        growCols.forEach(function(c) {
+          c.col.setWidth(c.width + Math.floor(extra * c.grow / totalGrow));
+        });
+      }
+
+      holder = table.element.querySelector(".tabulator-tableholder");
+      if (holder) {
         holder.scrollLeft = scrollLeft;
         holder.scrollTop = scrollTop;
-      });
-    }
+      }
+    });
   }
 
   function emdashIfEmpty(cell) {
@@ -528,7 +553,7 @@
       index: "_id",
       data: initialData,
       columns: columnDefs,
-      layout: "fitColumns",
+      layout: "fitData",
       layoutColumnsOnNewData: true,
       height: "100%",
       selectableRange: true,
@@ -549,7 +574,7 @@
       var ro = new ResizeObserver(function(entries) {
         for (var i = 0; i < entries.length; i++) {
           if (entries[i].contentRect.width > 0) {
-            table.redraw(true);
+            relayout(table);
             ro.disconnect();
             break;
           }

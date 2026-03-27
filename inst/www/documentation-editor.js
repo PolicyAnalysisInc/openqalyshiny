@@ -23,7 +23,7 @@
         "toolbar": true,
         "code-mirror": true,
         "table": true,
-        "latex": false
+        "latex": true
       },
       featureConfigs: {
         "image-block": {
@@ -57,14 +57,14 @@
     return cleanup.then(function() {
       var editorView = container.querySelector(".doc-editor-view");
       editorView.textContent = "";
-      return createCrepe(editorView, markdown);
+      return createCrepe(editorView, toMilkdownDelimiters(markdown));
     });
   }
 
   function exitEditor() {
     if (!crepeInstance) return Promise.resolve(currentMarkdown);
     try {
-      var md = crepeInstance.getMarkdown();
+      var md = fromMilkdownDelimiters(crepeInstance.getMarkdown());
       currentMarkdown = md;
       return Promise.resolve(md);
     } catch(e) {
@@ -145,20 +145,32 @@
     return div.textContent !== undefined ? div.innerHTML : str;
   }
 
+  // ── Delimiter conversion: stored format (\(...\), \[...\]) ↔ Milkdown format ($, $$) ──
+  function toMilkdownDelimiters(md) {
+    md = md.replace(/\\\[([\s\S]*?)\\\]/g, function(m, tex) { return '$$' + tex + '$$'; });
+    md = md.replace(/\\\(((?:[^\\]|\\.)*?)\\\)/g, function(m, tex) { return '$' + tex + '$'; });
+    return md;
+  }
+  function fromMilkdownDelimiters(md) {
+    md = md.replace(/\$\$([\s\S]*?)\$\$/g, function(m, tex) { return '\\[' + tex + '\\]'; });
+    md = md.replace(/(?<!\$)\$(?!\$)((?:[^$\\]|\\.)+?)\$(?!\$)/g, function(m, tex) { return '\\(' + tex + '\\)'; });
+    return md;
+  }
+
   function renderMarkdown(markdown) {
     if (!markedLib || !markdown) return "";
 
     // Process LaTeX before marked
-    // Block math: $$...$$
-    var processed = markdown.replace(/\$\$([\s\S]*?)\$\$/g, function(match, tex) {
+    // Block math: \[...\]
+    var processed = markdown.replace(/\\\[([\s\S]*?)\\\]/g, function(match, tex) {
       try {
         return '<div class="math-block">' + katexLib.renderToString(tex.trim(), { displayMode: true, throwOnError: false }) + '</div>';
       } catch(e) {
         return '<div class="math-block"><code>' + escapeHtml(tex) + '</code></div>';
       }
     });
-    // Inline math: $...$  (but not $$)
-    processed = processed.replace(/(?<!\$)\$(?!\$)((?:[^$\\]|\\.)+?)\$(?!\$)/g, function(match, tex) {
+    // Inline math: \(...\)
+    processed = processed.replace(/\\\(((?:[^\\]|\\.)*?)\\\)/g, function(match, tex) {
       try {
         return '<span class="math-inline">' + katexLib.renderToString(tex.trim(), { displayMode: false, throwOnError: false }) + '</span>';
       } catch(e) {
