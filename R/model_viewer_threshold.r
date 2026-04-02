@@ -55,10 +55,19 @@ thresholdSummaryServer <- function(id, threshold_results) {
 #' Threshold Result Tab UI
 #' @param id Module namespace ID.
 #' @export
+thresholdResultTabSidebarUI <- function(id) {
+  ns <- shiny::NS(id)
+  shiny::tagList(
+    shiny::uiOutput(ns("controls"))
+  )
+}
+
+#' Threshold Result Tab UI
+#' @param id Module namespace ID.
+#' @export
 thresholdResultTabUI <- function(id) {
   ns <- shiny::NS(id)
   shiny::tagList(
-    shiny::uiOutput(ns("controls")),
     shiny::conditionalPanel(
       condition = sprintf("input['%s'] != 'table'", ns("viz_type")),
       shiny::plotOutput(ns("result_plot"))
@@ -98,10 +107,7 @@ thresholdResultTabServer <- function(id, tab_type, threshold_results) {
         )
       )
 
-      do.call(bslib::layout_columns, c(
-        list(col_widths = bslib::breakpoints(sm = 12, md = 6)),
-        inputs
-      ))
+      build_results_sidebar_controls(inputs)
     })
 
     selected_analysis <- shiny::reactive({

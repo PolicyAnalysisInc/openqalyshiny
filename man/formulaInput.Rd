@@ -14,7 +14,8 @@ formulaInput(
   model = NULL,
   context = NULL,
   include_r_functions = TRUE,
-  r_packages = NULL
+  r_packages = NULL,
+  updateOn = c("change", "blur")
 )
 }
 \arguments{
@@ -90,6 +91,9 @@ suggestions when using model-aware mode.}
 \item{r_packages}{Character vector of package names to include R functions
 from when using model-aware mode. If NULL (default), uses
 c("base", "stats").}
+
+\item{updateOn}{Whether to update on every edit (\code{"change"}) or only
+when the user commits the edit via blur/Enter (\code{"blur"}).}
 }
 \value{
 A Shiny input element that can be included in a UI definition.

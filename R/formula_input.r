@@ -143,10 +143,15 @@
 #' @importFrom htmltools htmlDependency tags tagList
 #' @importFrom shiny restoreInput
 #' @importFrom jsonlite toJSON
+#' @param updateOn Whether to update on every edit (\code{"change"}) or only
+#'   when the user commits the edit via blur/Enter (\code{"blur"}).
 formulaInput <- function(inputId, value = "", placeholder = NULL, width = NULL,
                          terms = NULL, suggestions = NULL,
                          model = NULL, context = NULL,
-                         include_r_functions = TRUE, r_packages = NULL) {
+                         include_r_functions = TRUE, r_packages = NULL,
+                         updateOn = c("change", "blur")) {
+  updateOn <- match.arg(updateOn)
+
   # Restore value from bookmarked state if available
   value <- shiny::restoreInput(id = inputId, default = value)
 
@@ -207,6 +212,7 @@ formulaInput <- function(inputId, value = "", placeholder = NULL, width = NULL,
     id = inputId,
     class = "formula-input",
     `data-value` = value,
+    `data-update-on` = updateOn,
     `data-placeholder` = if (!is.null(placeholder)) placeholder else "",
     `data-terms` = termsJson,
     `data-suggestions` = suggestionsJson,

@@ -1021,6 +1021,46 @@ create_history_manager <- function(max_size = 5) {
 #' @return A Shiny app object
 #' @export
 run_model_editor <- function(path = NULL, options = list()) {
+  tab_value_panel <- function(navset_id, value, ...) {
+    shiny::conditionalPanel(
+      condition = sprintf("input['%s'] == '%s'", navset_id, value),
+      ...
+    )
+  }
+
+  analysis_sidebar <- function(sidebar_id,
+                               visualization_content,
+                               overrides_output_id,
+                               footer_content,
+                               width = "400px") {
+    bslib::sidebar(
+      id = sidebar_id,
+      width = width,
+      class = "results-analysis-sidebar",
+      tags$div(
+        class = "results-sidebar-shell",
+        bslib::navset_card_tab(
+          id = paste0(sidebar_id, "_sections"),
+          selected = "visualization",
+          bslib::nav_panel(
+            "Visualization",
+            value = "visualization",
+            visualization_content
+          ),
+          bslib::nav_panel(
+            "Overrides",
+            value = "overrides",
+            shiny::uiOutput(overrides_output_id)
+          )
+        ),
+        tags$div(
+          class = "results-sidebar-footer",
+          footer_content
+        )
+      )
+    )
+  }
+
   ui <- bslib::page_fillable(
     padding = 0,
     htmltools::htmlDependency(
@@ -1049,19 +1089,6 @@ run_model_editor <- function(path = NULL, options = list()) {
           setTimeout(function() {
             var container = document.querySelector('.override-input-container');
             if (!container) return;
-            $(container).find('input.js-range-slider').each(function() {
-              if (!$(this).data('ionRangeSlider')) {
-                $(this).ionRangeSlider({
-                  skin: 'shiny',
-                  min: +$(this).data('min'),
-                  max: +$(this).data('max'),
-                  from: +$(this).data('from'),
-                  step: +$(this).data('step'),
-                  grid: $(this).data('grid'),
-                  keyboard: true
-                });
-              }
-            });
             // Rebind formula inputs (binding is pre-loaded in page head)
             $(container).find('.formula-input').each(function() {
               if (!this._formulaEditor) {
@@ -1099,6 +1126,9 @@ run_model_editor <- function(path = NULL, options = list()) {
       tags$style(shiny::HTML("
         body {
           overflow: hidden;
+        }
+        .bslib-page-fill {
+          min-height: 900px;
         }
         .app-bar {
           display: flex;
@@ -1444,12 +1474,126 @@ run_model_editor <- function(path = NULL, options = list()) {
           display: flex;
           flex-direction: column;
           flex: 1 1 auto;
-          min-height: 0;
+          min-height: 900px;
         }
-.results-page .bslib-sidebar-layout {
+        .results-page .bslib-sidebar-layout {
           flex: 1 1 auto;
           min-height: 0;
           border: none;
+        }
+        .results-page .bslib-sidebar-layout > .main {
+          display: flex;
+          flex-direction: column;
+          flex: 1 1 auto;
+          min-height: 0;
+        }
+        .results-page .bslib-sidebar-layout > .main > .card,
+        .results-page .bslib-sidebar-layout > .main > .shiny-panel-conditional,
+        .results-page .bslib-sidebar-layout > .main > .shiny-panel-conditional > .card {
+          flex: 1 1 auto;
+          min-height: 0;
+        }
+        .results-page .bslib-sidebar-layout > .main > .shiny-panel-conditional {
+          display: flex;
+          flex-direction: column;
+        }
+        .results-page .bslib-sidebar-layout > .main > .card,
+        .results-page .bslib-sidebar-layout > .main > .shiny-panel-conditional > .card,
+        .results-page .bslib-sidebar-layout > .main > .card > .tab-content,
+        .results-page .bslib-sidebar-layout > .main > .shiny-panel-conditional > .card > .tab-content,
+        .results-page .bslib-sidebar-layout > .main > .card > .tab-content > .tab-pane,
+        .results-page .bslib-sidebar-layout > .main > .shiny-panel-conditional > .card > .tab-content > .tab-pane,
+        .results-page .bslib-sidebar-layout > .main > .card > .tab-content > .tab-pane > .card-body,
+        .results-page .bslib-sidebar-layout > .main > .shiny-panel-conditional > .card > .tab-content > .tab-pane > .card-body {
+          height: 100%;
+          min-height: 0;
+        }
+        .results-page .bslib-sidebar-layout > .main > .card > .tab-content > .tab-pane > .card-body,
+        .results-page .bslib-sidebar-layout > .main > .shiny-panel-conditional > .card > .tab-content > .tab-pane > .card-body {
+          display: flex;
+          flex-direction: column;
+        }
+        .results-page .results-content-shell {
+          display: flex;
+          flex: 1 1 auto;
+          flex-direction: column;
+          min-height: 0;
+          height: 100%;
+        }
+        .results-page .results-content-shell > .shiny-panel-conditional {
+          display: flex;
+          flex: 1 1 auto;
+          flex-direction: column;
+          min-height: 0;
+        }
+        .results-page .results-content-shell > .results-content-output {
+          display: flex;
+          flex: 1 1 auto;
+          flex-direction: column;
+          min-height: 0;
+        }
+        .results-page .results-content-shell > .results-plot-region,
+        .results-page .results-content-shell > .results-content-output > .results-plot-region,
+        .results-page .results-content-shell > .shiny-panel-conditional > .results-plot-region {
+          display: flex;
+          flex: 1 1 auto;
+          flex-direction: column;
+          min-height: 0;
+          height: 100%;
+        }
+        .results-page .results-content-shell .results-plot-region > .shiny-plot-output {
+          flex: 1 1 auto;
+          min-height: 0;
+        }
+        .results-analysis-sidebar {
+          overflow: visible;
+        }
+        .results-sidebar-shell {
+          display: flex;
+          flex-direction: column;
+          gap: 12px;
+          min-height: 100%;
+        }
+        .results-sidebar-shell .card {
+          margin-bottom: 0;
+        }
+        .results-sidebar-controls {
+          display: flex;
+          flex-direction: column;
+          gap: 12px;
+        }
+        .results-sidebar-control > .shiny-input-container,
+        .results-sidebar-control .form-group {
+          width: 100%;
+          margin-bottom: 0;
+        }
+        .results-sidebar-footer {
+          position: sticky;
+          bottom: 0;
+          z-index: 2;
+          background: var(--bs-body-bg, #fff);
+          border-top: 1px solid var(--bs-border-color, #dee2e6);
+          padding-top: 12px;
+        }
+        .results-sidebar-footer .shiny-input-container,
+        .results-sidebar-footer .form-group {
+          margin-bottom: 12px;
+        }
+        .results-sidebar-footer .shiny-input-container:last-child,
+        .results-sidebar-footer .form-group:last-child {
+          margin-bottom: 0;
+        }
+        .results-sidebar-footer .btn {
+          width: 100%;
+        }
+        .results-footer-grid {
+          display: grid;
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+          gap: 12px;
+        }
+        .results-footer-grid .shiny-input-container,
+        .results-footer-grid .form-group {
+          margin-bottom: 0;
         }
       ")),
       tags$script(shiny::HTML("
@@ -1860,10 +2004,59 @@ run_model_editor <- function(path = NULL, options = list()) {
         class = "app-page results-page",
         style = "overflow: auto;",
         bslib::layout_sidebar(
-          sidebar = bslib::sidebar(
-            id = "results_sidebar",
-            width = "400px",
-            shiny::uiOutput("override_panel")
+          sidebar = analysis_sidebar(
+            sidebar_id = "results_sidebar",
+            visualization_content = shiny::tagList(
+              shiny::conditionalPanel(
+                condition = "output.has_editor_results && input.results_tabs == 'trace'",
+                traceResultsSidebarUI("editor_trace")
+              ),
+              shiny::conditionalPanel(
+                condition = "output.has_editor_results && input.results_tabs == 'outcomes'",
+                outcomesResultsSidebarUI("editor_outcomes")
+              ),
+              shiny::conditionalPanel(
+                condition = "output.has_editor_results && input.results_tabs == 'costs'",
+                costsResultsSidebarUI("editor_costs")
+              ),
+              shiny::conditionalPanel(
+                condition = "output.has_editor_results && input.results_tabs == 'nmb'",
+                nmbResultsSidebarUI("editor_nmb")
+              ),
+              shiny::conditionalPanel(
+                condition = "output.has_editor_results && input.results_tabs == 'pairwise_ce'",
+                pairwiseCeResultsSidebarUI("editor_pairwise_ce")
+              ),
+              shiny::conditionalPanel(
+                condition = "output.has_editor_results && input.results_tabs == 'incremental_ce'",
+                incrementalCeResultsSidebarUI("editor_incremental_ce")
+              ),
+              shiny::conditionalPanel(
+                condition = "output.has_editor_results && input.results_tabs == 'variables'",
+                variableDiagnosticsSidebarUI("editor_variable_diagnostics")
+              ),
+              shiny::conditionalPanel(
+                condition = "output.has_editor_results && input.results_tabs == 'decision_trees'",
+                decisionTreeResultsSidebarUI("editor_decision_trees")
+              ),
+              shiny::conditionalPanel(
+                condition = "output.has_editor_results && input.results_tabs == 'transitions'",
+                transitionHeatmapSidebarUI("editor_transitions")
+              )
+            ),
+            overrides_output_id = "results_sidebar_overrides",
+            footer_content = shiny::tagList(
+              shiny::checkboxInput(
+                "editor_results_auto_run",
+                "Run automatically on changes",
+                value = TRUE
+              ),
+              shiny::actionButton(
+                "editor_run_model",
+                "Run Model",
+                class = "btn-primary"
+              )
+            )
           ),
           shiny::conditionalPanel(
             condition = "!output.has_editor_results",
@@ -1875,17 +2068,19 @@ run_model_editor <- function(path = NULL, options = list()) {
           shiny::conditionalPanel(
             condition = "output.has_editor_results",
             bslib::navset_card_tab(
-              bslib::nav_panel("Trace", traceResultsUI("editor_trace")),
-              bslib::nav_panel("Outcomes", outcomesResultsUI("editor_outcomes")),
-              bslib::nav_panel("Costs", costsResultsUI("editor_costs")),
-              bslib::nav_panel("NMB", nmbResultsUI("editor_nmb")),
-              bslib::nav_panel("Pairwise CE", pairwiseCeResultsUI("editor_pairwise_ce")),
-              bslib::nav_panel("Incremental CE", incrementalCeResultsUI("editor_incremental_ce")),
-              bslib::nav_panel("Variables",
+              id = "results_tabs",
+              selected = "trace",
+              bslib::nav_panel("Trace", value = "trace", traceResultsUI("editor_trace")),
+              bslib::nav_panel("Outcomes", value = "outcomes", outcomesResultsUI("editor_outcomes")),
+              bslib::nav_panel("Costs", value = "costs", costsResultsUI("editor_costs")),
+              bslib::nav_panel("NMB", value = "nmb", nmbResultsUI("editor_nmb")),
+              bslib::nav_panel("Pairwise CE", value = "pairwise_ce", pairwiseCeResultsUI("editor_pairwise_ce")),
+              bslib::nav_panel("Incremental CE", value = "incremental_ce", incrementalCeResultsUI("editor_incremental_ce")),
+              bslib::nav_panel("Variables", value = "variables",
                 variableDiagnosticsUI("editor_variable_diagnostics")),
-              bslib::nav_panel("Decision Trees",
+              bslib::nav_panel("Decision Trees", value = "decision_trees",
                 decisionTreeResultsUI("editor_decision_trees")),
-              bslib::nav_panel("Transitions",
+              bslib::nav_panel("Transitions", value = "transitions",
                 transitionHeatmapUI("editor_transitions"))
             )
           )
@@ -1897,25 +2092,33 @@ run_model_editor <- function(path = NULL, options = list()) {
         class = "app-page results-page",
         style = "overflow: auto;",
         bslib::layout_sidebar(
-          sidebar = bslib::sidebar(
-            id = "dsa_sidebar",
-            width = "250px",
-            tags$button(
-              type = "button",
-              class = "btn btn-outline-secondary btn-sm w-100",
-              onclick = "switchAppPage('overrides')",
-              "Manage Overrides"
+          sidebar = analysis_sidebar(
+            sidebar_id = "dsa_sidebar",
+            visualization_content = shiny::tagList(
+              tab_value_panel("dsa_tabs", "outcomes", dsaResultTabSidebarUI("editor_dsa_outcomes")),
+              tab_value_panel("dsa_tabs", "costs", dsaResultTabSidebarUI("editor_dsa_costs")),
+              tab_value_panel("dsa_tabs", "nmb", dsaResultTabSidebarUI("editor_dsa_nmb")),
+              tab_value_panel("dsa_tabs", "ce", dsaResultTabSidebarUI("editor_dsa_ce")),
+              tab_value_panel("dsa_tabs", "vbp", dsaResultTabSidebarUI("editor_dsa_vbp"))
+            ),
+            overrides_output_id = "dsa_sidebar_overrides",
+            footer_content = shiny::actionButton(
+              "editor_run_dsa",
+              "Run DSA Analysis",
+              class = "btn-primary"
             )
           ),
           bslib::navset_card_tab(
-            bslib::nav_panel("Inputs",
+            id = "dsa_tabs",
+            selected = "inputs",
+            bslib::nav_panel("Inputs", value = "inputs",
               shiny::uiOutput("dsa_inputs_panel")
             ),
-            bslib::nav_panel("Outcomes", dsaResultTabUI("editor_dsa_outcomes")),
-            bslib::nav_panel("Costs", dsaResultTabUI("editor_dsa_costs")),
-            bslib::nav_panel("NMB", dsaResultTabUI("editor_dsa_nmb")),
-            bslib::nav_panel("CE", dsaResultTabUI("editor_dsa_ce")),
-            bslib::nav_panel("VBP", dsaResultTabUI("editor_dsa_vbp"))
+            bslib::nav_panel("Outcomes", value = "outcomes", dsaResultTabUI("editor_dsa_outcomes")),
+            bslib::nav_panel("Costs", value = "costs", dsaResultTabUI("editor_dsa_costs")),
+            bslib::nav_panel("NMB", value = "nmb", dsaResultTabUI("editor_dsa_nmb")),
+            bslib::nav_panel("CE", value = "ce", dsaResultTabUI("editor_dsa_ce")),
+            bslib::nav_panel("VBP", value = "vbp", dsaResultTabUI("editor_dsa_vbp"))
           )
         )
       ),
@@ -1924,11 +2127,27 @@ run_model_editor <- function(path = NULL, options = list()) {
         id = "page_vbp",
         class = "app-page results-page",
         style = "overflow: auto;",
-        bslib::navset_card_tab(
-          bslib::nav_panel("Inputs",
-            shiny::uiOutput("vbp_inputs_panel")
+        bslib::layout_sidebar(
+          sidebar = analysis_sidebar(
+            sidebar_id = "vbp_sidebar",
+            visualization_content = shiny::tagList(
+              tab_value_panel("vbp_tabs", "results", vbpResultsSidebarUI("editor_vbp"))
+            ),
+            overrides_output_id = "vbp_sidebar_overrides",
+            footer_content = shiny::actionButton(
+              "editor_run_vbp",
+              "Run VBP Analysis",
+              class = "btn-primary"
+            )
           ),
-          bslib::nav_panel("Results", vbpResultsUI("editor_vbp"))
+          bslib::navset_card_tab(
+            id = "vbp_tabs",
+            selected = "inputs",
+            bslib::nav_panel("Inputs", value = "inputs",
+              shiny::uiOutput("vbp_inputs_panel")
+            ),
+            bslib::nav_panel("Results", value = "results", vbpResultsUI("editor_vbp"))
+          )
         )
       ),
       # Scenario page
@@ -1937,25 +2156,33 @@ run_model_editor <- function(path = NULL, options = list()) {
         class = "app-page results-page",
         style = "overflow: auto;",
         bslib::layout_sidebar(
-          sidebar = bslib::sidebar(
-            id = "scenario_sidebar",
-            width = "250px",
-            tags$button(
-              type = "button",
-              class = "btn btn-outline-secondary btn-sm w-100",
-              onclick = "switchAppPage('overrides')",
-              "Manage Overrides"
+          sidebar = analysis_sidebar(
+            sidebar_id = "scenario_sidebar",
+            visualization_content = shiny::tagList(
+              tab_value_panel("scenario_tabs", "outcomes", scenarioResultTabSidebarUI("editor_scenario_outcomes")),
+              tab_value_panel("scenario_tabs", "costs", scenarioResultTabSidebarUI("editor_scenario_costs")),
+              tab_value_panel("scenario_tabs", "nmb", scenarioResultTabSidebarUI("editor_scenario_nmb")),
+              tab_value_panel("scenario_tabs", "ce", scenarioResultTabSidebarUI("editor_scenario_ce")),
+              tab_value_panel("scenario_tabs", "vbp", scenarioResultTabSidebarUI("editor_scenario_vbp"))
+            ),
+            overrides_output_id = "scenario_sidebar_overrides",
+            footer_content = shiny::actionButton(
+              "editor_run_scenario",
+              "Run Scenario Analysis",
+              class = "btn-primary"
             )
           ),
           bslib::navset_card_tab(
-            bslib::nav_panel("Inputs",
+            id = "scenario_tabs",
+            selected = "inputs",
+            bslib::nav_panel("Inputs", value = "inputs",
               shiny::uiOutput("scenario_inputs_panel")
             ),
-            bslib::nav_panel("Outcomes", scenarioResultTabUI("editor_scenario_outcomes")),
-            bslib::nav_panel("Costs", scenarioResultTabUI("editor_scenario_costs")),
-            bslib::nav_panel("NMB", scenarioResultTabUI("editor_scenario_nmb")),
-            bslib::nav_panel("CE", scenarioResultTabUI("editor_scenario_ce")),
-            bslib::nav_panel("VBP", scenarioResultTabUI("editor_scenario_vbp"))
+            bslib::nav_panel("Outcomes", value = "outcomes", scenarioResultTabUI("editor_scenario_outcomes")),
+            bslib::nav_panel("Costs", value = "costs", scenarioResultTabUI("editor_scenario_costs")),
+            bslib::nav_panel("NMB", value = "nmb", scenarioResultTabUI("editor_scenario_nmb")),
+            bslib::nav_panel("CE", value = "ce", scenarioResultTabUI("editor_scenario_ce")),
+            bslib::nav_panel("VBP", value = "vbp", scenarioResultTabUI("editor_scenario_vbp"))
           )
         )
       ),
@@ -1965,25 +2192,33 @@ run_model_editor <- function(path = NULL, options = list()) {
         class = "app-page results-page",
         style = "overflow: auto;",
         bslib::layout_sidebar(
-          sidebar = bslib::sidebar(
-            id = "twsa_sidebar",
-            width = "250px",
-            tags$button(
-              type = "button",
-              class = "btn btn-outline-secondary btn-sm w-100",
-              onclick = "switchAppPage('overrides')",
-              "Manage Overrides"
+          sidebar = analysis_sidebar(
+            sidebar_id = "twsa_sidebar",
+            visualization_content = shiny::tagList(
+              tab_value_panel("twsa_tabs", "outcomes", twsaResultTabSidebarUI("editor_twsa_outcomes")),
+              tab_value_panel("twsa_tabs", "costs", twsaResultTabSidebarUI("editor_twsa_costs")),
+              tab_value_panel("twsa_tabs", "nmb", twsaResultTabSidebarUI("editor_twsa_nmb")),
+              tab_value_panel("twsa_tabs", "ce", twsaResultTabSidebarUI("editor_twsa_ce")),
+              tab_value_panel("twsa_tabs", "vbp", twsaResultTabSidebarUI("editor_twsa_vbp"))
+            ),
+            overrides_output_id = "twsa_sidebar_overrides",
+            footer_content = shiny::actionButton(
+              "editor_run_twsa",
+              "Run TWSA",
+              class = "btn-primary"
             )
           ),
           bslib::navset_card_tab(
-            bslib::nav_panel("Inputs",
+            id = "twsa_tabs",
+            selected = "inputs",
+            bslib::nav_panel("Inputs", value = "inputs",
               shiny::uiOutput("twsa_inputs_panel")
             ),
-            bslib::nav_panel("Outcomes", twsaResultTabUI("editor_twsa_outcomes")),
-            bslib::nav_panel("Costs", twsaResultTabUI("editor_twsa_costs")),
-            bslib::nav_panel("NMB", twsaResultTabUI("editor_twsa_nmb")),
-            bslib::nav_panel("CE", twsaResultTabUI("editor_twsa_ce")),
-            bslib::nav_panel("VBP", twsaResultTabUI("editor_twsa_vbp"))
+            bslib::nav_panel("Outcomes", value = "outcomes", twsaResultTabUI("editor_twsa_outcomes")),
+            bslib::nav_panel("Costs", value = "costs", twsaResultTabUI("editor_twsa_costs")),
+            bslib::nav_panel("NMB", value = "nmb", twsaResultTabUI("editor_twsa_nmb")),
+            bslib::nav_panel("CE", value = "ce", twsaResultTabUI("editor_twsa_ce")),
+            bslib::nav_panel("VBP", value = "vbp", twsaResultTabUI("editor_twsa_vbp"))
           )
         )
       ),
@@ -1993,23 +2228,28 @@ run_model_editor <- function(path = NULL, options = list()) {
         class = "app-page results-page",
         style = "overflow: auto;",
         bslib::layout_sidebar(
-          sidebar = bslib::sidebar(
-            id = "threshold_sidebar",
-            width = "250px",
-            tags$button(
-              type = "button",
-              class = "btn btn-outline-secondary btn-sm w-100",
-              onclick = "switchAppPage('overrides')",
-              "Manage Overrides"
+          sidebar = analysis_sidebar(
+            sidebar_id = "threshold_sidebar",
+            visualization_content = shiny::tagList(
+              tab_value_panel("threshold_tabs", "detail", thresholdResultTabSidebarUI("editor_threshold_detail")),
+              tab_value_panel("threshold_tabs", "convergence", thresholdResultTabSidebarUI("editor_threshold_convergence"))
+            ),
+            overrides_output_id = "threshold_sidebar_overrides",
+            footer_content = shiny::actionButton(
+              "editor_run_threshold",
+              "Run Threshold Analysis",
+              class = "btn-primary"
             )
           ),
           bslib::navset_card_tab(
-            bslib::nav_panel("Inputs",
+            id = "threshold_tabs",
+            selected = "inputs",
+            bslib::nav_panel("Inputs", value = "inputs",
               shiny::uiOutput("threshold_inputs_panel")
             ),
-            bslib::nav_panel("Summary", thresholdSummaryUI("editor_threshold_summary")),
-            bslib::nav_panel("Detail", thresholdResultTabUI("editor_threshold_detail")),
-            bslib::nav_panel("Convergence", thresholdResultTabUI("editor_threshold_convergence"))
+            bslib::nav_panel("Summary", value = "summary", thresholdSummaryUI("editor_threshold_summary")),
+            bslib::nav_panel("Detail", value = "detail", thresholdResultTabUI("editor_threshold_detail")),
+            bslib::nav_panel("Convergence", value = "convergence", thresholdResultTabUI("editor_threshold_convergence"))
           )
         )
       ),
@@ -2019,33 +2259,39 @@ run_model_editor <- function(path = NULL, options = list()) {
         class = "app-page results-page",
         style = "overflow: auto;",
         bslib::layout_sidebar(
-          sidebar = bslib::sidebar(
-            id = "psa_sidebar",
-            width = "250px",
-            tags$button(
-              type = "button",
-              class = "btn btn-outline-secondary btn-sm w-100",
-              onclick = "switchAppPage('overrides')",
-              "Manage Overrides"
-            )
+          sidebar = analysis_sidebar(
+            sidebar_id = "psa_sidebar",
+            visualization_content = shiny::tagList(
+              tab_value_panel("psa_tabs", "outcomes", psaResultTabSidebarUI("editor_psa_outcomes")),
+              tab_value_panel("psa_tabs", "costs", psaResultTabSidebarUI("editor_psa_costs")),
+              tab_value_panel("psa_tabs", "nmb", psaResultTabSidebarUI("editor_psa_nmb")),
+              tab_value_panel("psa_tabs", "incremental_ce", psaResultTabSidebarUI("editor_psa_incremental_ce")),
+              tab_value_panel("psa_tabs", "pairwise_ce", psaResultTabSidebarUI("editor_psa_pairwise_ce")),
+              tab_value_panel("psa_tabs", "evpi", psaResultTabSidebarUI("editor_psa_evpi")),
+              tab_value_panel("psa_tabs", "parameters", psaResultTabSidebarUI("editor_psa_parameters"))
+            ),
+            overrides_output_id = "psa_sidebar_overrides",
+            footer_content = shiny::uiOutput("psa_footer_controls")
           ),
           bslib::navset_card_tab(
-            bslib::nav_panel("Settings",
+            id = "psa_tabs",
+            selected = "settings",
+            bslib::nav_panel("Settings", value = "settings",
               shiny::uiOutput("psa_settings_panel")
             ),
-            bslib::nav_panel("Univariate Sampling",
+            bslib::nav_panel("Univariate Sampling", value = "univariate_sampling",
               shiny::uiOutput("psa_univariate_panel")
             ),
-            bslib::nav_panel("Multivariate Sampling",
+            bslib::nav_panel("Multivariate Sampling", value = "multivariate_sampling",
               shiny::uiOutput("psa_multivariate_panel")
             ),
-            bslib::nav_panel("Outcomes", psaResultTabUI("editor_psa_outcomes")),
-            bslib::nav_panel("Costs", psaResultTabUI("editor_psa_costs")),
-            bslib::nav_panel("NMB", psaResultTabUI("editor_psa_nmb")),
-            bslib::nav_panel("Incremental CE", psaResultTabUI("editor_psa_incremental_ce")),
-            bslib::nav_panel("Pairwise CE", psaResultTabUI("editor_psa_pairwise_ce")),
-            bslib::nav_panel("EVPI", psaResultTabUI("editor_psa_evpi")),
-            bslib::nav_panel("Parameters", psaResultTabUI("editor_psa_parameters"))
+            bslib::nav_panel("Outcomes", value = "outcomes", psaResultTabUI("editor_psa_outcomes")),
+            bslib::nav_panel("Costs", value = "costs", psaResultTabUI("editor_psa_costs")),
+            bslib::nav_panel("NMB", value = "nmb", psaResultTabUI("editor_psa_nmb")),
+            bslib::nav_panel("Incremental CE", value = "incremental_ce", psaResultTabUI("editor_psa_incremental_ce")),
+            bslib::nav_panel("Pairwise CE", value = "pairwise_ce", psaResultTabUI("editor_psa_pairwise_ce")),
+            bslib::nav_panel("EVPI", value = "evpi", psaResultTabUI("editor_psa_evpi")),
+            bslib::nav_panel("Parameters", value = "parameters", psaResultTabUI("editor_psa_parameters"))
           )
         )
       )
@@ -2990,10 +3236,20 @@ run_model_editor <- function(path = NULL, options = list()) {
 
     # --- Results page ---
     editor_results_rv <- shiny::reactiveValues(results = NULL, metadata = NULL)
+    override_value_cache <- shiny::reactiveVal(list())
 
-    output$override_panel <- shiny::renderUI({
+    extract_override_expression <- function(value) {
+      if (is.list(value) && !is.null(value$value)) {
+        value$value
+      } else {
+        value
+      }
+    }
+
+    build_override_sidebar_panel <- function(cached_values = list()) {
       m <- model()
       if (is.null(m)) return(NULL)
+
       cats <- openqaly::get_override_categories(m)
       if (length(cats) == 0) {
         return(htmltools::tagList(
@@ -3011,12 +3267,17 @@ run_model_editor <- function(path = NULL, options = list()) {
         ))
       }
 
-      # Build flat list of override cards using simple divs (no bslib)
       input_id <- "editor_overrides"
       sections <- lapply(cats, function(cat) {
         cards <- lapply(cat$overrides, function(override) {
           oid <- .build_override_id(input_id, override)
-          input_widget <- .build_override_input(oid, override, m)
+          cached_value <- cached_values[[oid]]$expression %||% NULL
+          input_widget <- .build_override_input(
+            oid,
+            override,
+            m,
+            current_value = cached_value
+          )
           default_val <- if (!is.null(override$overridden_expression)) {
             as.character(override$overridden_expression)
           } else if (!is.null(override$default_value)) {
@@ -3024,6 +3285,7 @@ run_model_editor <- function(path = NULL, options = list()) {
           } else {
             ""
           }
+
           tags$div(class = "override-card-simple",
             tags$div(class = "override-card-header",
               tags$div(class = "override-card-title-row",
@@ -3043,13 +3305,13 @@ run_model_editor <- function(path = NULL, options = list()) {
             tags$div(class = "override-card-body", input_widget)
           )
         })
+
         htmltools::tagList(
           tags$div(class = "override-section-header", cat$name),
           cards
         )
       })
 
-      # Check if any overrides use formula input type
       has_formula <- any(vapply(cats, function(cat) {
         any(vapply(cat$overrides, function(o) {
           identical(o$input_type, "formula")
@@ -3079,7 +3341,22 @@ run_model_editor <- function(path = NULL, options = list()) {
           sections
         )
       )
-    })
+    }
+
+    render_override_sidebar_output <- function(output_id, page_name) {
+      output[[output_id]] <- shiny::renderUI({
+        shiny::req(identical(input$active_page, page_name))
+        build_override_sidebar_panel(override_value_cache())
+      })
+    }
+
+    render_override_sidebar_output("results_sidebar_overrides", "results")
+    render_override_sidebar_output("dsa_sidebar_overrides", "dsa")
+    render_override_sidebar_output("vbp_sidebar_overrides", "vbp")
+    render_override_sidebar_output("scenario_sidebar_overrides", "scenario")
+    render_override_sidebar_output("twsa_sidebar_overrides", "twsa")
+    render_override_sidebar_output("threshold_sidebar_overrides", "threshold")
+    render_override_sidebar_output("psa_sidebar_overrides", "psa")
 
     overrideManagerServer("editor_overrides",
       model = shiny::reactive(model()),
@@ -3088,38 +3365,68 @@ run_model_editor <- function(path = NULL, options = list()) {
       }
     )
 
-    editor_override_values <- shiny::reactive({
+    editor_override_values_live <- shiny::reactive({
       m <- model()
-      if (is.null(m)) return(NULL)
+      if (is.null(m)) return(list())
       cats <- openqaly::get_override_categories(m)
-      if (length(cats) == 0) return(NULL)
+      if (length(cats) == 0) return(list())
+
       values <- list()
       for (cat in cats) {
         for (override in cat$overrides) {
           input_id <- .build_override_id("editor_overrides", override)
           val <- input[[input_id]]
           if (!is.null(val)) {
-            expr_val <- if (is.list(val) && !is.null(val$value)) {
-              val$value
-            } else {
-              val
-            }
-            values <- c(values, list(list(
+            values[[input_id]] <- list(
               name = override$name,
-              expression = as.character(expr_val),
+              expression = as.character(extract_override_expression(val)),
               strategy = override$strategy %||% "",
               group = override$group %||% ""
-            )))
+            )
           }
         }
       }
       values
     })
-    editor_override_values_debounced <- shiny::debounce(editor_override_values, 1000)
+
+    shiny::observeEvent(editor_override_values_live(), {
+      live_values <- editor_override_values_live()
+      if (length(live_values) == 0) {
+        return()
+      }
+
+      cached_values <- override_value_cache()
+      cached_values[names(live_values)] <- live_values
+      override_value_cache(cached_values)
+    }, ignoreNULL = FALSE)
+
+    editor_override_values <- shiny::reactive({
+      m <- model()
+      if (is.null(m)) return(NULL)
+
+      cats <- openqaly::get_override_categories(m)
+      if (length(cats) == 0) return(NULL)
+
+      live_values <- editor_override_values_live()
+      cached_values <- override_value_cache()
+      values <- list()
+
+      for (cat in cats) {
+        for (override in cat$overrides) {
+          oid <- .build_override_id("editor_overrides", override)
+          current_value <- live_values[[oid]] %||% cached_values[[oid]]
+          if (!is.null(current_value)) {
+            values <- c(values, list(current_value))
+          }
+        }
+      }
+
+      if (length(values) == 0) NULL else values
+    })
 
     build_editor_model <- function() {
       m <- model()
-      vals <- editor_override_values_debounced()
+      vals <- editor_override_values()
       if (is.null(m)) return(NULL)
       if (!is.null(vals) && length(vals) > 0) {
         m <- openqaly::set_override_expressions(m, vals)
@@ -3135,17 +3442,24 @@ run_model_editor <- function(path = NULL, options = list()) {
       last_error = FALSE
     )
     rerun_trigger <- shiny::reactiveVal(0L)
+    request_editor_rerun <- function() {
+      rerun_trigger(shiny::isolate(rerun_trigger()) + 1L)
+    }
 
-    # Open the results sidebar when navigating to the results page
+    # Open the active analysis sidebar when navigating between result pages
     shiny::observeEvent(input$active_page, {
-      if (input$active_page == "results") {
-        bslib::toggle_sidebar("results_sidebar", open = TRUE)
-      }
-      if (input$active_page == "dsa") {
-        bslib::toggle_sidebar("dsa_sidebar", open = TRUE)
-      }
-      if (input$active_page == "scenario") {
-        bslib::toggle_sidebar("scenario_sidebar", open = TRUE)
+      sidebar_id <- switch(input$active_page,
+        "results" = "results_sidebar",
+        "dsa" = "dsa_sidebar",
+        "vbp" = "vbp_sidebar",
+        "scenario" = "scenario_sidebar",
+        "twsa" = "twsa_sidebar",
+        "threshold" = "threshold_sidebar",
+        "psa" = "psa_sidebar",
+        NULL
+      )
+      if (!is.null(sidebar_id)) {
+        bslib::toggle_sidebar(sidebar_id, open = TRUE)
       }
     })
 
@@ -3159,11 +3473,21 @@ run_model_editor <- function(path = NULL, options = list()) {
       }
     })
 
-    # Main run observer
     shiny::observe({
+      shiny::req(on_run_page(), isTRUE(input$editor_results_auto_run))
+      build_editor_model()
+      request_editor_rerun()
+    })
+
+    shiny::observeEvent(input$editor_run_model, {
+      shiny::req(on_run_page())
+      request_editor_rerun()
+    }, ignoreInit = TRUE)
+
+    # Main run observer
+    shiny::observeEvent(rerun_trigger(), {
       shiny::req(on_run_page())
       m <- build_editor_model()
-      rerun_trigger()
       shiny::req(m)
 
       if (shiny::isolate(run_state$running)) {
@@ -3215,7 +3539,7 @@ run_model_editor <- function(path = NULL, options = list()) {
       )
 
       NULL
-    })
+    }, ignoreInit = TRUE)
 
     # Progress polling observer
     shiny::observe({
@@ -3395,18 +3719,11 @@ run_model_editor <- function(path = NULL, options = list()) {
         )
       )
 
-      shiny::tagList(
-        param_table,
-        shiny::tags$button(
-          type = "button",
-          class = "btn btn-primary mt-2 w-100 dsa-run-btn",
-          "Run DSA Analysis"
-        )
-      )
+      param_table
     })
 
-    shiny::observeEvent(input$run_dsa_action, {
-      params <- normalize_dsa_params(input$run_dsa_action$params)
+    run_dsa_analysis <- function(params = NULL) {
+      params <- normalize_dsa_params(params)
       if (length(params) == 0) {
         params <- normalize_dsa_params(input$editor_dsa_params)
       }
@@ -3462,6 +3779,14 @@ run_model_editor <- function(path = NULL, options = list()) {
       )
 
       NULL
+    }
+
+    shiny::observeEvent(input$editor_run_dsa, {
+      run_dsa_analysis()
+    }, ignoreInit = TRUE)
+
+    shiny::observeEvent(input$run_dsa_action, {
+      run_dsa_analysis(input$run_dsa_action$params)
     })
 
     # DSA progress polling
@@ -3576,9 +3901,6 @@ run_model_editor <- function(path = NULL, options = list()) {
           shiny::selectInput("editor_vbp_cost", "Cost Summary",
             choices = cost_choices,
             selected = default_cost
-          ),
-          shiny::actionButton("editor_run_vbp", "Run VBP Analysis",
-            class = "btn-primary mt-2 w-100"
           )
         )
       )
@@ -3611,6 +3933,11 @@ run_model_editor <- function(path = NULL, options = list()) {
     })
 
     shiny::observeEvent(input$editor_run_vbp, {
+      if (!isTRUE(input$editor_vbp_enabled)) {
+        shiny::showNotification("Enable VBP before running the analysis.", type = "warning")
+        return()
+      }
+
       shiny::req(
         input$editor_vbp_price_variable,
         input$editor_vbp_intervention,
@@ -3840,11 +4167,6 @@ run_model_editor <- function(path = NULL, options = list()) {
             `data-initial-scenarios` = jsonlite::toJSON(
               initial_scenarios, auto_unbox = TRUE
             )
-          ),
-          tags$button(
-            type = "button",
-            class = "btn btn-primary mt-2 w-100 scenario-run-btn",
-            "Run Scenario Analysis"
           )
         )
       )
@@ -3962,8 +4284,8 @@ run_model_editor <- function(path = NULL, options = list()) {
       })
     })
 
-    shiny::observeEvent(input$run_scenario_action, {
-      scenarios <- input$run_scenario_action$scenarios
+    run_scenario_analysis <- function(scenarios = NULL) {
+      scenarios <- scenarios %||% input$editor_scenario_params
       if (is.null(scenarios) || length(scenarios) == 0) {
         shiny::showNotification("Please add at least one scenario.", type = "warning")
         return()
@@ -3974,6 +4296,8 @@ run_model_editor <- function(path = NULL, options = list()) {
         shiny::showNotification("No model loaded.", type = "warning")
         return()
       }
+
+      m <- apply_scenario_params(m, scenarios)
 
       scenario_args <- list(m)
 
@@ -4013,6 +4337,14 @@ run_model_editor <- function(path = NULL, options = list()) {
       )
 
       NULL
+    }
+
+    shiny::observeEvent(input$editor_run_scenario, {
+      run_scenario_analysis()
+    }, ignoreInit = TRUE)
+
+    shiny::observeEvent(input$run_scenario_action, {
+      run_scenario_analysis(input$run_scenario_action$scenarios)
     })
 
     # Scenario progress polling
@@ -4177,11 +4509,6 @@ run_model_editor <- function(path = NULL, options = list()) {
             `data-initial-twsa` = jsonlite::toJSON(
               initial_twsa, auto_unbox = TRUE
             )
-          ),
-          tags$button(
-            type = "button",
-            class = "btn btn-primary mt-2 w-100 twsa-run-btn",
-            "Run TWSA"
           )
         )
       )
@@ -4312,7 +4639,7 @@ run_model_editor <- function(path = NULL, options = list()) {
       ))
     })
 
-    shiny::observeEvent(input$run_twsa_action, {
+    run_twsa_analysis <- function() {
       m <- build_editor_model()
       if (is.null(m)) {
         shiny::showNotification("No model loaded.", type = "warning")
@@ -4363,6 +4690,14 @@ run_model_editor <- function(path = NULL, options = list()) {
       )
 
       NULL
+    }
+
+    shiny::observeEvent(input$editor_run_twsa, {
+      run_twsa_analysis()
+    }, ignoreInit = TRUE)
+
+    shiny::observeEvent(input$run_twsa_action, {
+      run_twsa_analysis()
     })
 
     # TWSA progress polling
@@ -4515,93 +4850,44 @@ run_model_editor <- function(path = NULL, options = list()) {
       if (is.null(d)) {
         return(tags$div(class = "text-muted p-3", "Load a model first."))
       }
+      tags$div(
+        class = "text-muted p-3",
+        "Configure univariate and multivariate sampling on the tabs above. ",
+        "Run controls are in the sidebar footer."
+      )
+    })
+
+    output$psa_footer_controls <- shiny::renderUI({
+      d <- psa_input_data()
+      if (is.null(d)) {
+        return(tags$div(class = "text-muted", "Load a model first."))
+      }
+
       shiny::tagList(
-        psa_params_dependency(),
         tags$div(
-          class = "psa-inputs-wrapper",
-          tags$div(
-            class = "psa-settings-container psa-settings-row",
-            tags$div(
-              class = "form-group",
-              tags$label("Number of Simulations"),
-              tags$input(
-                type = "number", class = "form-control form-control-sm psa-nsim-input",
-                value = d$n_sim_default, min = "1", step = "100"
-              )
-            ),
-            tags$div(
-              class = "form-group",
-              tags$label("Seed (optional)"),
-              tags$input(
-                type = "number", class = "form-control form-control-sm psa-seed-input",
-                value = d$seed_default
-              )
-            )
+          class = "results-footer-grid",
+          shiny::numericInput(
+            "editor_psa_n_sim",
+            "N",
+            value = d$n_sim_default,
+            min = 1,
+            step = 100
           ),
-          tags$button(
-            type = "button",
-            class = "btn btn-primary mt-2 w-100 psa-run-btn",
-            "Run PSA"
+          shiny::textInput(
+            "editor_psa_seed",
+            "Seed",
+            value = as.character(d$seed_default %||% ""),
+            placeholder = "Optional"
+          ),
+          tags$div(
+            style = "grid-column: 1 / -1;",
+            shiny::actionButton(
+              "editor_run_psa",
+              "Run PSA",
+              class = "btn-primary"
+            )
           )
-        ),
-        # Wire settings and run button immediately when this panel renders
-        tags$script(htmltools::HTML("
-          (function() {
-            var psaPage = document.getElementById('page_psa') || document;
-            var settingsDiv = psaPage.querySelector('.psa-settings-container');
-            if (settingsDiv && !settingsDiv.hasAttribute('data-initialized') && window.OQGrid) {
-              var nSimInput = settingsDiv.querySelector('.psa-nsim-input');
-              var seedInput = settingsDiv.querySelector('.psa-seed-input');
-              function sendSettings() {
-                OQGrid.shiny.dispatchModelAction({
-                  type: 'set_psa_settings',
-                  n_sim: nSimInput ? parseInt(nSimInput.value, 10) || 1000 : 1000,
-                  seed: seedInput ? seedInput.value : ''
-                });
-              }
-              if (nSimInput) nSimInput.addEventListener('change', sendSettings);
-              if (seedInput) seedInput.addEventListener('change', sendSettings);
-              settingsDiv.setAttribute('data-initialized', 'true');
-            }
-            var wrapper = psaPage.querySelector('.psa-inputs-wrapper');
-            if (wrapper && !wrapper.hasAttribute('data-run-wired') && window.OQGrid) {
-              var runBtn = wrapper.querySelector('.psa-run-btn');
-              if (runBtn) {
-                var newRunBtn = runBtn.cloneNode(true);
-                runBtn.parentNode.replaceChild(newRunBtn, runBtn);
-                newRunBtn.addEventListener('click', function() {
-                  var nSimInput = psaPage.querySelector('.psa-nsim-input');
-                  var seedInput = psaPage.querySelector('.psa-seed-input');
-                  var _at = OQGrid._psaActiveTables || {};
-                  var univContainer = psaPage.querySelector('.psa-params-container');
-                  var univId = univContainer ? univContainer.dataset.inputId : null;
-                  var univTable = univId ? _at[univId] : null;
-                  var univData = univTable ? univTable.getData().map(function(d) {
-                    return { name: d.name, strategy: d.strategy || '', group: d.group || '', sampling: d.sampling || '' };
-                  }) : [];
-                  var mvContainer = psaPage.querySelector('.psa-multivariate-container');
-                  var mvId = mvContainer ? mvContainer.dataset.inputId : null;
-                  var mvTable = mvId ? _at[mvId] : null;
-                  var mvData = mvTable ? mvTable.getData().map(function(d) {
-                    return {
-                      name: d.name || '', variables: d.variables || [],
-                      strategy: d.strategy || '', group: d.group || '',
-                      type: d.type || '', n: d.n || null, covariance: d.covariance || null
-                    };
-                  }) : [];
-                  OQGrid.shiny.dispatch('run_psa_action', {
-                    nonce: Date.now(),
-                    n_sim: nSimInput ? parseInt(nSimInput.value, 10) || 1000 : 1000,
-                    seed: seedInput ? seedInput.value : '',
-                    params: univData,
-                    multivariate: mvData
-                  });
-                });
-                wrapper.setAttribute('data-run-wired', 'true');
-              }
-            }
-          })();
-        "))
+        )
       )
     })
 
@@ -4846,17 +5132,64 @@ run_model_editor <- function(path = NULL, options = list()) {
       }
     })
 
-    # PSA run handler
-    shiny::observeEvent(input$run_psa_action, {
-      n_sim <- input$run_psa_action$n_sim
-      seed_val <- input$run_psa_action$seed
-      params <- input$run_psa_action$params
-      multivariate <- input$run_psa_action$multivariate
+    normalize_psa_seed <- function(seed_val) {
+      seed_chr <- trimws(as.character(seed_val %||% ""))
+      if (!nzchar(seed_chr)) return("")
+      if (!grepl("^-?\\d+$", seed_chr)) return(NA_character_)
+      seed_chr
+    }
 
-      if (is.null(n_sim) || n_sim < 1) {
+    sync_psa_settings <- function(n_sim = NULL, seed_val = NULL) {
+      m <- model()
+      if (is.null(m)) return(FALSE)
+
+      n_sim_value <- as.integer(n_sim %||% input$editor_psa_n_sim %||% NA_integer_)
+      if (is.na(n_sim_value) || n_sim_value < 1) {
+        shiny::showNotification("Please set a valid number of simulations.", type = "warning")
+        return(FALSE)
+      }
+
+      seed_chr <- normalize_psa_seed(seed_val %||% input$editor_psa_seed)
+      if (is.na(seed_chr)) {
+        shiny::showNotification("Seed must be an integer.", type = "warning")
+        return(FALSE)
+      }
+
+      current_n_sim <- as.integer(m$psa$n_sim %||% 1000L)
+      current_seed <- if (is.null(m$psa$seed)) "" else as.character(m$psa$seed)
+
+      if (identical(current_n_sim, n_sim_value) && identical(current_seed, seed_chr)) {
+        return(TRUE)
+      }
+
+      apply_action(list(
+        type = "set_psa_settings",
+        n_sim = n_sim_value,
+        seed = seed_chr
+      ))
+
+      TRUE
+    }
+
+    run_psa_analysis <- function(n_sim = NULL, seed_val = NULL, params = NULL, multivariate = NULL) {
+      n_sim_value <- as.integer(n_sim %||% input$editor_psa_n_sim %||% NA_integer_)
+      if (is.na(n_sim_value) || n_sim_value < 1) {
         shiny::showNotification("Please set number of simulations.", type = "warning")
         return()
       }
+
+      seed_chr <- normalize_psa_seed(seed_val %||% input$editor_psa_seed)
+      if (is.na(seed_chr)) {
+        shiny::showNotification("Seed must be an integer.", type = "warning")
+        return()
+      }
+
+      if (!sync_psa_settings(n_sim = n_sim_value, seed_val = seed_chr)) {
+        return()
+      }
+
+      params <- params %||% input$editor_psa_params
+      multivariate <- multivariate %||% input$editor_psa_multivariate
 
       m <- build_editor_model()
       if (is.null(m)) {
@@ -4876,9 +5209,9 @@ run_model_editor <- function(path = NULL, options = list()) {
       )
       if (is.null(m)) return()
 
-      psa_args <- list(m, n_sim = as.integer(n_sim))
-      if (!is.null(seed_val) && nzchar(seed_val)) {
-        psa_args$seed <- as.integer(seed_val)
+      psa_args <- list(m, n_sim = n_sim_value)
+      if (nzchar(seed_chr)) {
+        psa_args$seed <- as.integer(seed_chr)
       }
 
       pf <- create_progress_file()
@@ -4917,7 +5250,28 @@ run_model_editor <- function(path = NULL, options = list()) {
       )
 
       NULL
-    })
+    }
+
+    shiny::observeEvent(input$editor_psa_n_sim, {
+      sync_psa_settings()
+    }, ignoreInit = TRUE)
+
+    shiny::observeEvent(input$editor_psa_seed, {
+      sync_psa_settings()
+    }, ignoreInit = TRUE)
+
+    shiny::observeEvent(input$editor_run_psa, {
+      run_psa_analysis()
+    }, ignoreInit = TRUE)
+
+    shiny::observeEvent(input$run_psa_action, {
+      run_psa_analysis(
+        n_sim = input$run_psa_action$n_sim,
+        seed_val = input$run_psa_action$seed,
+        params = input$run_psa_action$params,
+        multivariate = input$run_psa_action$multivariate
+      )
+    }, ignoreInit = TRUE)
 
     # PSA progress polling
     shiny::observe({
@@ -5079,17 +5433,12 @@ run_model_editor <- function(path = NULL, options = list()) {
           `data-initial` = jsonlite::toJSON(
             initial_analyses, auto_unbox = TRUE
           )
-        ),
-        shiny::tags$button(
-          type = "button",
-          class = "btn btn-primary mt-2 w-100 threshold-run-btn",
-          "Run Threshold Analysis"
         )
       )
     })
 
-    shiny::observeEvent(input$run_threshold_action, {
-      analyses <- normalize_threshold_params(input$run_threshold_action$analyses)
+    run_threshold_analysis <- function(analyses = NULL) {
+      analyses <- normalize_threshold_params(analyses)
       if (length(analyses) == 0) {
         analyses <- normalize_threshold_params(input$editor_threshold_params)
       }
@@ -5143,6 +5492,14 @@ run_model_editor <- function(path = NULL, options = list()) {
       )
 
       NULL
+    }
+
+    shiny::observeEvent(input$editor_run_threshold, {
+      run_threshold_analysis()
+    }, ignoreInit = TRUE)
+
+    shiny::observeEvent(input$run_threshold_action, {
+      run_threshold_analysis(input$run_threshold_action$analyses)
     })
 
     # Threshold progress polling

@@ -5,13 +5,22 @@
 #' VBP Results UI
 #' @param id Module namespace ID.
 #' @keywords internal
-vbpResultsUI <- function(id) {
+vbpResultsSidebarUI <- function(id) {
   ns <- shiny::NS(id)
   shiny::tagList(
     shiny::selectInput(ns("viz_type"), "Visualization",
       choices = c("Line Chart" = "line", "Table" = "table")
     ),
-    shiny::uiOutput(ns("controls")),
+    shiny::uiOutput(ns("controls"))
+  )
+}
+
+#' VBP Results UI
+#' @param id Module namespace ID.
+#' @keywords internal
+vbpResultsUI <- function(id) {
+  ns <- shiny::NS(id)
+  shiny::tagList(
     shiny::conditionalPanel(
       condition = sprintf("input['%s'] != 'table'", ns("viz_type")),
       shiny::plotOutput(ns("result_plot"))
@@ -106,10 +115,7 @@ vbpResultsServer <- function(id, vbp_results, metadata) {
 
       inputs <- Filter(Negate(is.null), inputs)
 
-      do.call(bslib::layout_columns, c(
-        list(col_widths = bslib::breakpoints(sm = 12, md = 6)),
-        inputs
-      ))
+      build_results_sidebar_controls(inputs)
     })
 
     output$result_plot <- shiny::renderPlot({

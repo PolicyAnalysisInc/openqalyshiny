@@ -79,6 +79,22 @@
     return stack.length === 0;
   }
 
+  function getUpdateOn(el) {
+    return el.getAttribute("data-update-on") || "change";
+  }
+
+  function setFormulaEditorValue(el, editor, value) {
+    const stringValue = (value == null) ? "" : String(value);
+
+    el._formulaSuppressChange = true;
+    try {
+      editor.setValue(stringValue, -1);
+    } finally {
+      el._formulaDirty = false;
+      el._formulaSuppressChange = false;
+    }
+  }
+
   // Initialize when dependencies are ready
   waitForDependencies().then(() => {
     // Inject default styles for custom token types
@@ -100,6 +116,7 @@
         const placeholderText = $(el).data("placeholder") || "";
         const termsData = $(el).data("terms");
         const suggestionsData = $(el).data("suggestions");
+        const updateOn = getUpdateOn(el);
         const visibilityNs = ".formulaInputVisibility" + (++formulaInstanceCounter);
 
         // Parse terms if provided
@@ -183,7 +200,12 @@
                 editor.completer.popup.isOpen) {
               editor.completer.detach();
             }
-            $(el).trigger("formula-input:enter");
+            if (updateOn === "blur") {
+              el._formulaDirty = false;
+              $(el).trigger("formula-input:commit");
+            } else {
+              $(el).trigger("formula-input:enter");
+            }
           }
         });
 
@@ -196,7 +218,12 @@
                 editor.completer.popup.isOpen) {
               editor.completer.detach();
             }
-            $(el).trigger("formula-input:enter");
+            if (updateOn === "blur") {
+              el._formulaDirty = false;
+              $(el).trigger("formula-input:commit");
+            } else {
+              $(el).trigger("formula-input:enter");
+            }
           }
         });
 
@@ -227,11 +254,33 @@
 
         // Trigger change event on input
         editor.on("change", function() {
+          if (el._formulaSuppressChange) {
+            return;
+          }
+
+          if (updateOn === "blur") {
+            el._formulaDirty = true;
+            return;
+          }
+
           $(el).trigger("formula-input:change");
+        });
+
+        editor.on("blur", function() {
+          if (updateOn !== "blur" || el._formulaSuppressChange || !el._formulaDirty) {
+            return;
+          }
+
+          el._formulaDirty = false;
+          $(el).trigger("formula-input:commit");
         });
 
         // Store editor reference
         el._formulaEditor = editor;
+        el._formulaDirty = false;
+        el._formulaSetValue = function(value) {
+          setFormulaEditorValue(el, editor, value);
+        };
 
         // Ace needs an explicit resize when initialized in hidden panels/pages.
         const resizeEditor = function() {
@@ -272,11 +321,19 @@
         const editor = el._formulaEditor;
         if (!editor) return;
 
-        const stringValue = (value == null) ? "" : String(value);
-        editor.setValue(stringValue, -1);
+        setFormulaEditorValue(el, editor, value);
       },
 
       subscribe: function(el, callback) {
+        const updateOn = getUpdateOn(el);
+
+        if (updateOn === "blur") {
+          $(el).on("formula-input:commit.formulaInputBinding", function() {
+            callback(false);
+          });
+          return;
+        }
+
         $(el).on("formula-input:change.formulaInputBinding", function() {
           callback(false);
         });
@@ -293,6 +350,7 @@
           delete el._formulaVisibilityNs;
           delete el._formulaResizeHandler;
         }
+        delete el._formulaSetValue;
       },
 
       receiveMessage: function(el, data) {
@@ -311,7 +369,6 @@
             completer.setSuggestions(data.suggestions);
           }
         }
-        $(el).trigger("formula-input:change");
       },
 
       getRatePolicy: function() {

@@ -5,16 +5,25 @@
 #' Trace Results UI
 #' @param id Module namespace ID.
 #' @keywords internal
-traceResultsUI <- function(id) {
+traceResultsSidebarUI <- function(id) {
   ns <- shiny::NS(id)
   shiny::tagList(
     shiny::selectInput(ns("viz_type"), "Visualization",
       choices = c("Area Chart" = "area", "Line Chart" = "line", "Table" = "table")
     ),
-    shiny::uiOutput(ns("controls")),
+    shiny::uiOutput(ns("controls"))
+  )
+}
+
+#' Trace Results UI
+#' @param id Module namespace ID.
+#' @keywords internal
+traceResultsUI <- function(id) {
+  ns <- shiny::NS(id)
+  results_fill_panel(
     shiny::conditionalPanel(
       condition = sprintf("input['%s'] != 'table'", ns("viz_type")),
-      shiny::plotOutput(ns("result_plot"))
+      results_fill_plot_output(ns("result_plot"))
     ),
     shiny::conditionalPanel(
       condition = sprintf("input['%s'] == 'table'", ns("viz_type")),
@@ -62,8 +71,7 @@ traceResultsServer <- function(id, results, metadata) {
         NULL
       )
 
-      bslib::layout_columns(
-        col_widths = bslib::breakpoints(sm = 12, md = 6),
+      build_results_sidebar_controls(list(
         if (length(groups) > 1) shiny::selectInput(ns("groups"), "Groups", choices = groups, selected = "overall", multiple = TRUE),
         if (length(strategies) > 1) shiny::selectInput(ns("strategies"), "Strategies", choices = strategies, selected = strategies, multiple = TRUE),
         shiny::selectInput(ns("time_unit"), "Time Unit",
@@ -71,7 +79,7 @@ traceResultsServer <- function(id, results, metadata) {
           selected = "cycle"
         ),
         extra
-      )
+      ))
     })
 
     # Build args list from current inputs
@@ -131,7 +139,7 @@ traceResultsServer <- function(id, results, metadata) {
 #' Outcomes Results UI
 #' @param id Module namespace ID.
 #' @keywords internal
-outcomesResultsUI <- function(id) {
+outcomesResultsSidebarUI <- function(id) {
   ns <- shiny::NS(id)
   shiny::tagList(
     shiny::selectInput(ns("viz_type"), "Visualization",
@@ -140,10 +148,19 @@ outcomesResultsUI <- function(id) {
     shiny::selectInput(ns("analysis_type"), "Type",
       choices = c("Absolute" = "absolute", "Differences" = "differences")
     ),
-    shiny::uiOutput(ns("controls")),
+    shiny::uiOutput(ns("controls"))
+  )
+}
+
+#' Outcomes Results UI
+#' @param id Module namespace ID.
+#' @keywords internal
+outcomesResultsUI <- function(id) {
+  ns <- shiny::NS(id)
+  results_fill_panel(
     shiny::conditionalPanel(
       condition = sprintf("input['%s'] != 'table'", ns("viz_type")),
-      shiny::plotOutput(ns("result_plot"))
+      results_fill_plot_output(ns("result_plot"))
     ),
     shiny::conditionalPanel(
       condition = sprintf("input['%s'] == 'table'", ns("viz_type")),
@@ -256,11 +273,11 @@ outcomesResultsServer <- function(id, results, metadata) {
       outcome_choices <- get_outcome_summary_choices(meta)
 
       strategy_controls <- if (atype == "absolute") {
-        shiny::tagList(
+        list(
           if (length(strategies) > 1) shiny::selectInput(ns("strategies"), "Strategies", choices = strategies, selected = strategies, multiple = TRUE)
         )
       } else {
-        shiny::tagList(
+        list(
           if (length(strategies) > 1) shiny::selectInput(ns("interventions"), "Interventions",
             choices = strategies,
             selected = if (length(strategies) > 1) strategies[2] else strategies[1],
@@ -273,7 +290,7 @@ outcomesResultsServer <- function(id, results, metadata) {
       }
 
       extra <- if (viz == "line") {
-        shiny::tagList(
+        list(
           shiny::selectInput(ns("time_unit"), "Time Unit",
             choices = c("cycle", "day", "week", "month", "year"),
             selected = "cycle"
@@ -281,18 +298,21 @@ outcomesResultsServer <- function(id, results, metadata) {
           shiny::checkboxInput(ns("cumulative"), "Cumulative", value = TRUE),
           shiny::checkboxInput(ns("discounted"), "Discounted", value = TRUE)
         )
+      } else {
+        list()
       }
 
-      bslib::layout_columns(
-        col_widths = bslib::breakpoints(sm = 12, md = 6),
+      build_results_sidebar_controls(c(
+        list(
         shiny::selectInput(ns("outcome"), "Outcome Summary",
           choices = outcome_choices,
           selected = if (length(outcome_choices) > 0) outcome_choices[1] else NULL
         ),
-        if (length(groups) > 1) shiny::selectInput(ns("groups"), "Groups", choices = groups, selected = "overall", multiple = TRUE),
+        if (length(groups) > 1) shiny::selectInput(ns("groups"), "Groups", choices = groups, selected = "overall", multiple = TRUE)
+        ),
         strategy_controls,
         extra
-      )
+      ))
     })
 
     build_args <- function(res) {
@@ -366,7 +386,7 @@ outcomesResultsServer <- function(id, results, metadata) {
 #' Costs Results UI
 #' @param id Module namespace ID.
 #' @keywords internal
-costsResultsUI <- function(id) {
+costsResultsSidebarUI <- function(id) {
   ns <- shiny::NS(id)
   shiny::tagList(
     shiny::selectInput(ns("viz_type"), "Visualization",
@@ -375,10 +395,19 @@ costsResultsUI <- function(id) {
     shiny::selectInput(ns("analysis_type"), "Type",
       choices = c("Absolute" = "absolute", "Differences" = "differences")
     ),
-    shiny::uiOutput(ns("controls")),
+    shiny::uiOutput(ns("controls"))
+  )
+}
+
+#' Costs Results UI
+#' @param id Module namespace ID.
+#' @keywords internal
+costsResultsUI <- function(id) {
+  ns <- shiny::NS(id)
+  results_fill_panel(
     shiny::conditionalPanel(
       condition = sprintf("input['%s'] != 'table'", ns("viz_type")),
-      shiny::plotOutput(ns("result_plot"))
+      results_fill_plot_output(ns("result_plot"))
     ),
     shiny::conditionalPanel(
       condition = sprintf("input['%s'] == 'table'", ns("viz_type")),
@@ -491,11 +520,11 @@ costsResultsServer <- function(id, results, metadata) {
       cost_choices <- get_cost_summary_choices(meta)
 
       strategy_controls <- if (atype == "absolute") {
-        shiny::tagList(
+        list(
           if (length(strategies) > 1) shiny::selectInput(ns("strategies"), "Strategies", choices = strategies, selected = strategies, multiple = TRUE)
         )
       } else {
-        shiny::tagList(
+        list(
           if (length(strategies) > 1) shiny::selectInput(ns("interventions"), "Interventions",
             choices = strategies,
             selected = if (length(strategies) > 1) strategies[2] else strategies[1],
@@ -508,7 +537,7 @@ costsResultsServer <- function(id, results, metadata) {
       }
 
       extra <- if (viz == "line") {
-        shiny::tagList(
+        list(
           shiny::selectInput(ns("time_unit"), "Time Unit",
             choices = c("cycle", "day", "week", "month", "year"),
             selected = "cycle"
@@ -516,18 +545,21 @@ costsResultsServer <- function(id, results, metadata) {
           shiny::checkboxInput(ns("cumulative"), "Cumulative", value = TRUE),
           shiny::checkboxInput(ns("discounted"), "Discounted", value = TRUE)
         )
+      } else {
+        list()
       }
 
-      bslib::layout_columns(
-        col_widths = bslib::breakpoints(sm = 12, md = 6),
+      build_results_sidebar_controls(c(
+        list(
         shiny::selectInput(ns("outcome"), "Cost Summary",
           choices = cost_choices,
           selected = if (length(cost_choices) > 0) cost_choices[1] else NULL
         ),
-        if (length(groups) > 1) shiny::selectInput(ns("groups"), "Groups", choices = groups, selected = "overall", multiple = TRUE),
+        if (length(groups) > 1) shiny::selectInput(ns("groups"), "Groups", choices = groups, selected = "overall", multiple = TRUE)
+        ),
         strategy_controls,
         extra
-      )
+      ))
     })
 
     build_args <- function(res) {
@@ -601,16 +633,25 @@ costsResultsServer <- function(id, results, metadata) {
 #' NMB Results UI
 #' @param id Module namespace ID.
 #' @keywords internal
-nmbResultsUI <- function(id) {
+nmbResultsSidebarUI <- function(id) {
   ns <- shiny::NS(id)
   shiny::tagList(
     shiny::selectInput(ns("viz_type"), "Visualization",
       choices = c("Bar Chart" = "bar", "Line Chart" = "line", "Table" = "table")
     ),
-    shiny::uiOutput(ns("controls")),
+    shiny::uiOutput(ns("controls"))
+  )
+}
+
+#' NMB Results UI
+#' @param id Module namespace ID.
+#' @keywords internal
+nmbResultsUI <- function(id) {
+  ns <- shiny::NS(id)
+  results_fill_panel(
     shiny::conditionalPanel(
       condition = sprintf("input['%s'] != 'table'", ns("viz_type")),
-      shiny::plotOutput(ns("result_plot"))
+      results_fill_plot_output(ns("result_plot"))
     ),
     shiny::conditionalPanel(
       condition = sprintf("input['%s'] == 'table'", ns("viz_type")),
@@ -717,17 +758,19 @@ nmbResultsServer <- function(id, results, metadata) {
       cost_choices <- get_cost_summary_choices(meta)
 
       extra <- if (viz == "line") {
-        shiny::tagList(
+        list(
           shiny::selectInput(ns("time_unit"), "Time Unit",
             choices = c("cycle", "day", "week", "month", "year"),
             selected = "cycle"
           ),
           shiny::checkboxInput(ns("cumulative"), "Cumulative", value = TRUE)
         )
+      } else {
+        list()
       }
 
-      bslib::layout_columns(
-        col_widths = bslib::breakpoints(sm = 12, md = 6),
+      build_results_sidebar_controls(c(
+        list(
         shiny::selectInput(ns("health_outcome"), "Health Outcome",
           choices = outcome_choices,
           selected = if (length(outcome_choices) > 0) outcome_choices[1] else NULL
@@ -745,9 +788,10 @@ nmbResultsServer <- function(id, results, metadata) {
         ),
         if (length(strategies) > 1) shiny::selectInput(ns("comparators"), "Comparators",
           choices = strategies, selected = strategies[-2], multiple = TRUE
+        )
         ),
         extra
-      )
+      ))
     })
 
     build_args <- function(res) {
@@ -820,16 +864,25 @@ nmbResultsServer <- function(id, results, metadata) {
 #' Pairwise CE Results UI
 #' @param id Module namespace ID.
 #' @keywords internal
-pairwiseCeResultsUI <- function(id) {
+pairwiseCeResultsSidebarUI <- function(id) {
   ns <- shiny::NS(id)
   shiny::tagList(
     shiny::selectInput(ns("viz_type"), "Visualization",
       choices = c("CE Plane Plot" = "plot", "Table" = "table")
     ),
-    shiny::uiOutput(ns("controls")),
+    shiny::uiOutput(ns("controls"))
+  )
+}
+
+#' Pairwise CE Results UI
+#' @param id Module namespace ID.
+#' @keywords internal
+pairwiseCeResultsUI <- function(id) {
+  ns <- shiny::NS(id)
+  results_fill_panel(
     shiny::conditionalPanel(
       condition = sprintf("input['%s'] != 'table'", ns("viz_type")),
-      shiny::plotOutput(ns("result_plot"))
+      results_fill_plot_output(ns("result_plot"))
     ),
     shiny::conditionalPanel(
       condition = sprintf("input['%s'] == 'table'", ns("viz_type")),
@@ -933,8 +986,7 @@ pairwiseCeResultsServer <- function(id, results, metadata) {
       outcome_choices <- get_outcome_summary_choices(meta)
       cost_choices <- get_cost_summary_choices(meta)
 
-      bslib::layout_columns(
-        col_widths = bslib::breakpoints(sm = 12, md = 6),
+      build_results_sidebar_controls(list(
         shiny::selectInput(ns("outcome_summary"), "Outcome Summary",
           choices = outcome_choices,
           selected = if (length(outcome_choices) > 0) outcome_choices[1] else NULL
@@ -953,7 +1005,7 @@ pairwiseCeResultsServer <- function(id, results, metadata) {
         if (length(strategies) > 1) shiny::selectInput(ns("comparators"), "Comparators",
           choices = strategies, selected = strategies[-2], multiple = TRUE
         )
-      )
+      ))
     })
 
     build_args <- function(res, include_wtp = FALSE) {
@@ -1020,16 +1072,25 @@ pairwiseCeResultsServer <- function(id, results, metadata) {
 #' Incremental CE Results UI
 #' @param id Module namespace ID.
 #' @keywords internal
-incrementalCeResultsUI <- function(id) {
+incrementalCeResultsSidebarUI <- function(id) {
   ns <- shiny::NS(id)
   shiny::tagList(
     shiny::selectInput(ns("viz_type"), "Visualization",
       choices = c("Frontier Plot" = "plot", "Table" = "table")
     ),
-    shiny::uiOutput(ns("controls")),
+    shiny::uiOutput(ns("controls"))
+  )
+}
+
+#' Incremental CE Results UI
+#' @param id Module namespace ID.
+#' @keywords internal
+incrementalCeResultsUI <- function(id) {
+  ns <- shiny::NS(id)
+  results_fill_panel(
     shiny::conditionalPanel(
       condition = sprintf("input['%s'] != 'table'", ns("viz_type")),
-      shiny::plotOutput(ns("result_plot"))
+      results_fill_plot_output(ns("result_plot"))
     ),
     shiny::conditionalPanel(
       condition = sprintf("input['%s'] == 'table'", ns("viz_type")),
@@ -1072,8 +1133,7 @@ incrementalCeResultsServer <- function(id, results, metadata) {
       outcome_choices <- get_outcome_summary_choices(meta)
       cost_choices <- get_cost_summary_choices(meta)
 
-      bslib::layout_columns(
-        col_widths = bslib::breakpoints(sm = 12, md = 6),
+      build_results_sidebar_controls(list(
         shiny::selectInput(ns("outcome_summary"), "Outcome Summary",
           choices = outcome_choices,
           selected = if (length(outcome_choices) > 0) outcome_choices[1] else NULL
@@ -1084,7 +1144,7 @@ incrementalCeResultsServer <- function(id, results, metadata) {
         ),
         if (length(groups) > 1) shiny::selectInput(ns("groups"), "Groups", choices = groups, selected = "overall", multiple = TRUE),
         if (length(strategies) > 1) shiny::selectInput(ns("strategies"), "Strategies", choices = strategies, selected = strategies, multiple = TRUE)
-      )
+      ))
     })
 
     build_args <- function(res) {

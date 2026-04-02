@@ -5,10 +5,19 @@
 #' Scenario Result Tab UI
 #' @param id Module namespace ID.
 #' @keywords internal
+scenarioResultTabSidebarUI <- function(id) {
+  ns <- shiny::NS(id)
+  shiny::tagList(
+    shiny::uiOutput(ns("controls"))
+  )
+}
+
+#' Scenario Result Tab UI
+#' @param id Module namespace ID.
+#' @keywords internal
 scenarioResultTabUI <- function(id) {
   ns <- shiny::NS(id)
   shiny::tagList(
-    shiny::uiOutput(ns("controls")),
     shiny::conditionalPanel(
       condition = sprintf("input['%s'] != 'table'", ns("viz_type")),
       shiny::plotOutput(ns("result_plot"))
@@ -265,10 +274,7 @@ scenarioResultTabServer <- function(id, analysis_type, scenario_results, metadat
 
       inputs <- Filter(Negate(is.null), inputs)
 
-      do.call(bslib::layout_columns, c(
-        list(col_widths = bslib::breakpoints(sm = 12, md = 6)),
-        inputs
-      ))
+      build_results_sidebar_controls(inputs)
     })
 
     # ---- Plot rendering ----

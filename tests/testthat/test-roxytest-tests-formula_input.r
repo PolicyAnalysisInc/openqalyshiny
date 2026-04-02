@@ -2,13 +2,13 @@
 
 # File R/formula_input.r: @tests
 
-test_that("Function formulaInput() @ L146", {
+test_that("Function formulaInput() @ L148", {
   result <- formulaInput("test_id", value = "x + y")
   expect_true(inherits(result, "shiny.tag.list"))
 })
 
 
-test_that("Function updateFormulaInput() @ L257", {
+test_that("Function updateFormulaInput() @ L263", {
   # updateFormulaInput requires a session object, so we test it exists
   expect_true(is.function(updateFormulaInput))
 })

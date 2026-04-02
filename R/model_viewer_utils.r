@@ -377,6 +377,37 @@ render_flextable_html <- function(ft) {
   html_str
 }
 
+results_fill_panel <- function(...) {
+  htmltools::tags$div(
+    class = "results-content-shell",
+    ...
+  )
+}
+
+results_fill_plot_output <- function(output_id) {
+  htmltools::tags$div(
+    class = "results-plot-region html-fill-container",
+    shiny::plotOutput(output_id, height = "100%", fill = TRUE)
+  )
+}
+
+build_results_sidebar_controls <- function(inputs) {
+  inputs <- Filter(Negate(is.null), inputs)
+  if (length(inputs) == 0) {
+    return(NULL)
+  }
+
+  htmltools::tags$div(
+    class = "results-sidebar-controls",
+    lapply(inputs, function(input_control) {
+      htmltools::tags$div(
+        class = "results-sidebar-control",
+        input_control
+      )
+    })
+  )
+}
+
 #' Get DSA Setting Choices
 #'
 #' Returns a named character vector of valid model settings for DSA analysis.

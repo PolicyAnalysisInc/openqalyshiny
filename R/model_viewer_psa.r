@@ -5,10 +5,19 @@
 #' PSA Result Tab UI
 #' @param id Module namespace ID.
 #' @keywords internal
+psaResultTabSidebarUI <- function(id) {
+  ns <- shiny::NS(id)
+  shiny::tagList(
+    shiny::uiOutput(ns("controls"))
+  )
+}
+
+#' PSA Result Tab UI
+#' @param id Module namespace ID.
+#' @keywords internal
 psaResultTabUI <- function(id) {
   ns <- shiny::NS(id)
   shiny::tagList(
-    shiny::uiOutput(ns("controls")),
     shiny::conditionalPanel(
       condition = sprintf("input['%s'] != 'table'", ns("viz_type")),
       shiny::plotOutput(ns("result_plot"))
@@ -389,10 +398,7 @@ psaResultTabServer <- function(id, analysis_type, psa_results, metadata) {
 
       inputs <- Filter(Negate(is.null), inputs)
 
-      do.call(bslib::layout_columns, c(
-        list(col_widths = bslib::breakpoints(sm = 12, md = 6)),
-        inputs
-      ))
+      build_results_sidebar_controls(inputs)
     })
 
     # ---- Helper: translate group UI keywords for parameter functions ----

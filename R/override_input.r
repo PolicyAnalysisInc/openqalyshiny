@@ -214,11 +214,14 @@ updateOverrideInput <- function(session, inputId, override_name, value,
 #' @param override A list describing the override.
 #' @param model The model object.
 #'
+#' @param current_value Optional current value to render instead of the model's
+#'   persisted override/default value.
+#'
 #' @return A Shiny input element.
 #' @keywords internal
-.build_override_input <- function(override_id, override, model) {
+.build_override_input <- function(override_id, override, model, current_value = NULL) {
   config <- override$input_config %||% list()
-  default_val <- override$overridden_expression %||% override$default_value
+  default_val <- current_value %||% override$overridden_expression %||% override$default_value
 
   switch(override$input_type,
     "numeric" = {
@@ -228,11 +231,12 @@ updateOverrideInput <- function(session, inputId, override_name, value,
         value = default_val,
         min = config$min,
         max = config$max,
-        step = config$step %||% config$step_size %||% NA
+        step = config$step %||% config$step_size %||% NA,
+        updateOn = "blur"
       )
     },
     "slider" = {
-      shiny::sliderInput(
+      slider_tag <- shiny::sliderInput(
         inputId = override_id,
         label = NULL,
         value = as.numeric(default_val %||% config$min %||% 0),
@@ -240,6 +244,13 @@ updateOverrideInput <- function(session, inputId, override_name, value,
         max = config$max %||% 1,
         step = config$step_size %||% config$step %||% 0.01
       )
+
+      htmltools::tagQuery(slider_tag)$
+        find("input.js-range-slider")$
+        removeClass("js-range-slider")$
+        addClass("override-slider-input")$
+        addAttrs(`data-commit-mode` = "finish")$
+        allTags()
     },
     "dropdown" = {
       choices <- config$options %||% list()
@@ -261,7 +272,8 @@ updateOverrideInput <- function(session, inputId, override_name, value,
         inputId = override_id,
         value = default_val %||% "",
         model = if (is_oq_model) model else NULL,
-        context = if (is_oq_model) "override" else NULL
+        context = if (is_oq_model) "override" else NULL,
+        updateOn = "blur"
       )
     },
     "timeframe" = {
@@ -337,4 +349,3 @@ override_input_dependency <- function() {
     all_files = FALSE
   )
 }
-

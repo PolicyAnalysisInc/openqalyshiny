@@ -33,11 +33,20 @@ get_decision_tree_choices <- function(results) {
 #' Decision Tree Results UI
 #' @param id Module namespace ID.
 #' @keywords internal
-decisionTreeResultsUI <- function(id) {
+decisionTreeResultsSidebarUI <- function(id) {
   ns <- shiny::NS(id)
   shiny::tagList(
-    shiny::uiOutput(ns("controls")),
-    shiny::plotOutput(ns("result_plot"), height = "600px"),
+    shiny::uiOutput(ns("controls"))
+  )
+}
+
+#' Decision Tree Results UI
+#' @param id Module namespace ID.
+#' @keywords internal
+decisionTreeResultsUI <- function(id) {
+  ns <- shiny::NS(id)
+  results_fill_panel(
+    results_fill_plot_output(ns("result_plot")),
     shiny::uiOutput(ns("error_display"))
   )
 }
@@ -73,8 +82,7 @@ decisionTreeResultsServer <- function(id, results, metadata) {
         !group_choices %in% c("overall", "all", "all_groups")
       ]
 
-      bslib::layout_columns(
-        col_widths = bslib::breakpoints(sm = 12, md = 4),
+      build_results_sidebar_controls(list(
         if (length(strategy_choices) > 1) {
           shiny::selectInput(ns("strategy"), "Strategy",
             choices = strategy_choices,
@@ -93,7 +101,7 @@ decisionTreeResultsServer <- function(id, results, metadata) {
             selected = tree_choices[1]
           )
         }
-      )
+      ))
     })
 
     output$result_plot <- shiny::renderPlot({
@@ -149,11 +157,20 @@ decisionTreeResultsServer <- function(id, results, metadata) {
 #' Transition Heatmap UI
 #' @param id Module namespace ID.
 #' @keywords internal
-transitionHeatmapUI <- function(id) {
+transitionHeatmapSidebarUI <- function(id) {
   ns <- shiny::NS(id)
   shiny::tagList(
-    shiny::uiOutput(ns("controls")),
-    shiny::plotOutput(ns("result_plot"), height = "600px"),
+    shiny::uiOutput(ns("controls"))
+  )
+}
+
+#' Transition Heatmap UI
+#' @param id Module namespace ID.
+#' @keywords internal
+transitionHeatmapUI <- function(id) {
+  ns <- shiny::NS(id)
+  results_fill_panel(
+    results_fill_plot_output(ns("result_plot")),
     shiny::uiOutput(ns("error_display"))
   )
 }
@@ -194,8 +211,7 @@ transitionHeatmapServer <- function(id, results, metadata) {
         !group_choices %in% c("overall", "all", "all_groups")
       ]
 
-      bslib::layout_columns(
-        col_widths = bslib::breakpoints(sm = 12, md = 4),
+      build_results_sidebar_controls(list(
         shiny::sliderInput(ns("cycle"), "Cycle",
           min = 1, max = max_cycle,
           value = 1, step = 1
@@ -219,7 +235,7 @@ transitionHeatmapServer <- function(id, results, metadata) {
         shiny::numericInput(ns("decimals"), "Decimals",
           value = 2, min = 0, max = 6, step = 1
         )
-      )
+      ))
     })
 
     output$result_plot <- shiny::renderPlot({
