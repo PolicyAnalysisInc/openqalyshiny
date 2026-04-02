@@ -138,21 +138,230 @@ enforce_exclusive_strategies <- function(changed_new, other_current, changed_pre
   list(changed = changed_prev, other = other_current)
 }
 
+lookup_model_display_name <- function(df, item_name) {
+  if (is.null(item_name) || length(item_name) != 1 || is.na(item_name) || !nzchar(item_name) ||
+      is.null(df) || !is.data.frame(df) || nrow(df) == 0) {
+    return(item_name)
+  }
+
+  match_df <- df[df$name == item_name, , drop = FALSE]
+  if (nrow(match_df) == 0 ||
+      !"display_name" %in% names(match_df) ||
+      is.na(match_df$display_name[1]) ||
+      !nzchar(match_df$display_name[1])) {
+    return(item_name)
+  }
+
+  match_df$display_name[1]
+}
+
+encode_vbp_variable_choice <- function(variable, strategy = NULL, group = NULL, row_index = NULL) {
+  paste(
+    row_index %||% "",
+    variable %||% "",
+    strategy %||% "",
+    group %||% "",
+    sep = "|||"
+  )
+}
+
+decode_vbp_variable_choice <- function(selection) {
+  if (is.null(selection) || length(selection) == 0) {
+    return(data.frame(
+      row_index = integer(0),
+      variable = character(0),
+      strategy = character(0),
+      group = character(0),
+      stringsAsFactors = FALSE
+    ))
+  }
+
+  parsed <- lapply(selection, function(item) {
+    if (is.null(item) || is.na(item) || !grepl("|||", item, fixed = TRUE)) {
+      return(c(NA_character_, item %||% "", "", ""))
+    }
+
+    parts <- strsplit(item, "|||", fixed = TRUE)[[1]]
+    c(parts, rep("", max(0, 4 - length(parts))))[seq_len(4)]
+  })
+
+  out <- as.data.frame(do.call(rbind, parsed), stringsAsFactors = FALSE)
+  names(out) <- c("row_index", "variable", "strategy", "group")
+  out$row_index <- suppressWarnings(as.integer(out$row_index))
+  out$strategy[!nzchar(out$strategy)] <- NA_character_
+  out$group[!nzchar(out$group)] <- NA_character_
+  out
+}
+
+build_vbp_variable_choice_data <- function(model) {
+  vars <- openqaly::get_variables(model)
+  if (nrow(vars) == 0) {
+    return(data.frame(
+      value = character(0),
+      variable = character(0),
+      strategy = character(0),
+      group = character(0),
+      label = character(0),
+      stringsAsFactors = FALSE
+    ))
+  }
+
+  choice_labels <- vapply(seq_len(nrow(vars)), function(i) {
+    dn <- if ("display_name" %in% names(vars)) vars$display_name[i] else NA_character_
+    if (is.na(dn) || !nzchar(dn)) vars$name[i] else dn
+  }, character(1))
+
+  duplicate_labels <- unique(choice_labels[duplicated(choice_labels)])
+  if (length(duplicate_labels) > 0) {
+    strategies_df <- openqaly::get_strategies(model)
+    groups_df <- openqaly::get_groups(model)
+
+    for (dup in duplicate_labels) {
+      idx <- which(choice_labels == dup)
+      qualifiers <- vapply(idx, function(i) {
+        parts <- character(0)
+        s <- if ("strategy" %in% names(vars)) vars$strategy[i] else ""
+        g <- if ("group" %in% names(vars)) vars$group[i] else ""
+
+        if (!is.na(s) && nzchar(s)) {
+          parts <- c(parts, lookup_model_display_name(strategies_df, s))
+        }
+        if (!is.na(g) && nzchar(g)) {
+          parts <- c(parts, lookup_model_display_name(groups_df, g))
+        }
+
+        paste(parts, collapse = " / ")
+      }, character(1))
+
+      choice_labels[idx] <- ifelse(
+        nzchar(qualifiers),
+        sprintf("%s [%s]", dup, qualifiers),
+        choice_labels[idx]
+      )
+    }
+  }
+
+  strategy_vals <- if ("strategy" %in% names(vars)) vars$strategy else rep("", nrow(vars))
+  group_vals <- if ("group" %in% names(vars)) vars$group else rep("", nrow(vars))
+  strategy_vals[is.na(strategy_vals)] <- ""
+  group_vals[is.na(group_vals)] <- ""
+  values <- vapply(seq_len(nrow(vars)), function(i) {
+    encode_vbp_variable_choice(
+      vars$name[i],
+      strategy_vals[i],
+      group_vals[i],
+      i
+    )
+  }, character(1))
+
+  data.frame(
+    value = values,
+    variable = vars$name,
+    strategy = strategy_vals,
+    group = group_vals,
+    label = choice_labels,
+    stringsAsFactors = FALSE
+  )
+}
+
+normalize_vbp_variable_choice <- function(selection) {
+  decoded <- decode_vbp_variable_choice(selection)
+  if (nrow(decoded) == 0) {
+    return(NULL)
+  }
+  decoded$variable[1]
+}
+
+resolve_vbp_variable_choice <- function(model,
+                                        variable_name,
+                                        intervention_strategy = NULL,
+                                        preferred_selection = NULL) {
+  choices_df <- build_vbp_variable_choice_data(model)
+  if (nrow(choices_df) == 0) {
+    return(NULL)
+  }
+
+  if (!is.null(preferred_selection) &&
+      length(preferred_selection) == 1 &&
+      preferred_selection %in% choices_df$value) {
+    return(preferred_selection)
+  }
+
+  if (is.null(variable_name) || length(variable_name) != 1 || is.na(variable_name) || !nzchar(variable_name)) {
+    return(choices_df$value[1])
+  }
+
+  matches <- choices_df[choices_df$variable == variable_name, , drop = FALSE]
+  if (nrow(matches) == 0) {
+    return(choices_df$value[1])
+  }
+
+  if (!is.null(intervention_strategy) && length(intervention_strategy) == 1 &&
+      !is.na(intervention_strategy) && nzchar(intervention_strategy)) {
+    strategy_matches <- matches[!is.na(matches$strategy) &
+      nzchar(matches$strategy) &
+      matches$strategy == intervention_strategy, , drop = FALSE]
+    if (nrow(strategy_matches) > 0) {
+      return(strategy_matches$value[1])
+    }
+  }
+
+  global_matches <- matches[
+    (is.na(matches$strategy) | !nzchar(matches$strategy)) &
+      (is.na(matches$group) | !nzchar(matches$group)),
+    ,
+    drop = FALSE
+  ]
+  if (nrow(global_matches) > 0) {
+    return(global_matches$value[1])
+  }
+
+  matches$value[1]
+}
+
 #' Get Variable Choices
 #'
-#' Extract unique variable names from a model object, filtered to only include
-#' global (unsegmented) variables — those not defined for a specific strategy
-#' or group. This is used for VBP price variable selection, which requires
-#' variables that apply across all strategies and groups.
+#' Build selectable VBP price-variable choices from model variables.
+#'
+#' Returns one entry per row in `model$variables`, using display names as
+#' labels and unique encoded row selections as values. Duplicate labels are
+#' disambiguated with strategy/group qualifiers when available.
 #'
 #' @param model An openqaly model object.
 #'
-#' @return A character vector of variable names.
+#' @return A named character vector of variable choices.
 #' @keywords internal
 get_variable_choices <- function(model) {
-  global_vars <- openqaly::get_global_variables(model)
-  if (nrow(global_vars) == 0) return(character(0))
-  unique(global_vars$name)
+  choice_df <- build_vbp_variable_choice_data(model)
+  if (nrow(choice_df) == 0) return(character(0))
+  stats::setNames(choice_df$value, choice_df$label)
+}
+
+get_vbp_group_specific_variable_groups <- function(model, variable_selection) {
+  variable_name <- normalize_vbp_variable_choice(variable_selection)
+  if (is.null(variable_name) || length(variable_name) != 1 || is.na(variable_name) || !nzchar(variable_name)) {
+    return(character(0))
+  }
+
+  vars <- openqaly::get_variables(model)
+  if (nrow(vars) == 0 || !"group" %in% names(vars)) {
+    return(character(0))
+  }
+
+  matching_vars <- vars[vars$name == variable_name, , drop = FALSE]
+  if (nrow(matching_vars) == 0) {
+    return(character(0))
+  }
+
+  groups <- unique(matching_vars$group[!is.na(matching_vars$group) & nzchar(matching_vars$group)])
+  if (length(groups) == 0) {
+    return(character(0))
+  }
+
+  groups_df <- openqaly::get_groups(model)
+  vapply(groups, function(group_name) {
+    lookup_model_display_name(groups_df, group_name)
+  }, character(1), USE.NAMES = FALSE)
 }
 
 #' Render Flextable as HTML
@@ -196,16 +405,73 @@ get_dsa_setting_choices <- function() {
 #'
 #' @return An htmltools htmlDependency object.
 #' @keywords internal
-dsa_params_dependency <- function() {
-  js_path <- system.file("www/dsa-params.js", package = "openqalyshiny")
+#' OQGrid Core Dependency
+#'
+#' Returns the HTML dependency for the shared OQGrid infrastructure.
+#' Includes all core files, editors, formatters, actions, helpers, and columns.
+#' Individual grid specs are loaded separately via their own dependency functions.
+#'
+#' @return An htmltools htmlDependency object.
+#' @keywords internal
+grid_core_dependency <- function() {
   htmltools::htmlDependency(
-    name = "dsa-params",
-    version = format(file.mtime(js_path), "%Y.%m%d.%H%M%S"),
-    src = c(file = system.file("www", package = "openqalyshiny")),
-    script = "dsa-params.js",
-    stylesheet = "dsa-params.css",
+    name = "oq-grid-core",
+    version = "1.0.0",
+    src = c(file = system.file("www/grid", package = "openqalyshiny")),
+    script = c(
+      # Core infrastructure (order matters)
+      "core/tabulator-loader.js",
+      "core/utils.js",
+      "core/shiny-bridge.js",
+      "core/handsontable-loader.js",
+      # Formatters
+      "formatters/formatters.js",
+      # Helpers (must load before editors that reference them)
+      "helpers/targeting.js",
+      "helpers/combo-tracking.js",
+      "helpers/settings-exclusions.js",
+      "helpers/distribution-registry.js",
+      "helpers/distribution-parser.js",
+      # Editors
+      "editors/formula-editor.js",
+      "editors/typeahead-editor.js",
+      "editors/multi-tag-editor.js",
+      "editors/distribution-editor.js",
+      "editors/mv-distribution-editor.js",
+      "editors/condition-editor.js",
+      "editors/values-popup-editor.js",
+      # Actions & columns
+      "actions/crud-action-handler.js",
+      "actions/sync-action-handler.js",
+      "columns/delete-column.js",
+      # Controller & factory (must be after editors/helpers)
+      "core/grid-controller.js",
+      "core/grid-factory.js"
+    ),
+    stylesheet = "grid.css",
     all_files = FALSE
   )
+}
+
+#' Grid Spec Dependency
+#'
+#' Returns an HTML dependency for a specific grid spec file.
+#'
+#' @param spec_name The spec filename without extension (e.g., "variables-spec").
+#' @return An htmltools htmlDependency object.
+#' @keywords internal
+grid_spec_dependency <- function(spec_name) {
+  htmltools::htmlDependency(
+    name = paste0("oq-grid-", spec_name),
+    version = "1.0.0",
+    src = c(file = system.file("www/grid/specs", package = "openqalyshiny")),
+    script = paste0(spec_name, ".js"),
+    all_files = FALSE
+  )
+}
+
+dsa_params_dependency <- function() {
+  list(grid_core_dependency(), grid_spec_dependency("dsa-spec"))
 }
 
 #' Scenario Parameters Dependency
@@ -215,15 +481,7 @@ dsa_params_dependency <- function() {
 #' @return An htmltools htmlDependency object.
 #' @keywords internal
 scenario_params_dependency <- function() {
-  js_path <- system.file("www/scenario-params.js", package = "openqalyshiny")
-  htmltools::htmlDependency(
-    name = "scenario-params",
-    version = format(file.mtime(js_path), "%Y.%m%d.%H%M%S"),
-    src = c(file = system.file("www", package = "openqalyshiny")),
-    script = "scenario-params.js",
-    stylesheet = "scenario-params.css",
-    all_files = FALSE
-  )
+  list(grid_core_dependency(), grid_spec_dependency("scenario-spec"))
 }
 
 #' TWSA Parameters Dependency
@@ -233,15 +491,7 @@ scenario_params_dependency <- function() {
 #' @return An htmltools htmlDependency object.
 #' @keywords internal
 twsa_params_dependency <- function() {
-  js_path <- system.file("www/twsa-params.js", package = "openqalyshiny")
-  htmltools::htmlDependency(
-    name = "twsa-params",
-    version = format(file.mtime(js_path), "%Y.%m%d.%H%M%S"),
-    src = c(file = system.file("www", package = "openqalyshiny")),
-    script = "twsa-params.js",
-    stylesheet = "twsa-params.css",
-    all_files = FALSE
-  )
+  list(grid_core_dependency(), grid_spec_dependency("twsa-spec"))
 }
 
 #' Apply Scenario Parameters to Model
@@ -305,14 +555,7 @@ apply_scenario_params <- function(model, scenarios) {
 #' @return An htmltools htmlDependency object.
 #' @keywords internal
 variables_table_dependency <- function() {
-  htmltools::htmlDependency(
-    name = "variables-table",
-    version = "1.0.0",
-    src = c(file = system.file("www", package = "openqalyshiny")),
-    script = "variables-table.js",
-    stylesheet = "variables-table.css",
-    all_files = FALSE
-  )
+  list(grid_core_dependency(), grid_spec_dependency("variables-spec"))
 }
 
 #' States Table Dependency
@@ -322,14 +565,7 @@ variables_table_dependency <- function() {
 #' @return An htmltools htmlDependency object.
 #' @keywords internal
 states_table_dependency <- function() {
-  htmltools::htmlDependency(
-    name = "states-table",
-    version = "1.0.0",
-    src = c(file = system.file("www", package = "openqalyshiny")),
-    script = "states-table.js",
-    stylesheet = "states-table.css",
-    all_files = FALSE
-  )
+  list(grid_core_dependency(), grid_spec_dependency("states-spec"))
 }
 
 #' Transitions Table Dependency
@@ -339,14 +575,7 @@ states_table_dependency <- function() {
 #' @return An htmltools htmlDependency object.
 #' @keywords internal
 transitions_table_dependency <- function() {
-  htmltools::htmlDependency(
-    name = "transitions-table",
-    version = "1.0.0",
-    src = c(file = system.file("www", package = "openqalyshiny")),
-    script = "transitions-table.js",
-    stylesheet = "transitions-table.css",
-    all_files = FALSE
-  )
+  list(grid_core_dependency(), grid_spec_dependency("transitions-spec"))
 }
 
 #' Values Table Dependency
@@ -356,14 +585,7 @@ transitions_table_dependency <- function() {
 #' @return An htmltools htmlDependency object.
 #' @keywords internal
 values_table_dependency <- function() {
-  htmltools::htmlDependency(
-    name = "values-table",
-    version = "1.0.0",
-    src = c(file = system.file("www", package = "openqalyshiny")),
-    script = "values-table.js",
-    stylesheet = "values-table.css",
-    all_files = FALSE
-  )
+  list(grid_core_dependency(), grid_spec_dependency("values-spec"))
 }
 
 #' Summaries Table Dependency
@@ -373,14 +595,7 @@ values_table_dependency <- function() {
 #' @return An htmltools htmlDependency object.
 #' @keywords internal
 summaries_table_dependency <- function() {
-  htmltools::htmlDependency(
-    name = "summaries-table",
-    version = "1.0.0",
-    src = c(file = system.file("www", package = "openqalyshiny")),
-    script = "summaries-table.js",
-    stylesheet = "summaries-table.css",
-    all_files = FALSE
-  )
+  list(grid_core_dependency(), grid_spec_dependency("summaries-spec"))
 }
 
 #' Groups Table Dependency
@@ -390,14 +605,7 @@ summaries_table_dependency <- function() {
 #' @return An htmltools htmlDependency object.
 #' @keywords internal
 groups_table_dependency <- function() {
-  htmltools::htmlDependency(
-    name = "groups-table",
-    version = "1.0.0",
-    src = c(file = system.file("www", package = "openqalyshiny")),
-    script = "groups-table.js",
-    stylesheet = "groups-table.css",
-    all_files = FALSE
-  )
+  list(grid_core_dependency(), grid_spec_dependency("groups-spec"))
 }
 
 #' Add Strategy Modal Dependency
@@ -441,14 +649,7 @@ add_group_modal_dependency <- function() {
 #' @return An htmltools htmlDependency object.
 #' @keywords internal
 trees_table_dependency <- function() {
-  htmltools::htmlDependency(
-    name = "trees-table",
-    version = "1.0.0",
-    src = c(file = system.file("www", package = "openqalyshiny")),
-    script = "trees-table.js",
-    stylesheet = "trees-table.css",
-    all_files = FALSE
-  )
+  list(grid_core_dependency(), grid_spec_dependency("trees-spec"))
 }
 
 #' Documentation Editor Dependency
@@ -475,14 +676,7 @@ documentation_editor_dependency <- function() {
 #' @return An htmltools htmlDependency object.
 #' @export
 strategies_table_dependency <- function() {
-  htmltools::htmlDependency(
-    name = "strategies-table",
-    version = "1.0.0",
-    src = c(file = system.file("www", package = "openqalyshiny")),
-    script = "strategies-table.js",
-    stylesheet = "strategies-table.css",
-    all_files = FALSE
-  )
+  list(grid_core_dependency(), grid_spec_dependency("strategies-spec"))
 }
 
 #' Normalize DSA Parameters from Shiny Input
@@ -581,15 +775,7 @@ apply_dsa_params <- function(model, params) {
 #' @return An htmltools htmlDependency object.
 #' @keywords internal
 psa_params_dependency <- function() {
-  js_path <- system.file("www/psa-params.js", package = "openqalyshiny")
-  htmltools::htmlDependency(
-    name = "psa-params",
-    version = format(file.mtime(js_path), "%Y.%m%d.%H%M%S"),
-    src = c(file = system.file("www", package = "openqalyshiny")),
-    script = "psa-params.js",
-    stylesheet = "psa-params.css",
-    all_files = FALSE
-  )
+  list(grid_core_dependency(), grid_spec_dependency("psa-spec"))
 }
 
 #' Normalize PSA Parameters from Shiny Input
@@ -660,15 +846,22 @@ apply_psa_params <- function(model, params, multivariate = NULL) {
       }
     }
     for (mv in multivariate) {
-      if (!nzchar(mv$distribution %||% "")) next
-      dist_expr <- rlang::parse_expr(mv$distribution)
-      model <- rlang::inject(openqaly::add_multivariate_sampling(
+      mv_type <- mv$type %||% ""
+      if (!nzchar(mv_type)) next
+      add_args <- list(
         model,
         name = mv$name,
-        distribution = !!dist_expr,
-        variables = mv$variables,
-        description = mv$description %||% ""
-      ))
+        type = mv_type,
+        variables = as.character(unlist(mv$variables))
+      )
+      if (nzchar(mv$strategy %||% "")) add_args$strategy <- mv$strategy
+      if (nzchar(mv$group %||% "")) add_args$group <- mv$group
+      if (mv_type == "dirichlet") {
+        if (!is.null(mv$n)) add_args$n <- as.numeric(mv$n)
+      } else if (mv_type == "mvnormal") {
+        if (!is.null(mv$covariance)) add_args$covariance <- mv$covariance
+      }
+      model <- do.call(openqaly::add_multivariate_sampling, add_args)
     }
   }
   model
@@ -681,14 +874,7 @@ apply_psa_params <- function(model, params, multivariate = NULL) {
 #' @return An htmltools htmlDependency object.
 #' @export
 threshold_params_dependency <- function() {
-  htmltools::htmlDependency(
-    name = "threshold-params",
-    version = "1.0.0",
-    src = c(file = system.file("www", package = "openqalyshiny")),
-    script = "threshold-params.js",
-    stylesheet = "threshold-params.css",
-    all_files = FALSE
-  )
+  list(grid_core_dependency(), grid_spec_dependency("threshold-spec"))
 }
 
 #' Normalize Threshold Parameters from Shiny Input

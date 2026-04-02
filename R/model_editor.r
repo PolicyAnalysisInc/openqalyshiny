@@ -46,85 +46,6 @@
   )
 }
 
-.validate_multivariate_distribution <- function(distribution) {
-  distribution <- trimws(distribution %||% "")
-  if (!nzchar(distribution)) {
-    return(list(valid = FALSE, message = "Distribution is required."))
-  }
-
-  expr <- tryCatch(
-    rlang::parse_expr(distribution),
-    error = function(e) e
-  )
-  if (inherits(expr, "error")) {
-    return(list(valid = FALSE, message = "Distribution must be a valid R expression."))
-  }
-
-  if (!rlang::is_call(expr)) {
-    return(list(valid = FALSE, message = "Distribution must be a function call."))
-  }
-
-  fn_name <- rlang::call_name(expr)
-  if (!fn_name %in% c("dirichlet", "mvnormal", "multinomial")) {
-    return(list(
-      valid = FALSE,
-      message = "Distribution must use dirichlet(), mvnormal(), or multinomial()."
-    ))
-  }
-
-  args <- rlang::call_args(expr)
-  arg_names <- names(args) %||% rep("", length(args))
-  arg_names[arg_names == ""] <- NA_character_
-
-  if (fn_name == "dirichlet") {
-    if (length(args) != 1) {
-      return(list(valid = FALSE, message = "dirichlet() requires exactly one alpha argument."))
-    }
-    if (!all(is.na(arg_names) | arg_names == "alpha")) {
-      return(list(valid = FALSE, message = "dirichlet() only accepts an alpha argument."))
-    }
-  }
-
-  if (fn_name == "multinomial") {
-    has_size <- "size" %in% arg_names
-    has_prob <- "prob" %in% arg_names
-    if (all(is.na(arg_names))) {
-      if (length(args) != 2) {
-        return(list(valid = FALSE, message = "multinomial() requires size and prob."))
-      }
-    } else if (!(has_size && has_prob)) {
-      return(list(valid = FALSE, message = "multinomial() requires size and prob."))
-    }
-  }
-
-  if (fn_name == "mvnormal") {
-    has_mean <- "mean" %in% arg_names
-    has_sd <- "sd" %in% arg_names
-    has_cor <- "cor" %in% arg_names
-    has_cov <- "cov" %in% arg_names
-
-    if (all(is.na(arg_names))) {
-      if (length(args) < 2 || length(args) > 4) {
-        return(list(
-          valid = FALSE,
-          message = "mvnormal() requires mean plus either cov or sd/cor."
-        ))
-      }
-    } else {
-      if (!has_mean) {
-        return(list(valid = FALSE, message = "mvnormal() requires a mean argument."))
-      }
-      if (!(has_cov || (has_sd && has_cor))) {
-        return(list(
-          valid = FALSE,
-          message = "mvnormal() requires either cov or both sd and cor."
-        ))
-      }
-    }
-  }
-
-  list(valid = TRUE, message = NULL)
-}
 
 dispatch_model_action <- function(model, action) {
   switch(action$type,
@@ -972,26 +893,40 @@ dispatch_model_action <- function(model, action) {
       do.call(openqaly::set_psa, args)
     },
     "add_multivariate_sampling" = {
-      if (nzchar(action$distribution %||% "")) {
-        dist_expr <- rlang::parse_expr(action$distribution)
-        rlang::inject(openqaly::add_multivariate_sampling(model,
-          name = action$name,
-          distribution = !!dist_expr,
-          variables = action$variables,
-          description = action$description %||% ""
-        ))
-      } else {
-        model
+      type <- .str(action$mv_dist_type)
+      if (!nzchar(type)) return(model)
+      add_args <- list(
+        model,
+        name = action$name,
+        type = type,
+        variables = as.character(unlist(action$variables))
+      )
+      if (nzchar(.str(action$strategy))) add_args$strategy <- action$strategy
+      if (nzchar(.str(action$group))) add_args$group <- action$group
+      if (type == "dirichlet") {
+        if (!is.null(action$n)) add_args$n <- as.numeric(action$n)
+      } else if (type == "mvnormal") {
+        if (!is.null(action$covariance)) add_args$covariance <- .str(action$covariance)
       }
+      do.call(openqaly::add_multivariate_sampling, add_args)
     },
     "edit_multivariate_sampling" = {
       args <- list(model, name = action$name)
       if (!is.null(action$new_name)) args$new_name <- action$new_name
-      if (!is.null(action$distribution) && nzchar(action$distribution)) {
-        args$distribution <- rlang::parse_expr(action$distribution)
+      if (!is.null(action$type_value)) args$type <- .str(action$type_value)
+      if (!is.null(action$variables)) args$variables <- as.character(unlist(action$variables))
+      if (!is.null(action$strategy)) args$strategy <- .str(action$strategy)
+      if (!is.null(action$group)) args$group <- .str(action$group)
+      # Pass only type-specific params
+      edit_type <- args$type %||% {
+        idx <- which(vapply(model$multivariate_sampling, function(s) s$name == action$name, logical(1)))
+        if (length(idx) > 0) model$multivariate_sampling[[idx[1]]]$type else ""
       }
-      if (!is.null(action$variables)) args$variables <- action$variables
-      if (!is.null(action$description)) args$description <- action$description
+      if (edit_type == "dirichlet") {
+        if (!is.null(action$n)) args$n <- as.numeric(action$n)
+      } else if (edit_type == "mvnormal") {
+        if (!is.null(action$covariance)) args$covariance <- .str(action$covariance)
+      }
       do.call(openqaly::edit_multivariate_sampling, args)
     },
     "remove_multivariate_sampling" = {
@@ -1098,6 +1033,8 @@ run_model_editor <- function(path = NULL, options = list()) {
     ),
     scripts_editor_dependency(),
     documentation_editor_dependency(),
+    formula_input_dependency(),
+    override_input_dependency(),
     tags$head(
       tags$script(shiny::HTML("
         // Ctrl+S / Cmd+S save shortcut
@@ -1106,6 +1043,33 @@ run_model_editor <- function(path = NULL, options = list()) {
             e.preventDefault();
             Shiny.setInputValue('save_file', Math.random(), {priority: 'event'});
           }
+        });
+        // Re-initialize widgets after override panel renderUI
+        Shiny.addCustomMessageHandler('override-rebind', function(data) {
+          setTimeout(function() {
+            var container = document.querySelector('.override-input-container');
+            if (!container) return;
+            $(container).find('input.js-range-slider').each(function() {
+              if (!$(this).data('ionRangeSlider')) {
+                $(this).ionRangeSlider({
+                  skin: 'shiny',
+                  min: +$(this).data('min'),
+                  max: +$(this).data('max'),
+                  from: +$(this).data('from'),
+                  step: +$(this).data('step'),
+                  grid: $(this).data('grid'),
+                  keyboard: true
+                });
+              }
+            });
+            // Rebind formula inputs (binding is pre-loaded in page head)
+            $(container).find('.formula-input').each(function() {
+              if (!this._formulaEditor) {
+                Shiny.unbindAll(this.parentNode);
+                Shiny.bindAll(this.parentNode);
+              }
+            });
+          }, 300);
         });
         // Dirty state tracking for beforeunload
         Shiny.addCustomMessageHandler('set_dirty', function(dirty) {
@@ -1509,6 +1473,9 @@ run_model_editor <- function(path = NULL, options = list()) {
           if (target) target.classList.add('active');
 
           Shiny.setInputValue('active_page', page, {priority: 'event'});
+          if (target) {
+            $(target).find('.shiny-html-output').trigger('shown');
+          }
         }
 
         Shiny.addCustomMessageHandler('editor_progress', function(data) {
@@ -1887,16 +1854,6 @@ run_model_editor <- function(path = NULL, options = list()) {
           ),
         )
       ),
-      # Overrides page
-      tags$div(
-        id = "page_overrides",
-        class = "app-page",
-        style = "overflow: auto; padding: 16px;",
-        tags$div(
-          style = "max-width: 600px;",
-          shiny::uiOutput("override_panel")
-        )
-      ),
       # Results page
       tags$div(
         id = "page_results",
@@ -1905,13 +1862,8 @@ run_model_editor <- function(path = NULL, options = list()) {
         bslib::layout_sidebar(
           sidebar = bslib::sidebar(
             id = "results_sidebar",
-            width = "250px",
-            tags$button(
-              type = "button",
-              class = "btn btn-outline-secondary btn-sm w-100",
-              onclick = "switchAppPage('overrides')",
-              "Manage Overrides"
-            )
+            width = "400px",
+            shiny::uiOutput("override_panel")
           ),
           shiny::conditionalPanel(
             condition = "!output.has_editor_results",
@@ -2270,9 +2222,9 @@ run_model_editor <- function(path = NULL, options = list()) {
     do_open_file <- function(fpath) {
       ext <- tolower(tools::file_ext(fpath))
       loaded <- if (ext == "json") {
-        openqaly::read_model_json(paste(readLines(fpath), collapse = "\n"))
+        openqaly::read_model_json(file = fpath)
       } else if (ext %in% c("yaml", "yml")) {
-        openqaly::read_model_yaml(fpath)
+        openqaly::read_model_yaml(file = fpath)
       } else {
         openqaly::read_model(fpath)
       }
@@ -2317,12 +2269,9 @@ run_model_editor <- function(path = NULL, options = list()) {
       content <- history$versions[[idx]]$content
       # Detect JSON vs YAML by checking if content starts with '{'
       if (grepl("^\\s*\\{", content)) {
-        openqaly::read_model_json(content)
+        openqaly::read_model_json(text = content)
       } else {
-        tmp <- tempfile(fileext = ".yaml")
-        on.exit(unlink(tmp), add = TRUE)
-        writeLines(content, tmp)
-        openqaly::read_model_yaml(tmp)
+        openqaly::read_model_yaml(text = content)
       }
     }
 
@@ -3061,7 +3010,75 @@ run_model_editor <- function(path = NULL, options = list()) {
           )
         ))
       }
-      overrideInput("editor_overrides", m)
+
+      # Build flat list of override cards using simple divs (no bslib)
+      input_id <- "editor_overrides"
+      sections <- lapply(cats, function(cat) {
+        cards <- lapply(cat$overrides, function(override) {
+          oid <- .build_override_id(input_id, override)
+          input_widget <- .build_override_input(oid, override, m)
+          default_val <- if (!is.null(override$overridden_expression)) {
+            as.character(override$overridden_expression)
+          } else if (!is.null(override$default_value)) {
+            as.character(override$default_value)
+          } else {
+            ""
+          }
+          tags$div(class = "override-card-simple",
+            tags$div(class = "override-card-header",
+              tags$div(class = "override-card-title-row",
+                tags$span(class = "override-card-title",
+                  override$title %||% override$display_name %||% override$name
+                ),
+                tags$button(
+                  type = "button",
+                  class = "btn btn-sm btn-outline-secondary override-reset-btn",
+                  `data-override-id` = oid,
+                  `data-default-value` = default_val,
+                  `data-input-type` = override$input_type,
+                  "Reset"
+                )
+              )
+            ),
+            tags$div(class = "override-card-body", input_widget)
+          )
+        })
+        htmltools::tagList(
+          tags$div(class = "override-section-header", cat$name),
+          cards
+        )
+      })
+
+      # Check if any overrides use formula input type
+      has_formula <- any(vapply(cats, function(cat) {
+        any(vapply(cat$overrides, function(o) {
+          identical(o$input_type, "formula")
+        }, logical(1)))
+      }, logical(1)))
+
+      deps <- list(override_input_dependency(), override_manager_dependency())
+      if (has_formula) deps <- c(deps, formula_input_dependency())
+
+      gear_btn <- tags$button(
+        type = "button",
+        class = "override-manage-btn btn btn-outline-secondary btn-sm w-100 mb-3",
+        `data-input-id` = input_id,
+        "\u2699 Manage Overrides"
+      )
+
+      session$onFlushed(function() {
+        session$sendCustomMessage("override-rebind", list())
+      }, once = FALSE)
+
+      htmltools::tagList(
+        deps,
+        tags$div(
+          id = paste0(input_id, "-container"),
+          class = "override-input-container",
+          gear_btn,
+          sections
+        )
+      )
     })
 
     overrideManagerServer("editor_overrides",
@@ -3082,9 +3099,14 @@ run_model_editor <- function(path = NULL, options = list()) {
           input_id <- .build_override_id("editor_overrides", override)
           val <- input[[input_id]]
           if (!is.null(val)) {
+            expr_val <- if (is.list(val) && !is.null(val$value)) {
+              val$value
+            } else {
+              val
+            }
             values <- c(values, list(list(
               name = override$name,
-              expression = as.character(val),
+              expression = as.character(expr_val),
               strategy = override$strategy %||% "",
               group = override$group %||% ""
             )))
@@ -3215,6 +3237,7 @@ run_model_editor <- function(path = NULL, options = list()) {
     # VBP reactive state
     vbp_results_rv <- shiny::reactiveValues(results = NULL)
     vbp_run_state <- shiny::reactiveValues(running = FALSE, progress_file = NULL)
+    vbp_price_choice_rv <- shiny::reactiveVal(NULL)
 
     # Scenario reactive state
     scenario_results_rv <- shiny::reactiveValues(results = NULL, metadata = NULL)
@@ -3503,13 +3526,6 @@ run_model_editor <- function(path = NULL, options = list()) {
       # Pre-populate from VBP config if available
       vbp_config <- openqaly::get_vbp(m)
 
-      default_price <- if (!is.null(vbp_config$price_variable) &&
-                           vbp_config$price_variable %in% var_choices) {
-        vbp_config$price_variable
-      } else if (length(var_choices) > 0) {
-        var_choices[1]
-      } else NULL
-
       default_intervention <- if (!is.null(vbp_config$intervention_strategy) &&
                                   vbp_config$intervention_strategy %in% strat_choices) {
         vbp_config$intervention_strategy
@@ -3532,6 +3548,13 @@ run_model_editor <- function(path = NULL, options = list()) {
       } else if (length(cost_choices) > 0) {
         cost_choices[1]
       } else NULL
+
+      default_price <- resolve_vbp_variable_choice(
+        m,
+        vbp_config$price_variable %||% NULL,
+        default_intervention,
+        preferred_selection = vbp_price_choice_rv()
+      )
 
       shiny::tagList(
         shiny::checkboxInput("editor_vbp_enabled", "Enable VBP",
@@ -3564,7 +3587,8 @@ run_model_editor <- function(path = NULL, options = list()) {
     # Persist VBP config on every dropdown change (only when enabled)
     shiny::observe({
       if (!isTRUE(input$editor_vbp_enabled)) return()
-      pv <- input$editor_vbp_price_variable
+      vbp_price_choice_rv(input$editor_vbp_price_variable %||% NULL)
+      pv <- normalize_vbp_variable_choice(input$editor_vbp_price_variable)
       int <- input$editor_vbp_intervention
       out <- input$editor_vbp_outcome
       cost <- input$editor_vbp_cost
@@ -3600,9 +3624,29 @@ run_model_editor <- function(path = NULL, options = list()) {
         return()
       }
 
+      invalid_groups <- get_vbp_group_specific_variable_groups(
+        m,
+        input$editor_vbp_price_variable
+      )
+      if (length(invalid_groups) > 0) {
+        shiny::showNotification(
+          sprintf(
+            paste0(
+              "VBP price variable '%s' is defined for specific group(s): %s. ",
+              "VBP does not currently support group-specific price variables."
+            ),
+            input$editor_vbp_price_variable,
+            paste(invalid_groups, collapse = ", ")
+          ),
+          type = "error",
+          duration = 10
+        )
+        return()
+      }
+
       vbp_args <- list(
         m,
-        price_variable = input$editor_vbp_price_variable,
+        price_variable = normalize_vbp_variable_choice(input$editor_vbp_price_variable),
         intervention_strategy = input$editor_vbp_intervention,
         outcome_summary = input$editor_vbp_outcome,
         cost_summary = input$editor_vbp_cost
@@ -3830,11 +3874,24 @@ run_model_editor <- function(path = NULL, options = list()) {
         return()
       }
       shiny::removeModal()
-      apply_action(list(
-        type = "add_scenario",
-        name = name,
-        description = input$add_scenario_description %||% ""
-      ))
+      old <- model()
+      tryCatch({
+        history$push(old)
+        result <- dispatch_model_action(old, list(
+          type = "add_scenario",
+          name = name,
+          description = input$add_scenario_description %||% ""
+        ))
+        model(result)
+        file_load_counter(file_load_counter() + 1L)
+      }, error = function(e) {
+        history$undo(old)
+        model(old)
+        shiny::showNotification(
+          paste("Failed to create scenario:", conditionMessage(e)),
+          type = "error"
+        )
+      })
     })
 
     # Scenario edit modal
@@ -3864,19 +3921,45 @@ run_model_editor <- function(path = NULL, options = list()) {
         return()
       }
       shiny::removeModal()
-      apply_action(list(
-        type = "edit_scenario",
-        name = session$userData$editing_scenario_name,
-        new_name = name,
-        description = input$edit_scenario_description %||% ""
-      ))
+      old <- model()
+      tryCatch({
+        history$push(old)
+        result <- dispatch_model_action(old, list(
+          type = "edit_scenario",
+          name = session$userData$editing_scenario_name,
+          new_name = name,
+          description = input$edit_scenario_description %||% ""
+        ))
+        model(result)
+        file_load_counter(file_load_counter() + 1L)
+      }, error = function(e) {
+        history$undo(old)
+        model(old)
+        shiny::showNotification(
+          paste("Failed to edit scenario:", conditionMessage(e)),
+          type = "error"
+        )
+      })
     })
 
     shiny::observeEvent(input$remove_scenario_action, {
-      apply_action(list(
-        type = "remove_scenario",
-        name = input$remove_scenario_action$name
-      ))
+      old <- model()
+      tryCatch({
+        history$push(old)
+        result <- dispatch_model_action(old, list(
+          type = "remove_scenario",
+          name = input$remove_scenario_action$name
+        ))
+        model(result)
+        file_load_counter(file_load_counter() + 1L)
+      }, error = function(e) {
+        history$undo(old)
+        model(old)
+        shiny::showNotification(
+          paste("Failed to remove scenario:", conditionMessage(e)),
+          type = "error"
+        )
+      })
     })
 
     shiny::observeEvent(input$run_scenario_action, {
@@ -4006,7 +4089,9 @@ run_model_editor <- function(path = NULL, options = list()) {
 
       # Build initial TWSA analyses from model
       initial_twsa <- lapply(m$twsa_analyses %||% list(), function(tw) {
-        params <- lapply(tw$parameters %||% list(), function(p) {
+        raw_params <- tw$parameters %||% list()
+        params <- lapply(seq_along(raw_params), function(pi) {
+          p <- raw_params[[pi]]
           data_obj <- list()
           if (!is.null(p$min)) data_obj$min <- as.character(p$min)
           if (!is.null(p$max)) data_obj$max <- as.character(p$max)
@@ -4014,6 +4099,7 @@ run_model_editor <- function(path = NULL, options = list()) {
           if (!is.null(p$steps)) data_obj$steps <- p$steps
           if (!is.null(p$values)) data_obj$values <- as.character(p$values)
           list(
+            axis = if (pi == 1) "x" else "y",
             param_type = p$param_type %||% "variable",
             name = p$name,
             type = p$type %||% "radius",
@@ -4136,23 +4222,37 @@ run_model_editor <- function(path = NULL, options = list()) {
           name = name,
           description = input$add_twsa_description %||% ""
         ))
-        # 2. Add X and Y parameters with first two available variables
-        var_names <- openqaly::get_variable_names(old)
-        if (length(var_names) >= 1) {
+        # 2. Add X and Y parameters with first two available variable combos
+        var_targeting <- openqaly::get_variable_targeting(old)
+        combos <- list()
+        for (vname in names(var_targeting)) {
+          t <- var_targeting[[vname]]
+          strat <- if (!is.null(t$strategies)) t$strategies[1] else ""
+          grp <- if (!is.null(t$groups)) t$groups[1] else ""
+          combos[[length(combos) + 1]] <- list(
+            name = vname, strategy = strat, group = grp
+          )
+          if (length(combos) >= 2) break
+        }
+        if (length(combos) >= 1) {
           result <- dispatch_model_action(result, list(
             type = "add_twsa_variable",
             twsa_name = name,
-            variable = var_names[1],
+            variable = combos[[1]]$name,
+            strategy = combos[[1]]$strategy,
+            group = combos[[1]]$group,
             method_type = "radius",
             radius = "value * 0.2",
             steps = 3
           ))
         }
-        if (length(var_names) >= 2) {
+        if (length(combos) >= 2) {
           result <- dispatch_model_action(result, list(
             type = "add_twsa_variable",
             twsa_name = name,
-            variable = var_names[2],
+            variable = combos[[2]]$name,
+            strategy = combos[[2]]$strategy,
+            group = combos[[2]]$group,
             method_type = "radius",
             radius = "value * 0.2",
             steps = 3
@@ -4366,19 +4466,33 @@ run_model_editor <- function(path = NULL, options = list()) {
       mv_specs <- m$multivariate_sampling
       mv_initial <- if (!is.null(mv_specs) && length(mv_specs) > 0) {
         lapply(mv_specs, function(spec) {
-          vars_list <- if (is.data.frame(spec$variables)) {
-            spec$variables$variable
-          } else if (is.character(spec$variables)) {
+          var_names <- if (is.character(spec$variables)) {
             spec$variables
-          } else character(0)
-          list(
+          } else if (is.data.frame(spec$variables)) {
+            as.character(spec$variables$variable)
+          } else {
+            character(0)
+          }
+          result <- list(
             name = spec$name,
-            distribution = as.character(spec$distribution %||% ""),
-            variables = vars_list,
-            description = spec$description %||% ""
+            type = spec$type %||% "",
+            variables = as.list(var_names),
+            strategy = spec$strategy %||% "",
+            group = spec$group %||% ""
           )
+          if (!is.null(spec$covariance)) result$covariance <- as.character(spec$covariance)
+          if (!is.null(spec$n)) {
+            result$n <- spec$n
+          } else if (!is.null(spec$alpha)) {
+            # Convert legacy alpha to n (effective sample size = sum of alpha)
+            result$n <- sum(as.numeric(spec$alpha))
+          }
+          result
         })
       } else list()
+
+      # Table names for mvnormal covariance dropdown
+      table_names <- if (!is.null(m$tables)) names(m$tables) else character(0)
 
       list(
         m = m,
@@ -4391,7 +4505,8 @@ run_model_editor <- function(path = NULL, options = list()) {
         initial_data = initial_data,
         n_sim_default = n_sim_default,
         seed_default = seed_default,
-        mv_initial = mv_initial
+        mv_initial = mv_initial,
+        table_names = table_names
       )
     })
 
@@ -4428,7 +4543,65 @@ run_model_editor <- function(path = NULL, options = list()) {
             class = "btn btn-primary mt-2 w-100 psa-run-btn",
             "Run PSA"
           )
-        )
+        ),
+        # Wire settings and run button immediately when this panel renders
+        tags$script(htmltools::HTML("
+          (function() {
+            var psaPage = document.getElementById('page_psa') || document;
+            var settingsDiv = psaPage.querySelector('.psa-settings-container');
+            if (settingsDiv && !settingsDiv.hasAttribute('data-initialized') && window.OQGrid) {
+              var nSimInput = settingsDiv.querySelector('.psa-nsim-input');
+              var seedInput = settingsDiv.querySelector('.psa-seed-input');
+              function sendSettings() {
+                OQGrid.shiny.dispatchModelAction({
+                  type: 'set_psa_settings',
+                  n_sim: nSimInput ? parseInt(nSimInput.value, 10) || 1000 : 1000,
+                  seed: seedInput ? seedInput.value : ''
+                });
+              }
+              if (nSimInput) nSimInput.addEventListener('change', sendSettings);
+              if (seedInput) seedInput.addEventListener('change', sendSettings);
+              settingsDiv.setAttribute('data-initialized', 'true');
+            }
+            var wrapper = psaPage.querySelector('.psa-inputs-wrapper');
+            if (wrapper && !wrapper.hasAttribute('data-run-wired') && window.OQGrid) {
+              var runBtn = wrapper.querySelector('.psa-run-btn');
+              if (runBtn) {
+                var newRunBtn = runBtn.cloneNode(true);
+                runBtn.parentNode.replaceChild(newRunBtn, runBtn);
+                newRunBtn.addEventListener('click', function() {
+                  var nSimInput = psaPage.querySelector('.psa-nsim-input');
+                  var seedInput = psaPage.querySelector('.psa-seed-input');
+                  var _at = OQGrid._psaActiveTables || {};
+                  var univContainer = psaPage.querySelector('.psa-params-container');
+                  var univId = univContainer ? univContainer.dataset.inputId : null;
+                  var univTable = univId ? _at[univId] : null;
+                  var univData = univTable ? univTable.getData().map(function(d) {
+                    return { name: d.name, strategy: d.strategy || '', group: d.group || '', sampling: d.sampling || '' };
+                  }) : [];
+                  var mvContainer = psaPage.querySelector('.psa-multivariate-container');
+                  var mvId = mvContainer ? mvContainer.dataset.inputId : null;
+                  var mvTable = mvId ? _at[mvId] : null;
+                  var mvData = mvTable ? mvTable.getData().map(function(d) {
+                    return {
+                      name: d.name || '', variables: d.variables || [],
+                      strategy: d.strategy || '', group: d.group || '',
+                      type: d.type || '', n: d.n || null, covariance: d.covariance || null
+                    };
+                  }) : [];
+                  OQGrid.shiny.dispatch('run_psa_action', {
+                    nonce: Date.now(),
+                    n_sim: nSimInput ? parseInt(nSimInput.value, 10) || 1000 : 1000,
+                    seed: seedInput ? seedInput.value : '',
+                    params: univData,
+                    multivariate: mvData
+                  });
+                });
+                wrapper.setAttribute('data-run-wired', 'true');
+              }
+            }
+          })();
+        "))
       )
     })
 
@@ -4523,6 +4696,9 @@ run_model_editor <- function(path = NULL, options = list()) {
             `data-initial` = jsonlite::toJSON(
               d$mv_initial, auto_unbox = TRUE
             ),
+            `data-tables` = jsonlite::toJSON(
+              d$table_names, auto_unbox = FALSE
+            ),
             `data-terms` = jsonlite::toJSON(
               get_model_terms(d$m, "multivariate_sampling"), auto_unbox = FALSE
             ),
@@ -4550,22 +4726,11 @@ run_model_editor <- function(path = NULL, options = list()) {
         ),
         shiny::tags$div(
           class = "mb-3",
-          shiny::tags$label("Distribution"),
-          shiny::tags$div(
-            id = "add_mv_distribution_builder",
-            class = "psa-add-mv-builder",
-            `data-terms` = jsonlite::toJSON(
-              get_model_terms(d$m, "multivariate_sampling"),
-              auto_unbox = FALSE
-            ),
-            `data-suggestions` = jsonlite::toJSON(
-              get_model_suggestions(d$m, "multivariate_sampling"),
-              auto_unbox = FALSE
-            )
-          ),
-          shiny::tags$div(
-            class = "form-text",
-            "Choose variables first, then configure the distribution with the structured editor."
+          shiny::selectInput(
+            "add_mv_type",
+            "Type",
+            choices = c("dirichlet", "mvnormal", "multinomial"),
+            selected = "dirichlet"
           )
         ),
         shiny::tags$div(
@@ -4580,8 +4745,24 @@ run_model_editor <- function(path = NULL, options = list()) {
           )
         ),
         shiny::tags$div(
-          class = "mb-0",
-          shiny::textInput("add_mv_description", "Description", value = "")
+          class = "mb-3",
+          shiny::tags$label("Parameters"),
+          shiny::tags$div(
+            id = "add_mv_distribution_builder",
+            class = "psa-add-mv-builder",
+            `data-terms` = jsonlite::toJSON(
+              get_model_terms(d$m, "multivariate_sampling"),
+              auto_unbox = FALSE
+            ),
+            `data-suggestions` = jsonlite::toJSON(
+              get_model_suggestions(d$m, "multivariate_sampling"),
+              auto_unbox = FALSE
+            )
+          ),
+          shiny::tags$div(
+            class = "form-text",
+            "Choose variables first, then configure the distribution parameters."
+          )
         ),
         footer = shiny::tagList(
           shiny::modalButton("Cancel"),
@@ -4602,9 +4783,9 @@ run_model_editor <- function(path = NULL, options = list()) {
       }
 
       name <- trimws(input$add_mv_name %||% "")
-      distribution <- trimws(.str(input$add_mv_distribution))
+      mv_type <- .str(input$add_mv_type)
+      mv_params <- input$add_mv_params  # structured object from JS builder
       variables <- input$add_mv_variables %||% character(0)
-      description <- input$add_mv_description %||% ""
 
       existing_specs <- d$m$multivariate_sampling %||% list()
       existing_names <- vapply(
@@ -4621,10 +4802,8 @@ run_model_editor <- function(path = NULL, options = list()) {
         shiny::showNotification("A multivariate sampling spec with that name already exists.", type = "warning")
         return()
       }
-
-      validation <- .validate_multivariate_distribution(distribution)
-      if (!isTRUE(validation$valid)) {
-        shiny::showNotification(validation$message, type = "warning")
+      if (!nzchar(mv_type)) {
+        shiny::showNotification("Distribution type is required.", type = "warning")
         return()
       }
       if (length(variables) == 0) {
@@ -4632,16 +4811,30 @@ run_model_editor <- function(path = NULL, options = list()) {
         return()
       }
 
+      # Build the action from structured params
+      action_data <- list(
+        type = "add_multivariate_sampling",
+        name = name,
+        mv_dist_type = mv_type,
+        variables = variables
+      )
+      if (!is.null(mv_params)) {
+        if (!is.null(mv_params$alpha)) action_data$alpha <- mv_params$alpha
+        if (!is.null(mv_params$n)) action_data$n <- mv_params$n
+        if (!is.null(mv_params$size)) action_data$size <- mv_params$size
+        if (!is.null(mv_params$covariance)) action_data$covariance <- mv_params$covariance
+      }
+
+      # Validate mvnormal requires covariance
+      if (mv_type == "mvnormal" && !nzchar(action_data$covariance %||% "")) {
+        shiny::showNotification("Covariance table is required for mvnormal.", type = "warning")
+        return()
+      }
+
       shiny::removeModal()
 
       result <- tryCatch(
-        apply_action(list(
-          type = "add_multivariate_sampling",
-          name = name,
-          distribution = distribution,
-          variables = variables,
-          description = description
-        )),
+        apply_action(action_data),
         error = function(e) e
       )
 
@@ -4671,7 +4864,17 @@ run_model_editor <- function(path = NULL, options = list()) {
         return()
       }
 
-      m <- apply_psa_params(m, params, multivariate)
+      m <- tryCatch(
+        apply_psa_params(m, params, multivariate),
+        error = function(e) {
+          shiny::showNotification(
+            paste("Failed to apply PSA parameters:", conditionMessage(e)),
+            type = "error", duration = 10
+          )
+          NULL
+        }
+      )
+      if (is.null(m)) return()
 
       psa_args <- list(m, n_sim = as.integer(n_sim))
       if (!is.null(seed_val) && nzchar(seed_val)) {

@@ -1,0 +1,970 @@
+/* =========================================================================
+   OQGrid — Unified Styles
+   Replaces 15 per-grid CSS files with one shared stylesheet.
+   All classes use oq-grid- prefix for grid system components.
+   Grid-specific container selectors are preserved for R-side compatibility.
+   ========================================================================= */
+
+/* =========================================================================
+   1. GRID CONTAINERS (all grids)
+   Each container selector must match what the R code renders.
+   ========================================================================= */
+
+.variables-table-container,
+.states-table-container,
+.strategies-table-container,
+.transitions-table-container,
+.groups-table-container,
+.summaries-table-container,
+.values-table-container,
+.trees-table-container,
+.dsa-params-container,
+.scenario-params-container,
+.psa-params-container,
+.psa-multivariate-container,
+.threshold-params-container,
+.twsa-params-container {
+  width: 100%;
+  margin-bottom: 0.25rem;
+  overflow-x: auto;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+/* =========================================================================
+   2. TABULATOR COMPACT SIZING (all grids)
+   ========================================================================= */
+
+.variables-table-container .tabulator-row,
+.states-table-container .tabulator-row,
+.strategies-table-container .tabulator-row,
+.transitions-table-container .tabulator-row,
+.groups-table-container .tabulator-row,
+.summaries-table-container .tabulator-row,
+.values-table-container .tabulator-row,
+.trees-table-container .tabulator-row,
+.dsa-params-container .tabulator-row,
+.scenario-params-container .tabulator-row,
+.psa-params-container .tabulator-row,
+.psa-multivariate-container .tabulator-row,
+.threshold-params-container .tabulator-row,
+.twsa-params-container .tabulator-row {
+  min-height: 32px;
+}
+
+.variables-table-container .tabulator-cell,
+.states-table-container .tabulator-cell,
+.strategies-table-container .tabulator-cell,
+.transitions-table-container .tabulator-cell,
+.groups-table-container .tabulator-cell,
+.summaries-table-container .tabulator-cell,
+.values-table-container .tabulator-cell,
+.trees-table-container .tabulator-cell,
+.dsa-params-container .tabulator-cell,
+.scenario-params-container .tabulator-cell,
+.psa-params-container .tabulator-cell,
+.psa-multivariate-container .tabulator-cell,
+.threshold-params-container .tabulator-cell,
+.twsa-params-container .tabulator-cell {
+  font-size: 0.85rem;
+  padding: 0 6px;
+}
+
+.variables-table-container .tabulator-col-title,
+.states-table-container .tabulator-col-title,
+.strategies-table-container .tabulator-col-title,
+.transitions-table-container .tabulator-col-title,
+.groups-table-container .tabulator-col-title,
+.summaries-table-container .tabulator-col-title,
+.values-table-container .tabulator-col-title,
+.trees-table-container .tabulator-col-title,
+.dsa-params-container .tabulator-col-title,
+.scenario-params-container .tabulator-col-title,
+.psa-params-container .tabulator-col-title,
+.psa-multivariate-container .tabulator-col-title,
+.threshold-params-container .tabulator-col-title,
+.twsa-params-container .tabulator-col-title {
+  font-size: 0.85rem;
+}
+
+/* =========================================================================
+   3. BUTTONS — Add, Delete, Confirm, Cancel
+   ========================================================================= */
+
+/* Delete button (×) */
+.oq-grid-delete-btn {
+  border: none;
+  background: none;
+  color: var(--bs-danger, #dc3545);
+  font-size: 1.1rem;
+  line-height: 1;
+  padding: 0.15rem 0.4rem;
+  cursor: pointer;
+  opacity: 0.6;
+}
+
+.oq-grid-delete-btn:hover {
+  opacity: 1;
+}
+
+/* Add button */
+.oq-grid-add-btn {
+  align-self: flex-start;
+  border: 1px solid var(--bs-border-color, #dee2e6);
+  background: var(--bs-body-bg, #fff);
+  color: var(--bs-body-color, #212529);
+  font-size: 0.8rem;
+  padding: 0.25rem 0.6rem;
+  border-radius: 4px;
+  cursor: pointer;
+  margin-bottom: 0.4rem;
+}
+
+.oq-grid-add-btn:hover {
+  background: var(--bs-tertiary-bg, #f8f9fa);
+}
+
+/* Confirm button (✓) for new rows */
+.oq-grid-confirm-btn {
+  border: none;
+  background: none;
+  color: var(--bs-success, #198754);
+  font-size: 1.1rem;
+  line-height: 1;
+  padding: 0.15rem 0.25rem;
+  cursor: pointer;
+  opacity: 0.7;
+}
+
+.oq-grid-confirm-btn:hover {
+  opacity: 1;
+}
+
+/* Cancel button (×) for new rows */
+.oq-grid-cancel-btn {
+  border: none;
+  background: none;
+  color: var(--bs-danger, #dc3545);
+  font-size: 1.1rem;
+  line-height: 1;
+  padding: 0.15rem 0.25rem;
+  cursor: pointer;
+  opacity: 0.7;
+}
+
+.oq-grid-cancel-btn:hover {
+  opacity: 1;
+}
+
+/* =========================================================================
+   4. INLINE TEXT INPUT EDITOR
+   ========================================================================= */
+
+.oq-grid-input-editor {
+  width: 100%;
+  height: 100%;
+  border: none;
+  font-size: 0.85rem;
+  padding: 0 6px;
+  outline: none;
+}
+
+/* =========================================================================
+   5. FORMULA EDITOR (Ace overlay)
+   ========================================================================= */
+
+.oq-grid-formula-placeholder {
+  width: 100%;
+  height: 100%;
+}
+
+.oq-grid-formula-overlay {
+  background: #fff;
+  border: 2px solid var(--bs-primary, #0d6efd);
+  border-radius: 3px;
+  box-sizing: border-box;
+  overflow: visible;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+
+.oq-grid-formula-overlay .ace_editor {
+  font-size: 0.85rem !important;
+}
+
+.oq-grid-formula-overlay .ace_scroller {
+  padding: 0 4px;
+}
+
+.oq-grid-ace-container {
+  overflow: visible;
+}
+
+.oq-grid-formula-overlay .ace_content {
+  padding: 0;
+}
+
+.oq-grid-formula-overlay .ace_scrollbar {
+  display: none !important;
+}
+
+/* Autocomplete popup offset for single-line cell editors */
+.ace_autocomplete {
+  margin-top: 32px;
+}
+
+/* =========================================================================
+   6. TYPEAHEAD EDITOR
+   ========================================================================= */
+
+.oq-grid-typeahead-wrapper {
+  position: relative;
+}
+
+.oq-grid-typeahead-dropdown {
+  display: none;
+  position: fixed;
+  max-height: 180px;
+  overflow-y: auto;
+  background: var(--bs-body-bg, #fff);
+  border: 1px solid var(--bs-border-color, #dee2e6);
+  border-top: none;
+  border-radius: 0 0 4px 4px;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.12);
+  z-index: 10001;
+}
+
+.oq-grid-typeahead-item {
+  padding: 4px 8px;
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+
+.oq-grid-typeahead-item:hover,
+.oq-grid-typeahead-item-active {
+  background: var(--bs-tertiary-bg, #f0f0f0);
+}
+
+/* =========================================================================
+   7. MULTI-TAG EDITOR
+   ========================================================================= */
+
+/* Tag pills (display formatter) */
+.oq-grid-tags-display {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3px;
+  align-items: center;
+  padding: 2px 0;
+}
+
+.oq-grid-tag {
+  display: inline-block;
+  background: var(--bs-primary, #0d6efd);
+  color: #fff;
+  font-size: 0.75rem;
+  padding: 1px 7px;
+  border-radius: 10px;
+  line-height: 1.4;
+  white-space: nowrap;
+}
+
+/* Multi-tag editor overlay */
+.oq-grid-multitag-placeholder {
+  visibility: hidden;
+}
+
+.oq-grid-multitag-overlay {
+  position: fixed;
+  z-index: 10000;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 3px;
+  padding: 3px 4px;
+  background: var(--bs-body-bg, #fff);
+  border: 2px solid var(--bs-primary, #0d6efd);
+  border-radius: 4px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  min-width: 200px;
+}
+
+.oq-grid-tag-editable {
+  display: inline-flex;
+  align-items: center;
+  background: var(--bs-primary, #0d6efd);
+  color: #fff;
+  font-size: 0.75rem;
+  padding: 1px 4px 1px 7px;
+  border-radius: 10px;
+  line-height: 1.4;
+  white-space: nowrap;
+  gap: 3px;
+}
+
+.oq-grid-tag-remove {
+  cursor: pointer;
+  font-size: 0.85rem;
+  line-height: 1;
+  color: rgba(255, 255, 255, 0.8);
+  padding: 0 2px;
+}
+
+.oq-grid-tag-remove:hover {
+  color: #fff;
+}
+
+.oq-grid-multitag-input {
+  border: none;
+  outline: none;
+  background: transparent;
+  font-size: 0.8rem;
+  flex: 1 1 60px;
+  min-width: 60px;
+  padding: 2px 0;
+}
+
+/* Multi-tag dropdown */
+.oq-grid-multitag-dropdown {
+  position: fixed;
+  z-index: 10001;
+  display: none;
+  background: var(--bs-body-bg, #fff);
+  border: 1px solid var(--bs-border-color, #dee2e6);
+  border-radius: 4px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  max-height: 180px;
+  overflow-y: auto;
+}
+
+.oq-grid-multitag-item {
+  padding: 4px 8px;
+  font-size: 0.8rem;
+  cursor: pointer;
+}
+
+.oq-grid-multitag-item:hover,
+.oq-grid-multitag-item-active {
+  background: var(--bs-primary, #0d6efd);
+  color: #fff;
+}
+
+/* =========================================================================
+   8. DISABLED CELL STYLING (analysis param grids)
+   ========================================================================= */
+
+.tabulator-cell.cell-disabled {
+  color: #999;
+  font-style: italic;
+  background: #f5f5f5;
+}
+
+/* =========================================================================
+   9. SCENARIO / TWSA SPLIT LAYOUT
+   ========================================================================= */
+
+.scenario-params-wrapper,
+.twsa-params-wrapper {
+  display: flex;
+  flex-direction: row;
+  min-height: 300px;
+  height: 100%;
+  border: 1px solid #dee2e6;
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+/* Left panel: item list */
+.scenario-list-panel,
+.twsa-list-panel {
+  width: 200px;
+  min-width: 200px;
+  border-right: 1px solid #dee2e6;
+  display: flex;
+  flex-direction: column;
+  background: #f8f9fa;
+}
+
+.scenario-list-toolbar,
+.twsa-list-toolbar {
+  display: flex;
+  gap: 4px;
+  padding: 6px;
+  border-bottom: 1px solid #dee2e6;
+}
+
+.scenario-list-toolbar .btn,
+.twsa-list-toolbar .btn {
+  font-size: 0.75rem;
+  padding: 2px 8px;
+}
+
+.scenario-list,
+.twsa-list {
+  flex: 1 1 auto;
+  overflow-y: auto;
+  padding: 0;
+}
+
+.scenario-list-item,
+.twsa-list-item {
+  padding: 6px 10px;
+  cursor: pointer;
+  font-size: 0.85rem;
+  border-bottom: 1px solid #eee;
+  user-select: none;
+}
+
+.scenario-list-item:hover,
+.twsa-list-item:hover {
+  background: #e9ecef;
+}
+
+.scenario-list-item-name,
+.twsa-list-item-name {
+  font-weight: 500;
+}
+
+.scenario-list-item-desc,
+.twsa-list-item-desc {
+  font-size: 0.75rem;
+  color: #6c757d;
+  margin-top: 1px;
+}
+
+.scenario-list-item--active,
+.twsa-list-item--active {
+  background: #cfe2ff;
+}
+
+.scenario-list-item--active:hover,
+.twsa-list-item--active:hover {
+  background: #b6d4fe;
+}
+
+.scenario-rename-input {
+  border: 1px solid #86b7fe;
+  border-radius: 2px;
+  font-size: 0.85rem;
+  padding: 1px 4px;
+  width: 100%;
+  outline: none;
+}
+
+/* Right panel: grid */
+.scenario-grid-panel,
+.twsa-grid-panel {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  padding: 6px;
+}
+
+.scenario-add-row-btn {
+  align-self: flex-start;
+  margin-bottom: 6px;
+  font-size: 0.8rem;
+  padding: 2px 10px;
+}
+
+/* Empty state message */
+.scenario-empty-state,
+.twsa-empty-state {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  color: #6c757d;
+  font-size: 0.9rem;
+}
+
+/* =========================================================================
+   10. PSA-SPECIFIC STYLES
+   ========================================================================= */
+
+/* Settings section */
+.psa-section-header {
+  font-weight: 600;
+  font-size: 0.9rem;
+  margin: 1rem 0 0.5rem 0;
+  padding-bottom: 0.25rem;
+  border-bottom: 1px solid var(--bs-border-color, #dee2e6);
+}
+
+.psa-section-header:first-child {
+  margin-top: 0;
+}
+
+.psa-settings-row {
+  display: flex;
+  gap: 1rem;
+  align-items: flex-end;
+  margin-bottom: 0.75rem;
+}
+
+.psa-settings-row .form-group {
+  margin-bottom: 0;
+}
+
+.psa-settings-row label {
+  font-size: 0.85rem;
+  margin-bottom: 0.15rem;
+}
+
+.psa-settings-row input {
+  width: 140px;
+  font-size: 0.85rem;
+}
+
+/* Distribution editor overlay */
+.psa-distribution-overlay {
+  background: #fff;
+  border: 2px solid var(--bs-primary, #0d6efd);
+  border-radius: 6px;
+  box-sizing: border-box;
+  overflow: visible;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.18);
+  z-index: 10000;
+  padding: 10px 12px;
+  min-width: 320px;
+}
+
+.psa-distribution-overlay select,
+.psa-distribution-overlay input[type="number"],
+.psa-distribution-overlay input[type="text"] {
+  font-size: 0.85rem;
+}
+
+.psa-dist-dropdown-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.psa-dist-dropdown-row label {
+  font-size: 0.8rem;
+  font-weight: 600;
+  white-space: nowrap;
+  margin-bottom: 0;
+}
+
+.psa-dist-dropdown-row select {
+  flex: 1;
+  min-width: 0;
+}
+
+.psa-parameterization-toggle {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 8px;
+  font-size: 0.8rem;
+}
+
+.psa-parameterization-toggle label {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  cursor: pointer;
+  margin-bottom: 0;
+}
+
+.psa-parameterization-toggle input[type="radio"] {
+  margin: 0;
+}
+
+.psa-param-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.psa-param-row label {
+  font-size: 0.8rem;
+  font-weight: 500;
+  min-width: 72px;
+  text-align: right;
+  margin-bottom: 0;
+  white-space: nowrap;
+}
+
+/* Mini Ace editor */
+.psa-mini-ace {
+  flex: 1;
+  height: 28px;
+  min-width: 0;
+  border: 1px solid var(--bs-border-color, #dee2e6);
+  border-radius: 3px;
+  overflow: hidden;
+  position: relative;
+}
+
+.psa-mini-ace .ace_editor {
+  font-size: 0.85rem !important;
+}
+
+.psa-mini-ace .ace_scroller {
+  padding: 0 4px;
+}
+
+.psa-mini-ace .ace_content {
+  padding: 0;
+}
+
+.psa-mini-ace .ace_scrollbar {
+  display: none !important;
+}
+
+.psa-mini-ace.focused {
+  border-color: var(--bs-primary, #0d6efd);
+  box-shadow: 0 0 0 2px rgba(13, 110, 253, 0.15);
+}
+
+/* Vector editor */
+.psa-vector-editor {
+  margin-bottom: 8px;
+}
+
+.psa-vector-editor table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.psa-vector-editor th {
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 2px 6px;
+  text-align: left;
+  border-bottom: 1px solid var(--bs-border-color, #dee2e6);
+}
+
+.psa-vector-editor td {
+  padding: 2px 4px;
+}
+
+.psa-vector-editor td:first-child {
+  font-size: 0.8rem;
+  white-space: nowrap;
+  padding-right: 8px;
+}
+
+/* Matrix editor (Handsontable container) */
+.psa-matrix-editor {
+  margin-bottom: 8px;
+}
+
+.psa-matrix-editor .psa-matrix-label {
+  font-size: 0.8rem;
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+
+.psa-matrix-editor .handsontable {
+  font-size: 0.8rem !important;
+}
+
+.psa-matrix-editor .handsontable td {
+  padding: 2px 4px;
+}
+
+/* Tag input overlay (variables column) */
+.psa-tag-overlay {
+  background: #fff;
+  border: 1px solid var(--bs-border-color, #dee2e6);
+  border-radius: 4px;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.12);
+  z-index: 10001;
+  padding: 6px;
+  min-width: 250px;
+}
+
+.psa-tag-container {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  align-items: center;
+  padding: 2px;
+  border: 1px solid var(--bs-border-color, #dee2e6);
+  border-radius: 3px;
+  background: #fff;
+  min-height: 30px;
+}
+
+.psa-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  background: var(--bs-light, #e9ecef);
+  border-radius: 3px;
+  padding: 1px 6px;
+  font-size: 0.78rem;
+  white-space: nowrap;
+}
+
+.psa-tag-remove {
+  cursor: pointer;
+  font-weight: bold;
+  opacity: 0.6;
+  margin-left: 2px;
+}
+
+.psa-tag-remove:hover {
+  opacity: 1;
+}
+
+.psa-tag-input {
+  border: none;
+  outline: none;
+  flex: 1;
+  min-width: 80px;
+  font-size: 0.8rem;
+  padding: 2px 4px;
+}
+
+.psa-tag-suggestions {
+  max-height: 150px;
+  overflow-y: auto;
+  margin-top: 4px;
+}
+
+.psa-tag-suggestion {
+  padding: 3px 8px;
+  font-size: 0.8rem;
+  cursor: pointer;
+  border-radius: 2px;
+}
+
+.psa-tag-suggestion:hover {
+  background: var(--bs-light, #f8f9fa);
+}
+
+/* Sampling display */
+.psa-sampling-display {
+  font-family: var(--bs-font-monospace, SFMono-Regular, Menlo, Monaco, monospace);
+  font-size: 0.8rem;
+}
+
+.psa-sampling-display .psa-dist-name {
+  font-weight: 600;
+  color: var(--bs-primary, #0d6efd);
+}
+
+.psa-sampling-empty {
+  color: var(--bs-secondary, #6c757d);
+  font-style: italic;
+  font-size: 0.8rem;
+}
+
+.psa-run-btn {
+  margin-top: 0.5rem;
+}
+
+/* =========================================================================
+   11. THRESHOLD CONDITION EDITOR
+   ========================================================================= */
+
+.threshold-condition-cell {
+  cursor: pointer;
+  color: var(--bs-primary, #0d6efd);
+}
+
+.threshold-condition-cell:hover {
+  text-decoration: underline;
+}
+
+.tc-editor-overlay {
+  position: fixed;
+  z-index: 10500;
+  background: var(--bs-body-bg, #fff);
+  border: 1px solid var(--bs-border-color, #dee2e6);
+  border-radius: 6px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.18);
+  min-width: 320px;
+  max-width: 400px;
+  padding: 0;
+}
+
+.tc-editor-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--bs-border-color, #dee2e6);
+  font-weight: 600;
+  font-size: 0.85rem;
+}
+
+.tc-editor-close-btn {
+  border: none;
+  background: none;
+  font-size: 1.1rem;
+  line-height: 1;
+  cursor: pointer;
+  color: var(--bs-secondary-color, #6c757d);
+  padding: 0 4px;
+}
+
+.tc-editor-close-btn:hover {
+  color: var(--bs-body-color, #212529);
+}
+
+.tc-editor-body {
+  padding: 10px 12px;
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+.tc-field-row {
+  margin-bottom: 8px;
+}
+
+.tc-field-row.tc-hidden {
+  display: none;
+}
+
+.tc-field-row label {
+  display: block;
+  font-size: 0.75rem;
+  font-weight: 500;
+  margin-bottom: 2px;
+  color: var(--bs-secondary-color, #6c757d);
+}
+
+.tc-field-select,
+.tc-field-input {
+  width: 100%;
+  padding: 4px 8px;
+  font-size: 0.8rem;
+  border: 1px solid var(--bs-border-color, #dee2e6);
+  border-radius: 4px;
+  background: var(--bs-body-bg, #fff);
+  color: var(--bs-body-color, #212529);
+}
+
+.tc-field-select:focus,
+.tc-field-input:focus {
+  outline: none;
+  border-color: var(--bs-primary, #0d6efd);
+  box-shadow: 0 0 0 2px rgba(13, 110, 253, 0.15);
+}
+
+.tc-editor-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 6px;
+  padding: 8px 12px;
+  border-top: 1px solid var(--bs-border-color, #dee2e6);
+}
+
+.tc-editor-save-btn {
+  background: var(--bs-primary, #0d6efd);
+  color: #fff;
+  border: none;
+  border-radius: 4px;
+  padding: 4px 16px;
+  font-size: 0.8rem;
+  cursor: pointer;
+}
+
+.tc-editor-save-btn:hover {
+  background: var(--bs-primary-hover, #0b5ed7);
+}
+
+.tc-editor-save-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.tc-editor-cancel-btn {
+  background: none;
+  border: 1px solid var(--bs-border-color, #dee2e6);
+  border-radius: 4px;
+  padding: 4px 12px;
+  font-size: 0.8rem;
+  cursor: pointer;
+  color: var(--bs-body-color, #212529);
+}
+
+.tc-editor-cancel-btn:hover {
+  background: var(--bs-tertiary-bg, #f8f9fa);
+}
+
+/* =========================================================================
+   12. TWSA VALUES POPUP EDITOR
+   ========================================================================= */
+
+.twsa-values-popup {
+  position: fixed;
+  z-index: 10000;
+  background: #fff;
+  border: 2px solid #0d6efd;
+  border-radius: 4px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  padding: 8px;
+  min-width: 320px;
+}
+
+.twsa-values-popup .field-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.twsa-values-popup .field-row:last-child {
+  margin-bottom: 0;
+}
+
+.twsa-values-popup .field-label {
+  width: 50px;
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: #495057;
+  flex-shrink: 0;
+}
+
+.twsa-values-popup .field-editor {
+  flex: 1;
+  min-width: 0;
+}
+
+.twsa-values-popup .field-editor input {
+  width: 100%;
+  border: 1px solid #ced4da;
+  border-radius: 3px;
+  padding: 3px 6px;
+  font-size: 0.85rem;
+}
+
+.twsa-values-popup .field-editor input:focus {
+  border-color: #86b7fe;
+  outline: none;
+  box-shadow: 0 0 0 0.2rem rgba(13, 110, 253, 0.25);
+}
+
+.twsa-values-popup .popup-ace-wrap {
+  border: 1px solid #ced4da;
+  border-radius: 3px;
+  min-height: 26px;
+  overflow: visible;
+}
+
+.twsa-values-popup .popup-ace-wrap:focus-within {
+  border-color: #86b7fe;
+  box-shadow: 0 0 0 0.2rem rgba(13, 110, 253, 0.25);
+}
+
+.twsa-values-popup .popup-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 6px;
+  margin-top: 8px;
+  padding-top: 6px;
+  border-top: 1px solid #eee;
+}
+
+.twsa-values-popup .popup-actions .btn {
+  font-size: 0.75rem;
+  padding: 2px 10px;
+}

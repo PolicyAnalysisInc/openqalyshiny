@@ -25,31 +25,6 @@ psaResultTabUI <- function(id) {
 #' @param groups_input Selected group filter values from the UI.
 #' @param metadata Optional PSA metadata.
 #' @keywords internal
-normalize_psa_parameter_groups <- function(groups_input, metadata = NULL) {
-  if (is.null(groups_input) || length(groups_input) == 0) {
-    return(NULL)
-  }
-
-  if ("all" %in% groups_input || "overall" %in% groups_input) {
-    return(NULL)
-  }
-
-  specific_groups <- setdiff(groups_input, "all_groups")
-  if ("all_groups" %in% groups_input &&
-      !is.null(metadata$groups) &&
-      is.data.frame(metadata$groups) &&
-      nrow(metadata$groups) > 0) {
-    specific_groups <- c(specific_groups, metadata$groups$name)
-  }
-
-  specific_groups <- unique(specific_groups[!is.na(specific_groups) & nzchar(specific_groups)])
-  if (length(specific_groups) == 0) {
-    return(NULL)
-  }
-
-  specific_groups
-}
-
 #' Encode a PSA parameter tuple as a select input value
 #' @param variable Variable name.
 #' @param strategy Strategy name.
@@ -84,164 +59,98 @@ decode_psa_parameter_choices <- function(selections) {
   tuples
 }
 
-#' Build selectable PSA parameter choices from PSA results
-#' @param results PSA results list returned by `openqaly::run_psa()`.
-#' @param metadata Optional PSA metadata, used to map display names.
-#' @param groups_input Selected group filter values from the UI.
+#' Build selectable PSA parameter choices from metadata variables
+#'
+#' Returns one entry per row in `metadata$variables`, using display names
+#' as labels and encoded variable/strategy/group tuples as values.
+#' @param metadata PSA metadata containing a `variables` data frame.
 #' @keywords internal
-get_psa_parameter_choices <- function(results, metadata = NULL, groups_input = NULL) {
-  if (is.null(results$segments) ||
-      !"parameter_overrides" %in% names(results$segments)) {
+get_psa_parameter_choices <- function(metadata) {
+  if (is.null(metadata$variables) ||
+      !is.data.frame(metadata$variables) ||
+      nrow(metadata$variables) == 0) {
     return(character(0))
   }
 
-  segments <- results$segments
-  allowed_groups <- normalize_psa_parameter_groups(groups_input, metadata)
-  if (!is.null(allowed_groups) && "group" %in% names(segments)) {
-    segments <- segments[segments$group %in% allowed_groups, , drop = FALSE]
-  }
+  vars <- metadata$variables
 
-  tuple_rows <- lapply(seq_len(nrow(segments)), function(i) {
-    overrides <- segments$parameter_overrides[[i]]
-    if (is.null(overrides) || length(overrides) == 0) {
-      return(NULL)
-    }
-
-    data.frame(
-      variable = names(overrides),
-      strategy = rep_len(segments$strategy[i] %||% "", length(overrides)),
-      group = rep_len(segments$group[i] %||% "", length(overrides)),
-      stringsAsFactors = FALSE
-    )
-  })
-
-  tuple_rows <- Filter(Negate(is.null), tuple_rows)
-  if (length(tuple_rows) == 0) {
-    return(character(0))
-  }
-
-  tuples <- unique(do.call(rbind, tuple_rows))
-  tuples <- tuples[!is.na(tuples$variable) & nzchar(tuples$variable), , drop = FALSE]
-  if (nrow(tuples) == 0) {
-    return(character(0))
-  }
-
-  map_strategy_name <- function(strategy_name) {
-    if (!nzchar(strategy_name) ||
-        is.null(metadata$strategies) ||
-        !is.data.frame(metadata$strategies) ||
-        nrow(metadata$strategies) == 0) {
-      return(strategy_name)
-    }
-
-    strategy_meta <- metadata$strategies[metadata$strategies$name == strategy_name, , drop = FALSE]
-    if (nrow(strategy_meta) == 0 ||
-        !"display_name" %in% names(strategy_meta) ||
-        is.na(strategy_meta$display_name[1]) ||
-        !nzchar(strategy_meta$display_name[1])) {
-      return(strategy_name)
-    }
-
-    strategy_meta$display_name[1]
-  }
-
-  map_group_name <- function(group_name) {
-    if (!nzchar(group_name) ||
-        is.null(metadata$groups) ||
-        !is.data.frame(metadata$groups) ||
-        nrow(metadata$groups) == 0) {
-      return(group_name)
-    }
-
-    group_meta <- metadata$groups[metadata$groups$name == group_name, , drop = FALSE]
-    if (nrow(group_meta) == 0 ||
-        !"display_name" %in% names(group_meta) ||
-        is.na(group_meta$display_name[1]) ||
-        !nzchar(group_meta$display_name[1])) {
-      return(group_name)
-    }
-
-    group_meta$display_name[1]
-  }
-
-  map_variable_label <- function(variable_name, strategy_name, group_name) {
-    if (is.null(metadata$variables) ||
-        !is.data.frame(metadata$variables) ||
-        nrow(metadata$variables) == 0 ||
-        !"display_name" %in% names(metadata$variables)) {
-      return(variable_name)
-    }
-
-    variable_meta <- metadata$variables
-    meta_strategy <- if ("strategy" %in% names(variable_meta)) variable_meta$strategy else ""
-    meta_group <- if ("group" %in% names(variable_meta)) variable_meta$group else ""
-    meta_strategy[is.na(meta_strategy)] <- ""
-    meta_group[is.na(meta_group)] <- ""
-
-    exact_match <- variable_meta$name == variable_name &
-      meta_strategy == strategy_name &
-      meta_group == group_name
-
-    if (!any(exact_match)) {
-      exact_match <- variable_meta$name == variable_name &
-        meta_strategy == strategy_name &
-        !nzchar(meta_group)
-    }
-    if (!any(exact_match)) {
-      exact_match <- variable_meta$name == variable_name &
-        !nzchar(meta_strategy) &
-        meta_group == group_name
-    }
-    if (!any(exact_match)) {
-      exact_match <- variable_meta$name == variable_name &
-        !nzchar(meta_strategy) &
-        !nzchar(meta_group)
-    }
-    if (!any(exact_match)) {
-      exact_match <- variable_meta$name == variable_name
-    }
-
-    matched <- variable_meta[exact_match, , drop = FALSE]
-    if (nrow(matched) == 0 ||
-        is.na(matched$display_name[1]) ||
-        !nzchar(matched$display_name[1])) {
-      return(variable_name)
-    }
-
-    matched$display_name[1]
-  }
-
-  choice_labels <- vapply(seq_len(nrow(tuples)), function(i) {
-    map_variable_label(tuples$variable[i], tuples$strategy[i], tuples$group[i])
+  choice_labels <- vapply(seq_len(nrow(vars)), function(i) {
+    dn <- if ("display_name" %in% names(vars)) vars$display_name[i] else NA_character_
+    if (is.na(dn) || !nzchar(dn)) vars$name[i] else dn
   }, character(1))
 
+  # Disambiguate duplicate labels with [Strategy / Group] qualifiers
   duplicate_labels <- unique(choice_labels[duplicated(choice_labels)])
   if (length(duplicate_labels) > 0) {
-    for (duplicate_label in duplicate_labels) {
-      idx <- which(choice_labels == duplicate_label)
+    for (dup in duplicate_labels) {
+      idx <- which(choice_labels == dup)
       qualifiers <- vapply(idx, function(i) {
-        qualifier_parts <- character(0)
-        if (nzchar(tuples$strategy[i])) {
-          qualifier_parts <- c(qualifier_parts, map_strategy_name(tuples$strategy[i]))
+        parts <- character(0)
+        s <- if ("strategy" %in% names(vars)) vars$strategy[i] else ""
+        g <- if ("group" %in% names(vars)) vars$group[i] else ""
+        if (!is.na(s) && nzchar(s)) {
+          parts <- c(parts, map_psa_strategy_name(s, metadata))
         }
-        if (nzchar(tuples$group[i])) {
-          qualifier_parts <- c(qualifier_parts, map_group_name(tuples$group[i]))
+        if (!is.na(g) && nzchar(g)) {
+          parts <- c(parts, map_psa_group_name(g, metadata))
         }
-        qualifier <- paste(qualifier_parts, collapse = " / ")
-        if (!nzchar(qualifier)) {
-          qualifier <- paste(tuples$variable[i], tuples$strategy[i], tuples$group[i], sep = " / ")
-        }
-        qualifier
+        paste(parts, collapse = " / ")
       }, character(1))
-      choice_labels[idx] <- sprintf("%s [%s]", duplicate_label, qualifiers)
+      choice_labels[idx] <- ifelse(
+        nzchar(qualifiers),
+        sprintf("%s [%s]", dup, qualifiers),
+        choice_labels[idx]
+      )
     }
   }
 
-  encoded_values <- vapply(seq_len(nrow(tuples)), function(i) {
-    encode_psa_parameter_choice(tuples$variable[i], tuples$strategy[i], tuples$group[i])
+  encoded_values <- vapply(seq_len(nrow(vars)), function(i) {
+    encode_psa_parameter_choice(
+      vars$name[i],
+      if ("strategy" %in% names(vars)) vars$strategy[i] %||% "" else "",
+      if ("group" %in% names(vars)) vars$group[i] %||% "" else ""
+    )
   }, character(1))
 
   stats::setNames(encoded_values, choice_labels)
+}
+
+#' Map a strategy name to its display name
+#' @keywords internal
+map_psa_strategy_name <- function(strategy_name, metadata) {
+  if (!nzchar(strategy_name) ||
+      is.null(metadata$strategies) ||
+      !is.data.frame(metadata$strategies) ||
+      nrow(metadata$strategies) == 0) {
+    return(strategy_name)
+  }
+  strategy_meta <- metadata$strategies[metadata$strategies$name == strategy_name, , drop = FALSE]
+  if (nrow(strategy_meta) == 0 ||
+      !"display_name" %in% names(strategy_meta) ||
+      is.na(strategy_meta$display_name[1]) ||
+      !nzchar(strategy_meta$display_name[1])) {
+    return(strategy_name)
+  }
+  strategy_meta$display_name[1]
+}
+
+#' Map a group name to its display name
+#' @keywords internal
+map_psa_group_name <- function(group_name, metadata) {
+  if (!nzchar(group_name) ||
+      is.null(metadata$groups) ||
+      !is.data.frame(metadata$groups) ||
+      nrow(metadata$groups) == 0) {
+    return(group_name)
+  }
+  group_meta <- metadata$groups[metadata$groups$name == group_name, , drop = FALSE]
+  if (nrow(group_meta) == 0 ||
+      !"display_name" %in% names(group_meta) ||
+      is.na(group_meta$display_name[1]) ||
+      !nzchar(group_meta$display_name[1])) {
+    return(group_name)
+  }
+  group_meta$display_name[1]
 }
 
 #' PSA Result Tab Server
@@ -403,7 +312,7 @@ psaResultTabServer <- function(id, analysis_type, psa_results, metadata) {
             multiple = TRUE
           ),
           if (length(strategies) > 1) shiny::selectInput(ns("comparators"), "Comparators",
-            choices = strategies, selected = strategies[1], multiple = TRUE
+            choices = strategies, selected = strategies[-2], multiple = TRUE
           )
         ))
       } else if (analysis_type == "incremental_ce") {
@@ -439,7 +348,7 @@ psaResultTabServer <- function(id, analysis_type, psa_results, metadata) {
             multiple = TRUE
           ),
           if (length(strategies) > 1) shiny::selectInput(ns("comparators"), "Comparators",
-            choices = strategies, selected = strategies[1], multiple = TRUE
+            choices = strategies, selected = strategies[-2], multiple = TRUE
           )
         ))
       } else if (analysis_type == "evpi") {
@@ -457,13 +366,9 @@ psaResultTabServer <- function(id, analysis_type, psa_results, metadata) {
           )
         ))
       } else if (analysis_type == "parameters") {
-        var_choices <- get_psa_parameter_choices(res, meta, input$groups)
+        var_choices <- get_psa_parameter_choices(meta)
         var_values <- unname(var_choices)
         selected_values <- intersect(input$variables %||% character(0), var_values)
-        if (length(selected_values) == 0 && length(var_values) > 0) {
-          selected_values <- var_values[seq_len(min(5, length(var_values)))]
-        }
-
         inputs <- c(inputs, list(
           shiny::selectInput(ns("variables"), "Variables",
             choices = var_choices,
@@ -703,6 +608,7 @@ psaResultTabServer <- function(id, analysis_type, psa_results, metadata) {
           do.call(openqaly::evpi_table, args)
 
         } else if (analysis_type == "parameters") {
+          shiny::req(input$variables)
           args <- build_psa_parameter_args(res, input$variables, input$groups)
           do.call(openqaly::psa_parameters_table, args)
         }

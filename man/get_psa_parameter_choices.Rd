@@ -2,18 +2,15 @@
 % Please edit documentation in R/model_viewer_psa.r
 \name{get_psa_parameter_choices}
 \alias{get_psa_parameter_choices}
-\title{Build selectable PSA parameter choices from PSA results}
+\title{Build selectable PSA parameter choices from metadata variables}
 \usage{
-get_psa_parameter_choices(results, metadata = NULL, groups_input = NULL)
+get_psa_parameter_choices(metadata)
 }
 \arguments{
-\item{results}{PSA results list returned by \code{openqaly::run_psa()}.}
-
-\item{metadata}{Optional PSA metadata, used to map display names.}
-
-\item{groups_input}{Selected group filter values from the UI.}
+\item{metadata}{PSA metadata containing a \code{variables} data frame.}
 }
 \description{
-Build selectable PSA parameter choices from PSA results
+Returns one entry per row in \code{metadata$variables}, using display names
+as labels and encoded variable/strategy/group tuples as values.
 }
 \keyword{internal}

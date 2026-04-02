@@ -4,6 +4,8 @@
 (function() {
   "use strict";
 
+  let formulaInstanceCounter = 0;
+
   // Wait for Shiny, Ace, and our custom modules to be available
   function waitForDependencies() {
     return new Promise((resolve) => {
@@ -91,10 +93,14 @@
       },
 
       initialize: function(el) {
-        const initialValue = $(el).data("value") || "";
+        // Read the raw attribute so numeric-looking formulas like "0.03"
+        // are not coerced to numbers by jQuery's data parser.
+        const initialValueAttr = el.getAttribute("data-value");
+        const initialValue = initialValueAttr != null ? initialValueAttr : "";
         const placeholderText = $(el).data("placeholder") || "";
         const termsData = $(el).data("terms");
         const suggestionsData = $(el).data("suggestions");
+        const visibilityNs = ".formulaInputVisibility" + (++formulaInstanceCounter);
 
         // Parse terms if provided
         let initialTerms = null;
@@ -150,7 +156,7 @@
         }
 
         // Set initial value
-        editor.setValue(initialValue, -1);
+        editor.setValue(String(initialValue), -1);
 
         // Initialize custom highlighter for term highlighting
         const highlighter = new FormulaInputMode.FormulaHighlighter(editor);
@@ -226,6 +232,30 @@
 
         // Store editor reference
         el._formulaEditor = editor;
+
+        // Ace needs an explicit resize when initialized in hidden panels/pages.
+        const resizeEditor = function() {
+          if (!el._formulaEditor) return;
+          requestAnimationFrame(function() {
+            if (!el._formulaEditor) return;
+            el._formulaEditor.resize(true);
+            el._formulaEditor.renderer.updateFull();
+          });
+        };
+
+        el._formulaResizeHandler = resizeEditor;
+        el._formulaVisibilityNs = visibilityNs;
+
+        $(document).on("shown" + visibilityNs, function(evt) {
+          const target = evt.target;
+          if (!target) return;
+          if (target === el || $.contains(target, el)) {
+            resizeEditor();
+          }
+        });
+
+        $(window).on("resize" + visibilityNs, resizeEditor);
+        resizeEditor();
       },
 
       getValue: function(el) {
@@ -257,6 +287,12 @@
 
       unsubscribe: function(el) {
         $(el).off(".formulaInputBinding");
+        if (el._formulaVisibilityNs) {
+          $(document).off(el._formulaVisibilityNs);
+          $(window).off(el._formulaVisibilityNs);
+          delete el._formulaVisibilityNs;
+          delete el._formulaResizeHandler;
+        }
       },
 
       receiveMessage: function(el, data) {

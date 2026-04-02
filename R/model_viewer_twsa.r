@@ -166,7 +166,7 @@ twsaResultTabServer <- function(id, analysis_type, twsa_results, metadata) {
           },
           if (!is.null(input$analysis_type) && input$analysis_type == "differences") {
             if (length(strategies) > 1) shiny::selectInput(ns("comparators"), "Comparators",
-              choices = strategies, selected = strategies[1], multiple = TRUE
+              choices = strategies, selected = strategies[-2], multiple = TRUE
             )
           },
           shiny::checkboxInput(ns("discounted"), "Discounted", value = TRUE)
@@ -194,7 +194,7 @@ twsaResultTabServer <- function(id, analysis_type, twsa_results, metadata) {
           },
           if (!is.null(input$analysis_type) && input$analysis_type == "differences") {
             if (length(strategies) > 1) shiny::selectInput(ns("comparators"), "Comparators",
-              choices = strategies, selected = strategies[1], multiple = TRUE
+              choices = strategies, selected = strategies[-2], multiple = TRUE
             )
           },
           shiny::checkboxInput(ns("discounted"), "Discounted", value = TRUE)
@@ -218,7 +218,7 @@ twsaResultTabServer <- function(id, analysis_type, twsa_results, metadata) {
             multiple = TRUE
           ),
           if (length(strategies) > 1) shiny::selectInput(ns("comparators"), "Comparators",
-            choices = strategies, selected = strategies[1], multiple = TRUE
+            choices = strategies, selected = strategies[-2], multiple = TRUE
           )
         ))
       } else if (analysis_type == "ce") {
@@ -237,7 +237,7 @@ twsaResultTabServer <- function(id, analysis_type, twsa_results, metadata) {
             multiple = TRUE
           ),
           if (length(strategies) > 1) shiny::selectInput(ns("comparators"), "Comparators",
-            choices = strategies, selected = strategies[1], multiple = TRUE
+            choices = strategies, selected = strategies[-2], multiple = TRUE
           )
         ))
       } else if (analysis_type == "vbp") {

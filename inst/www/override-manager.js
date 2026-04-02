@@ -731,7 +731,9 @@
       var dvInput = document.createElement("input");
       dvInput.type = "text";
       dvInput.name = "default_value";
-      dvInput.value = override.default_value != null ? String(override.default_value) : "";
+      var storedValue = override.overridden_expression != null ?
+        override.overridden_expression : override.default_value;
+      dvInput.value = storedValue != null ? String(storedValue) : "";
       dvInput.placeholder = "Default value or expression";
       dvGroup.appendChild(dvInput);
       form.appendChild(dvGroup);

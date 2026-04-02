@@ -152,7 +152,7 @@ scenarioResultTabServer <- function(id, analysis_type, scenario_results, metadat
           },
           if (!is.null(input$analysis_type) && input$analysis_type == "differences") {
             if (length(strategies) > 1) shiny::selectInput(ns("comparators"), "Comparators",
-              choices = strategies, selected = strategies[1], multiple = TRUE
+              choices = strategies, selected = strategies[-2], multiple = TRUE
             )
           },
           shiny::checkboxInput(ns("discounted"), "Discounted", value = TRUE)
@@ -180,7 +180,7 @@ scenarioResultTabServer <- function(id, analysis_type, scenario_results, metadat
           },
           if (!is.null(input$analysis_type) && input$analysis_type == "differences") {
             if (length(strategies) > 1) shiny::selectInput(ns("comparators"), "Comparators",
-              choices = strategies, selected = strategies[1], multiple = TRUE
+              choices = strategies, selected = strategies[-2], multiple = TRUE
             )
           },
           shiny::checkboxInput(ns("discounted"), "Discounted", value = TRUE)
@@ -204,7 +204,7 @@ scenarioResultTabServer <- function(id, analysis_type, scenario_results, metadat
             multiple = TRUE
           ),
           if (length(strategies) > 1) shiny::selectInput(ns("comparators"), "Comparators",
-            choices = strategies, selected = strategies[1], multiple = TRUE
+            choices = strategies, selected = strategies[-2], multiple = TRUE
           )
         ))
       } else if (analysis_type == "ce") {
@@ -223,7 +223,7 @@ scenarioResultTabServer <- function(id, analysis_type, scenario_results, metadat
             multiple = TRUE
           ),
           if (length(strategies) > 1) shiny::selectInput(ns("comparators"), "Comparators",
-            choices = strategies, selected = strategies[1], multiple = TRUE
+            choices = strategies, selected = strategies[-2], multiple = TRUE
           )
         ))
       } else if (analysis_type == "vbp") {

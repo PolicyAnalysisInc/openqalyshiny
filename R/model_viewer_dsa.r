@@ -174,7 +174,7 @@ dsaResultTabServer <- function(id, analysis_type, dsa_results, metadata) {
             multiple = TRUE
           ),
           if (length(strategies) > 1) shiny::selectInput(ns("comparators"), "Comparators",
-            choices = strategies, selected = strategies[1], multiple = TRUE
+            choices = strategies, selected = strategies[-2], multiple = TRUE
           ),
           shiny::checkboxInput(ns("show_parameter_values"), "Show Parameter Values", value = TRUE),
           shiny::checkboxInput(ns("drop_zero_impact"), "Drop Zero Impact", value = TRUE)
@@ -195,7 +195,7 @@ dsaResultTabServer <- function(id, analysis_type, dsa_results, metadata) {
             multiple = TRUE
           ),
           if (length(strategies) > 1) shiny::selectInput(ns("comparators"), "Comparators",
-            choices = strategies, selected = strategies[1], multiple = TRUE
+            choices = strategies, selected = strategies[-2], multiple = TRUE
           ),
           shiny::checkboxInput(ns("show_parameter_values"), "Show Parameter Values", value = TRUE),
           shiny::checkboxInput(ns("drop_zero_impact"), "Drop Zero Impact", value = TRUE)

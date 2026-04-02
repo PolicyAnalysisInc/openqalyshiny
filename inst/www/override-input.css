@@ -8,13 +8,17 @@
 
 /* Gear button for override management */
 .override-manage-btn {
+  cursor: pointer;
+}
+
+/* Gear button in tabbed layout (absolute positioned) */
+.override-input-container > .override-manage-btn:not(.btn) {
   position: absolute;
   top: 8px;
   right: 8px;
   z-index: 10;
   background: none;
   border: none;
-  cursor: pointer;
   font-size: 18px;
   color: #6c757d;
   padding: 2px 6px;
@@ -22,7 +26,7 @@
   line-height: 1;
 }
 
-.override-manage-btn:hover {
+.override-input-container > .override-manage-btn:not(.btn):hover {
   background-color: #e9ecef;
   color: #212529;
 }
@@ -113,4 +117,37 @@
 /* Formula input inside override card */
 .override-card .formula-input {
   margin-bottom: 0;
+}
+
+/* Simple card layout (sidebar) */
+.override-card-simple {
+  border: 1px solid #dee2e6;
+  border-radius: 6px;
+  padding: 12px;
+  margin-bottom: 12px;
+  background: #fff;
+}
+
+.override-card-simple .override-card-body {
+  margin-top: 8px;
+}
+
+.override-card-simple .formula-input {
+  min-height: 32px;
+  margin-bottom: 0;
+}
+
+.override-section-header {
+  font-weight: 600;
+  font-size: 13px;
+  color: #6c757d;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin: 16px 0 8px;
+  padding-bottom: 4px;
+  border-bottom: 1px solid #e9ecef;
+}
+
+.override-section-header:first-child {
+  margin-top: 0;
 }

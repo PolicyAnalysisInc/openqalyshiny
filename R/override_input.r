@@ -243,6 +243,11 @@ updateOverrideInput <- function(session, inputId, override_name, value,
     },
     "dropdown" = {
       choices <- config$options %||% list()
+      if (length(choices) > 0 && is.list(choices[[1]])) {
+        values <- vapply(choices, function(x) as.character(x$value), character(1))
+        labels <- vapply(choices, function(x) x$label %||% as.character(x$value), character(1))
+        choices <- stats::setNames(values, labels)
+      }
       shiny::selectInput(
         inputId = override_id,
         label = NULL,

@@ -267,7 +267,7 @@ outcomesResultsServer <- function(id, results, metadata) {
             multiple = TRUE
           ),
           if (length(strategies) > 1) shiny::selectInput(ns("comparators"), "Comparators",
-            choices = strategies, selected = strategies[1], multiple = TRUE
+            choices = strategies, selected = strategies[-2], multiple = TRUE
           )
         )
       }
@@ -502,7 +502,7 @@ costsResultsServer <- function(id, results, metadata) {
             multiple = TRUE
           ),
           if (length(strategies) > 1) shiny::selectInput(ns("comparators"), "Comparators",
-            choices = strategies, selected = strategies[1], multiple = TRUE
+            choices = strategies, selected = strategies[-2], multiple = TRUE
           )
         )
       }
@@ -744,7 +744,7 @@ nmbResultsServer <- function(id, results, metadata) {
           multiple = TRUE
         ),
         if (length(strategies) > 1) shiny::selectInput(ns("comparators"), "Comparators",
-          choices = strategies, selected = strategies[1], multiple = TRUE
+          choices = strategies, selected = strategies[-2], multiple = TRUE
         ),
         extra
       )
@@ -951,7 +951,7 @@ pairwiseCeResultsServer <- function(id, results, metadata) {
           multiple = TRUE
         ),
         if (length(strategies) > 1) shiny::selectInput(ns("comparators"), "Comparators",
-          choices = strategies, selected = strategies[1], multiple = TRUE
+          choices = strategies, selected = strategies[-2], multiple = TRUE
         )
       )
     })
