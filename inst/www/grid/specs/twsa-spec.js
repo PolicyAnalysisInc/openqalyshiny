@@ -75,7 +75,20 @@
     });
   }
 
-  function loadStateToGrid(table, id) {
+  function applyRowsToTable(table, rows, onApplied) {
+    var result = table.setData(rows || []);
+    function finish() {
+      OQGrid.relayout(table);
+      if (onApplied) onApplied();
+    }
+    if (result && typeof result.then === "function") {
+      result.then(finish);
+    } else {
+      finish();
+    }
+  }
+
+  function loadStateToGrid(table, id, onApplied) {
     var analysis = getAnalysisById(id);
     _state.selectedId = id;
     if (!analysis || !table) return;
@@ -89,8 +102,9 @@
       });
     }
     analysis.parameters = params;
-    table.setData(params);
-    OQGrid.relayout(table);
+    applyRowsToTable(table, params, function() {
+      if (onApplied) onApplied(params);
+    });
   }
 
   // =========================================================================
@@ -109,9 +123,8 @@
   // =========================================================================
   // Serialize ALL analyses for Shiny
   // =========================================================================
-  function syncAllToShiny(table, inputId) {
-    saveGridToState(table);
-    var payload = _state.analyses.map(function(a) {
+  function buildShinyPayload() {
+    return _state.analyses.map(function(a) {
       var variableParams = [];
       var settingParams = [];
       (a.parameters || []).forEach(function(p) {
@@ -140,6 +153,11 @@
         setting_params: settingParams
       };
     });
+  }
+
+  function syncAllToShiny(table, inputId, skipSave) {
+    if (!skipSave) saveGridToState(table);
+    var payload = buildShinyPayload();
     OQGrid.shiny.dispatch(inputId, payload);
   }
 
@@ -171,9 +189,12 @@
       item.addEventListener("click", function() {
         if (a.id === _state.selectedId) return;
         saveGridToState(table);
-        loadStateToGrid(table, a.id);
+        _state.selectedId = a.id;
         renderAnalysisList(listContainer, table, inputId);
-        syncAllToShiny(table, inputId);
+        loadStateToGrid(table, a.id, function(params) {
+          combo.initRowCombos(table, params);
+        });
+        syncAllToShiny(table, inputId, true);
       });
 
       item.addEventListener("dblclick", function(e) {
@@ -798,7 +819,6 @@
         updateGridVisibility(wrapperDiv);
 
         // Load selected analysis into grid, ensuring exactly 2 rows
-        var selected = getSelectedAnalysis();
         function ensureTwoRows(params) {
           while (params.length < 2) {
             var axis = params.length === 0 ? "x" : "y";
@@ -819,14 +839,15 @@
           return params;
         }
         function loadSelectedData() {
+          var selected = getSelectedAnalysis();
           if (!selected) return;
           var params = ensureTwoRows(selected.parameters || []);
           selected.parameters = params;
           try {
-            table.setData(params);
-            OQGrid.relayout(table);
-            combo.initRowCombos(table, params);
-            syncAllToShiny(table, inputId);
+            applyRowsToTable(table, params, function() {
+              combo.initRowCombos(table, params);
+            });
+            syncAllToShiny(table, inputId, true);
           } catch (e) {
             // Tabulator ops can fail on hidden tabs;
             // ResizeObserver will relayout when visible
@@ -835,11 +856,11 @@
         // Try immediate load; also defer via tableBuilt for async init
         loadSelectedData();
         table.on("tableBuilt", function() {
-          if (selected && table.getData().length === 0) {
+          if (getSelectedAnalysis() && table.getData().length === 0) {
             loadSelectedData();
           }
         });
-        if (!selected) {
+        if (!getSelectedAnalysis()) {
           combo.initRowCombos(table, []);
         }
 
@@ -910,7 +931,9 @@
         // ---------------------------------------------------------------
         // Initial sync
         // ---------------------------------------------------------------
-        syncAllToShiny(table, inputId);
+        // Init-time sync must serialize from parsed TWSA state, not the
+        // table, because Tabulator starts from empty `initial` rows.
+        syncAllToShiny(table, inputId, true);
       }
     };
   });

@@ -8,7 +8,7 @@ test_that("Function formulaInput() @ L148", {
 })
 
 
-test_that("Function updateFormulaInput() @ L263", {
+test_that("Function updateFormulaInput() @ L264", {
   # updateFormulaInput requires a session object, so we test it exists
   expect_true(is.function(updateFormulaInput))
 })

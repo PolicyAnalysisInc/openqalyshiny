@@ -73,12 +73,26 @@
     });
   }
 
-  function loadStateToGrid(table, id) {
+  function applyRowsToTable(table, rows, onApplied) {
+    var result = table.setData(rows || []);
+    function finish() {
+      OQGrid.relayout(table);
+      if (onApplied) onApplied();
+    }
+    if (result && typeof result.then === "function") {
+      result.then(finish);
+    } else {
+      finish();
+    }
+  }
+
+  function loadStateToGrid(table, id, onApplied) {
     var scenario = getScenarioById(id);
     _state.selectedId = id;
     if (!scenario || !table) return;
-    table.setData(scenario.overrides || []);
-    OQGrid.relayout(table);
+    applyRowsToTable(table, scenario.overrides || [], function() {
+      if (onApplied) onApplied(scenario.overrides || []);
+    });
   }
 
   // =========================================================================
@@ -97,9 +111,8 @@
   // =========================================================================
   // Serialize all scenarios for Shiny (full sync)
   // =========================================================================
-  function syncAllToShiny(table, inputId) {
-    saveGridToState(table);
-    var payload = _state.scenarios.map(function(s) {
+  function buildShinyPayload() {
+    return _state.scenarios.map(function(s) {
       var variableOverrides = [];
       var settingOverrides = [];
       (s.overrides || []).forEach(function(o) {
@@ -121,6 +134,11 @@
         setting_overrides: settingOverrides
       };
     });
+  }
+
+  function syncAllToShiny(table, inputId, skipSave) {
+    if (!skipSave) saveGridToState(table);
+    var payload = buildShinyPayload();
     OQGrid.shiny.dispatch(inputId, payload);
   }
 
@@ -153,9 +171,13 @@
       item.addEventListener("click", function() {
         if (s.id === _state.selectedId) return;
         saveGridToState(table);
-        loadStateToGrid(table, s.id);
+        _state.selectedId = s.id;
         renderScenarioList(listContainer, table, inputId);
-        syncAllToShiny(table, inputId);
+        loadStateToGrid(table, s.id, function(overrides) {
+          combo.initRowCombos(table, overrides);
+          combo.updateButtonStates(table, table._choices, table._addVarBtn, table._addSettingBtn);
+        });
+        syncAllToShiny(table, inputId, true);
       });
 
       // Double-click to edit via modal
@@ -760,6 +782,26 @@
           _state.selectedId = null;
         }
 
+        function loadSelectedScenarioData() {
+          var selectedScenario = getSelectedScenario();
+          if (!selectedScenario) {
+            combo.initRowCombos(table, []);
+            combo.updateButtonStates(table, choices, addVarBtn, addSettingBtn);
+            return;
+          }
+
+          try {
+            var overrides = selectedScenario.overrides || [];
+            applyRowsToTable(table, overrides, function() {
+              combo.initRowCombos(table, overrides);
+              combo.updateButtonStates(table, choices, addVarBtn, addSettingBtn);
+            });
+          } catch (e) {
+            // Tabulator layout ops fail when container is hidden;
+            // the ResizeObserver in grid-controller will relayout when visible
+          }
+        }
+
         // Render scenario list
         var listContainer = wrapperDiv.querySelector(".scenario-list");
         if (listContainer) {
@@ -769,20 +811,13 @@
         // Initial visibility check
         updateGridVisibility(wrapperDiv);
 
-        // Load selected scenario data into grid (can throw on hidden tabs)
-        var selectedScenario = getSelectedScenario();
-        try {
-          if (selectedScenario) {
-            table.setData(selectedScenario.overrides || []);
-            OQGrid.relayout(table);
+        // Try immediate load; also defer via tableBuilt for async init
+        loadSelectedScenarioData();
+        table.on("tableBuilt", function() {
+          if (getSelectedScenario() && table.getData().length === 0) {
+            loadSelectedScenarioData();
           }
-          combo.initRowCombos(table, selectedScenario ? selectedScenario.overrides : []);
-          combo.updateButtonStates(table, choices, addVarBtn, addSettingBtn);
-          syncAllToShiny(table, inputId);
-        } catch (e) {
-          // Tabulator layout ops fail when container is hidden;
-          // the ResizeObserver in grid-controller will relayout when visible
-        }
+        });
       }
     };
   });

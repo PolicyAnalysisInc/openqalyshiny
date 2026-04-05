@@ -1037,20 +1037,30 @@ run_model_editor <- function(path = NULL, options = list()) {
       id = sidebar_id,
       width = width,
       class = "results-analysis-sidebar",
+      fillable = TRUE,
       tags$div(
         class = "results-sidebar-shell",
-        bslib::navset_card_tab(
-          id = paste0(sidebar_id, "_sections"),
-          selected = "visualization",
-          bslib::nav_panel(
-            "Visualization",
-            value = "visualization",
-            visualization_content
-          ),
-          bslib::nav_panel(
-            "Overrides",
-            value = "overrides",
-            shiny::uiOutput(overrides_output_id)
+        tags$div(
+          class = "results-sidebar-tabs",
+          bslib::navset_card_tab(
+            id = paste0(sidebar_id, "_sections"),
+            selected = "visualization",
+            bslib::nav_panel(
+              "Visualization",
+              value = "visualization",
+              tags$div(
+                class = "results-sidebar-panel-scroll",
+                .editorize_selectize_tag(visualization_content)
+              )
+            ),
+            bslib::nav_panel(
+              "Overrides",
+              value = "overrides",
+              tags$div(
+                class = "results-sidebar-panel-scroll",
+                shiny::uiOutput(overrides_output_id)
+              )
+            )
           )
         ),
         tags$div(
@@ -1122,13 +1132,81 @@ run_model_editor <- function(path = NULL, options = list()) {
           }
           requestAnimationFrame(trySet);
         });
+        (function() {
+          var refreshScheduled = false;
+
+          function inModelEditor(element) {
+            return !!(element && element.closest('.bslib-page-fill'));
+          }
+
+          function repositionOpenSelectize() {
+            if (!window.jQuery) {
+              return;
+            }
+
+            window.jQuery('.selectized, select.shiny-bound-input').each(function() {
+              if (!this.selectize) {
+                return;
+              }
+
+              var instance = this.selectize;
+              if (!instance.isOpen || !inModelEditor(instance.$wrapper && instance.$wrapper[0])) {
+                return;
+              }
+
+              if (typeof instance.positionDropdown === 'function') {
+                instance.positionDropdown();
+              }
+            });
+          }
+
+          function refreshFormulaEditors() {
+            var formulaInputs = document.querySelectorAll('.bslib-page-fill .formula-input');
+
+            formulaInputs.forEach(function(el) {
+              if (typeof el._formulaResizeHandler === 'function') {
+                el._formulaResizeHandler();
+              }
+            });
+          }
+
+          function scheduleOverlayRefresh() {
+            if (refreshScheduled) {
+              return;
+            }
+
+            refreshScheduled = true;
+            window.requestAnimationFrame(function() {
+              refreshScheduled = false;
+              repositionOpenSelectize();
+              refreshFormulaEditors();
+            });
+          }
+          document.addEventListener('shiny:bound', scheduleOverlayRefresh);
+          document.addEventListener('shown.bs.tab', function() {
+            scheduleOverlayRefresh();
+          });
+          document.addEventListener('scroll', function(event) {
+            if (event.target && event.target.closest &&
+                event.target.closest('.results-sidebar-panel-scroll')) {
+              scheduleOverlayRefresh();
+            }
+          });
+          window.addEventListener('resize', scheduleOverlayRefresh);
+        })();
       ")),
       tags$style(shiny::HTML("
+        html, body {
+          height: 100%;
+        }
         body {
           overflow: hidden;
         }
         .bslib-page-fill {
-          min-height: 900px;
+          height: 100vh;
+          height: 100dvh;
+          min-height: 100vh;
+          min-height: 100dvh;
         }
         .app-bar {
           display: flex;
@@ -1474,7 +1552,7 @@ run_model_editor <- function(path = NULL, options = list()) {
           display: flex;
           flex-direction: column;
           flex: 1 1 auto;
-          min-height: 900px;
+          min-height: 0;
         }
         .results-page .bslib-sidebar-layout {
           flex: 1 1 auto;
@@ -1546,16 +1624,60 @@ run_model_editor <- function(path = NULL, options = list()) {
           min-height: 0;
         }
         .results-analysis-sidebar {
-          overflow: visible;
+          overflow: hidden !important;
+        }
+        .results-analysis-sidebar > .sidebar-content {
+          display: flex;
+          flex-direction: column;
+          height: 100%;
+          min-height: 0;
+          overflow: hidden;
         }
         .results-sidebar-shell {
           display: flex;
           flex-direction: column;
           gap: 12px;
-          min-height: 100%;
+          flex: 1 1 auto;
+          min-height: 0;
         }
-        .results-sidebar-shell .card {
+        .results-sidebar-tabs,
+        .results-sidebar-tabs > .card,
+        .results-sidebar-tabs > .card > .tab-content {
+          display: flex;
+          flex: 1 1 auto;
+          flex-direction: column;
+          min-height: 0;
+        }
+        .results-sidebar-tabs > .card {
           margin-bottom: 0;
+          overflow: visible;
+        }
+        .results-sidebar-tabs > .card > .tab-content {
+          overflow: hidden;
+        }
+        .results-sidebar-tabs > .card > .tab-content > .tab-pane.active {
+          display: flex;
+          flex: 1 1 auto;
+          flex-direction: column;
+          min-height: 0;
+        }
+        .results-sidebar-tabs > .card > .tab-content > .tab-pane.active > .card-body {
+          display: flex;
+          flex: 1 1 auto;
+          flex-direction: column;
+          min-height: 0;
+          padding-top: 0;
+          padding-bottom: 0;
+        }
+        .results-sidebar-panel-scroll {
+          display: flex;
+          flex: 1 1 auto;
+          flex-direction: column;
+          min-height: 0;
+          overflow-y: auto;
+          overflow-x: visible;
+          padding-top: 12px;
+          padding-bottom: 12px;
         }
         .results-sidebar-controls {
           display: flex;
@@ -1568,12 +1690,11 @@ run_model_editor <- function(path = NULL, options = list()) {
           margin-bottom: 0;
         }
         .results-sidebar-footer {
-          position: sticky;
-          bottom: 0;
-          z-index: 2;
+          flex: 0 0 auto;
           background: var(--bs-body-bg, #fff);
           border-top: 1px solid var(--bs-border-color, #dee2e6);
           padding-top: 12px;
+          margin-top: auto;
         }
         .results-sidebar-footer .shiny-input-container,
         .results-sidebar-footer .form-group {
@@ -1594,6 +1715,12 @@ run_model_editor <- function(path = NULL, options = list()) {
         .results-footer-grid .shiny-input-container,
         .results-footer-grid .form-group {
           margin-bottom: 0;
+        }
+        .selectize-dropdown,
+        .selectize-dropdown.form-control,
+        .ace_autocomplete,
+        .ace_tooltip {
+          z-index: 11000 !important;
         }
       ")),
       tags$script(shiny::HTML("
@@ -1630,7 +1757,7 @@ run_model_editor <- function(path = NULL, options = list()) {
           if (data.state === 'running') {
             if (msg) msg.style.display = 'none';
             if (bar) bar.style.width = data.pct + '%';
-            if (pct) pct.textContent = data.pct + '%';
+            if (pct) pct.textContent = Math.round(data.pct) + '%';
             if (snackbar) snackbar.classList.add('visible');
           } else {
             if (snackbar) snackbar.classList.remove('visible');
@@ -1646,7 +1773,7 @@ run_model_editor <- function(path = NULL, options = list()) {
           var pct = document.getElementById('dsa_progress_pct');
           if (data.state === 'running') {
             if (bar) bar.style.width = data.pct + '%';
-            if (pct) pct.textContent = data.pct + '%';
+            if (pct) pct.textContent = Math.round(data.pct) + '%';
             if (snackbar) snackbar.classList.add('visible');
           } else {
             if (snackbar) snackbar.classList.remove('visible');
@@ -1661,7 +1788,7 @@ run_model_editor <- function(path = NULL, options = list()) {
           var pct = document.getElementById('vbp_progress_pct');
           if (data.state === 'running') {
             if (bar) bar.style.width = data.pct + '%';
-            if (pct) pct.textContent = data.pct + '%';
+            if (pct) pct.textContent = Math.round(data.pct) + '%';
             if (snackbar) snackbar.classList.add('visible');
           } else {
             if (snackbar) snackbar.classList.remove('visible');
@@ -1676,7 +1803,7 @@ run_model_editor <- function(path = NULL, options = list()) {
           var pct = document.getElementById('scenario_progress_pct');
           if (data.state === 'running') {
             if (bar) bar.style.width = data.pct + '%';
-            if (pct) pct.textContent = data.pct + '%';
+            if (pct) pct.textContent = Math.round(data.pct) + '%';
             if (snackbar) snackbar.classList.add('visible');
           } else {
             if (snackbar) snackbar.classList.remove('visible');
@@ -1691,7 +1818,7 @@ run_model_editor <- function(path = NULL, options = list()) {
           var pct = document.getElementById('psa_progress_pct');
           if (data.state === 'running') {
             if (bar) bar.style.width = data.pct + '%';
-            if (pct) pct.textContent = data.pct + '%';
+            if (pct) pct.textContent = Math.round(data.pct) + '%';
             if (snackbar) snackbar.classList.add('visible');
           } else {
             if (snackbar) snackbar.classList.remove('visible');
@@ -1706,7 +1833,7 @@ run_model_editor <- function(path = NULL, options = list()) {
           var pct = document.getElementById('twsa_progress_pct');
           if (data.state === 'running') {
             if (bar) bar.style.width = data.pct + '%';
-            if (pct) pct.textContent = data.pct + '%';
+            if (pct) pct.textContent = Math.round(data.pct) + '%';
             if (snackbar) snackbar.classList.add('visible');
           } else {
             if (snackbar) snackbar.classList.remove('visible');
@@ -1721,7 +1848,7 @@ run_model_editor <- function(path = NULL, options = list()) {
           var pct = document.getElementById('threshold_progress_pct');
           if (data.state === 'running') {
             if (bar) bar.style.width = data.pct + '%';
-            if (pct) pct.textContent = data.pct + '%';
+            if (pct) pct.textContent = Math.round(data.pct) + '%';
             if (snackbar) snackbar.classList.add('visible');
           } else {
             if (snackbar) snackbar.classList.remove('visible');
@@ -1770,14 +1897,6 @@ run_model_editor <- function(path = NULL, options = list()) {
               `data-page` = "editor",
               onclick = "switchAppPage('editor')",
               "Model Inputs"
-            )
-          ),
-          tags$li(
-            tags$button(
-              class = "dropdown-item app-page-link",
-              `data-page` = "overrides",
-              onclick = "switchAppPage('overrides')",
-              "Overrides"
             )
           ),
           tags$li(
@@ -2002,7 +2121,6 @@ run_model_editor <- function(path = NULL, options = list()) {
       tags$div(
         id = "page_results",
         class = "app-page results-page",
-        style = "overflow: auto;",
         bslib::layout_sidebar(
           sidebar = analysis_sidebar(
             sidebar_id = "results_sidebar",
@@ -2090,7 +2208,6 @@ run_model_editor <- function(path = NULL, options = list()) {
       tags$div(
         id = "page_dsa",
         class = "app-page results-page",
-        style = "overflow: auto;",
         bslib::layout_sidebar(
           sidebar = analysis_sidebar(
             sidebar_id = "dsa_sidebar",
@@ -2126,7 +2243,6 @@ run_model_editor <- function(path = NULL, options = list()) {
       tags$div(
         id = "page_vbp",
         class = "app-page results-page",
-        style = "overflow: auto;",
         bslib::layout_sidebar(
           sidebar = analysis_sidebar(
             sidebar_id = "vbp_sidebar",
@@ -2154,7 +2270,6 @@ run_model_editor <- function(path = NULL, options = list()) {
       tags$div(
         id = "page_scenario",
         class = "app-page results-page",
-        style = "overflow: auto;",
         bslib::layout_sidebar(
           sidebar = analysis_sidebar(
             sidebar_id = "scenario_sidebar",
@@ -2190,7 +2305,6 @@ run_model_editor <- function(path = NULL, options = list()) {
       tags$div(
         id = "page_twsa",
         class = "app-page results-page",
-        style = "overflow: auto;",
         bslib::layout_sidebar(
           sidebar = analysis_sidebar(
             sidebar_id = "twsa_sidebar",
@@ -2226,7 +2340,6 @@ run_model_editor <- function(path = NULL, options = list()) {
       tags$div(
         id = "page_threshold",
         class = "app-page results-page",
-        style = "overflow: auto;",
         bslib::layout_sidebar(
           sidebar = analysis_sidebar(
             sidebar_id = "threshold_sidebar",
@@ -2257,7 +2370,6 @@ run_model_editor <- function(path = NULL, options = list()) {
       tags$div(
         id = "page_psa",
         class = "app-page results-page",
-        style = "overflow: auto;",
         bslib::layout_sidebar(
           sidebar = analysis_sidebar(
             sidebar_id = "psa_sidebar",
@@ -2275,10 +2387,7 @@ run_model_editor <- function(path = NULL, options = list()) {
           ),
           bslib::navset_card_tab(
             id = "psa_tabs",
-            selected = "settings",
-            bslib::nav_panel("Settings", value = "settings",
-              shiny::uiOutput("psa_settings_panel")
-            ),
+            selected = "univariate_sampling",
             bslib::nav_panel("Univariate Sampling", value = "univariate_sampling",
               shiny::uiOutput("psa_univariate_panel")
             ),
@@ -3549,7 +3658,7 @@ run_model_editor <- function(path = NULL, options = list()) {
       if (!is.null(prog) && prog$total > 0) {
         session$sendCustomMessage("editor_progress", list(
           state = "running",
-          pct = round(prog$pct * 100)
+          pct = round(prog$pct * 100, 2)
         ))
       }
     })
@@ -3722,24 +3831,18 @@ run_model_editor <- function(path = NULL, options = list()) {
       param_table
     })
 
-    run_dsa_analysis <- function(params = NULL) {
-      params <- normalize_dsa_params(params)
-      if (length(params) == 0) {
-        params <- normalize_dsa_params(input$editor_dsa_params)
-      }
-      if (length(params) == 0) {
-        shiny::showNotification("Please add at least one parameter.",
-          type = "warning")
-        return()
-      }
-
+    run_dsa_analysis <- function() {
       m <- build_editor_model()
       if (is.null(m)) {
         shiny::showNotification("No model loaded.", type = "warning")
         return()
       }
 
-      m <- apply_dsa_params(m, params)
+      if (length(openqaly::get_dsa_parameters(m)) == 0) {
+        shiny::showNotification("Please add at least one parameter.",
+          type = "warning")
+        return()
+      }
 
       dsa_args <- list(m)
 
@@ -3786,7 +3889,7 @@ run_model_editor <- function(path = NULL, options = list()) {
     }, ignoreInit = TRUE)
 
     shiny::observeEvent(input$run_dsa_action, {
-      run_dsa_analysis(input$run_dsa_action$params)
+      run_dsa_analysis()
     })
 
     # DSA progress polling
@@ -3797,7 +3900,7 @@ run_model_editor <- function(path = NULL, options = list()) {
       if (!is.null(prog) && prog$total > 0) {
         session$sendCustomMessage("dsa_progress", list(
           state = "running",
-          pct = round(prog$pct * 100)
+          pct = round(prog$pct * 100, 2)
         ))
       }
     })
@@ -4023,7 +4126,7 @@ run_model_editor <- function(path = NULL, options = list()) {
       if (!is.null(prog) && prog$total > 0) {
         session$sendCustomMessage("vbp_progress", list(
           state = "running",
-          pct = round(prog$pct * 100)
+          pct = round(prog$pct * 100, 2)
         ))
       }
     })
@@ -4284,20 +4387,17 @@ run_model_editor <- function(path = NULL, options = list()) {
       })
     })
 
-    run_scenario_analysis <- function(scenarios = NULL) {
-      scenarios <- scenarios %||% input$editor_scenario_params
-      if (is.null(scenarios) || length(scenarios) == 0) {
-        shiny::showNotification("Please add at least one scenario.", type = "warning")
-        return()
-      }
-
+    run_scenario_analysis <- function() {
       m <- build_editor_model()
       if (is.null(m)) {
         shiny::showNotification("No model loaded.", type = "warning")
         return()
       }
 
-      m <- apply_scenario_params(m, scenarios)
+      if (length(openqaly::get_scenarios(m)) == 0) {
+        shiny::showNotification("Please add at least one scenario.", type = "warning")
+        return()
+      }
 
       scenario_args <- list(m)
 
@@ -4344,7 +4444,7 @@ run_model_editor <- function(path = NULL, options = list()) {
     }, ignoreInit = TRUE)
 
     shiny::observeEvent(input$run_scenario_action, {
-      run_scenario_analysis(input$run_scenario_action$scenarios)
+      run_scenario_analysis()
     })
 
     # Scenario progress polling
@@ -4355,7 +4455,7 @@ run_model_editor <- function(path = NULL, options = list()) {
       if (!is.null(prog) && prog$total > 0) {
         session$sendCustomMessage("scenario_progress", list(
           state = "running",
-          pct = round(prog$pct * 100)
+          pct = round(prog$pct * 100, 2)
         ))
       }
     })
@@ -4708,7 +4808,7 @@ run_model_editor <- function(path = NULL, options = list()) {
       if (!is.null(prog) && prog$total > 0) {
         session$sendCustomMessage("twsa_progress", list(
           state = "running",
-          pct = round(prog$pct * 100)
+          pct = round(prog$pct * 100, 2)
         ))
       }
     })
@@ -4842,18 +4942,6 @@ run_model_editor <- function(path = NULL, options = list()) {
         seed_default = seed_default,
         mv_initial = mv_initial,
         table_names = table_names
-      )
-    })
-
-    output$psa_settings_panel <- shiny::renderUI({
-      d <- psa_input_data()
-      if (is.null(d)) {
-        return(tags$div(class = "text-muted p-3", "Load a model first."))
-      }
-      tags$div(
-        class = "text-muted p-3",
-        "Configure univariate and multivariate sampling on the tabs above. ",
-        "Run controls are in the sidebar footer."
       )
     })
 
@@ -5012,7 +5100,7 @@ run_model_editor <- function(path = NULL, options = list()) {
         ),
         shiny::tags$div(
           class = "mb-3",
-          shiny::selectInput(
+          .editor_select_input(
             "add_mv_type",
             "Type",
             choices = c("dirichlet", "mvnormal", "multinomial"),
@@ -5021,7 +5109,7 @@ run_model_editor <- function(path = NULL, options = list()) {
         ),
         shiny::tags$div(
           class = "mb-3",
-          shiny::selectizeInput(
+          .editor_selectize_input(
             "add_mv_variables",
             "Variables",
             choices = d$var_choices,
@@ -5171,7 +5259,7 @@ run_model_editor <- function(path = NULL, options = list()) {
       TRUE
     }
 
-    run_psa_analysis <- function(n_sim = NULL, seed_val = NULL, params = NULL, multivariate = NULL) {
+    run_psa_analysis <- function(n_sim = NULL, seed_val = NULL) {
       n_sim_value <- as.integer(n_sim %||% input$editor_psa_n_sim %||% NA_integer_)
       if (is.na(n_sim_value) || n_sim_value < 1) {
         shiny::showNotification("Please set number of simulations.", type = "warning")
@@ -5188,26 +5276,11 @@ run_model_editor <- function(path = NULL, options = list()) {
         return()
       }
 
-      params <- params %||% input$editor_psa_params
-      multivariate <- multivariate %||% input$editor_psa_multivariate
-
       m <- build_editor_model()
       if (is.null(m)) {
         shiny::showNotification("No model loaded.", type = "warning")
         return()
       }
-
-      m <- tryCatch(
-        apply_psa_params(m, params, multivariate),
-        error = function(e) {
-          shiny::showNotification(
-            paste("Failed to apply PSA parameters:", conditionMessage(e)),
-            type = "error", duration = 10
-          )
-          NULL
-        }
-      )
-      if (is.null(m)) return()
 
       psa_args <- list(m, n_sim = n_sim_value)
       if (nzchar(seed_chr)) {
@@ -5267,9 +5340,7 @@ run_model_editor <- function(path = NULL, options = list()) {
     shiny::observeEvent(input$run_psa_action, {
       run_psa_analysis(
         n_sim = input$run_psa_action$n_sim,
-        seed_val = input$run_psa_action$seed,
-        params = input$run_psa_action$params,
-        multivariate = input$run_psa_action$multivariate
+        seed_val = input$run_psa_action$seed
       )
     }, ignoreInit = TRUE)
 
@@ -5281,7 +5352,7 @@ run_model_editor <- function(path = NULL, options = list()) {
       if (!is.null(prog) && prog$total > 0) {
         session$sendCustomMessage("psa_progress", list(
           state = "running",
-          pct = round(prog$pct * 100)
+          pct = round(prog$pct * 100, 2)
         ))
       }
     })
@@ -5437,24 +5508,18 @@ run_model_editor <- function(path = NULL, options = list()) {
       )
     })
 
-    run_threshold_analysis <- function(analyses = NULL) {
-      analyses <- normalize_threshold_params(analyses)
-      if (length(analyses) == 0) {
-        analyses <- normalize_threshold_params(input$editor_threshold_params)
-      }
-      if (length(analyses) == 0) {
-        shiny::showNotification("Please add at least one analysis.",
-          type = "warning")
-        return()
-      }
-
+    run_threshold_analysis <- function() {
       m <- build_editor_model()
       if (is.null(m)) {
         shiny::showNotification("No model loaded.", type = "warning")
         return()
       }
 
-      m <- apply_threshold_params(m, analyses)
+      if (is.null(m$threshold_analyses) || length(m$threshold_analyses) == 0) {
+        shiny::showNotification("Please add at least one analysis.",
+          type = "warning")
+        return()
+      }
 
       threshold_args <- list(m)
 
@@ -5499,7 +5564,7 @@ run_model_editor <- function(path = NULL, options = list()) {
     }, ignoreInit = TRUE)
 
     shiny::observeEvent(input$run_threshold_action, {
-      run_threshold_analysis(input$run_threshold_action$analyses)
+      run_threshold_analysis()
     })
 
     # Threshold progress polling
@@ -5510,7 +5575,7 @@ run_model_editor <- function(path = NULL, options = list()) {
       if (!is.null(prog) && prog$total > 0) {
         session$sendCustomMessage("threshold_progress", list(
           state = "running",
-          pct = round(prog$pct * 100)
+          pct = round(prog$pct * 100, 2)
         ))
       }
     })

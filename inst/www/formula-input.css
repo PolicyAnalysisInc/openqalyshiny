@@ -178,34 +178,44 @@
    ============================================ */
 
 /* Autocomplete popup dimensions */
-.formula-input .ace_autocomplete {
+.formula-input .ace_autocomplete,
+.formula-input-autocomplete-popup.ace_autocomplete {
   width: 300px;
   max-height: 250px;
   border: 1px solid #ced4da;
   border-radius: 4px;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  z-index: 11000 !important;
 }
 
 /* Autocomplete row styling */
-.formula-input .ace_autocomplete .ace_line {
+.formula-input .ace_autocomplete .ace_line,
+.formula-input-autocomplete-popup.ace_autocomplete .ace_line {
   padding: 4px 8px;
 }
 
 /* Selected item */
-.formula-input .ace_autocomplete .ace_marker-layer .ace_active-line {
+.formula-input .ace_autocomplete .ace_marker-layer .ace_active-line,
+.formula-input-autocomplete-popup.ace_autocomplete .ace_marker-layer .ace_active-line {
   background-color: #e8f0fe !important;
 }
 
 /* Completion text */
-.formula-input .ace_autocomplete .ace_completion-highlight {
+.formula-input .ace_autocomplete .ace_completion-highlight,
+.formula-input-autocomplete-popup.ace_autocomplete .ace_completion-highlight {
   font-weight: bold;
 }
 
 /* Meta text (category) - uniform style, no colors */
-.formula-input .ace_autocomplete .ace_meta {
+.formula-input .ace_autocomplete .ace_meta,
+.formula-input-autocomplete-popup.ace_autocomplete .ace_meta {
   color: #959da5;
   font-size: 11px;
   font-style: italic;
+}
+
+.ace_tooltip.formula-input-autocomplete-tooltip {
+  z-index: 11001 !important;
 }
 
 /* ============================================

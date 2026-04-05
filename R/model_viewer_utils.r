@@ -391,13 +391,77 @@ results_fill_plot_output <- function(output_id) {
   )
 }
 
+.merge_editor_selectize_options <- function(config) {
+  config <- config %||% list()
+
+  plugins <- config$plugins %||% list()
+  if (is.null(plugins)) {
+    plugins <- list()
+  }
+
+  plugin_values <- unlist(plugins, use.names = FALSE)
+  plugin_values <- unique(c(plugin_values, "auto_position"))
+
+  config$plugins <- as.list(plugin_values)
+  config$dropdownParent <- "body"
+  config
+}
+
+.editorize_selectize_tag <- function(tag) {
+  patch_node <- function(node) {
+    if (inherits(node, "shiny.tag")) {
+      if (identical(node$name, "script") &&
+          identical(node$attribs$type %||% NULL, "application/json") &&
+          !is.null(node$attribs[["data-for"]]) &&
+          length(node$children) == 1 &&
+          is.character(node$children[[1]])) {
+        config <- tryCatch(
+          jsonlite::fromJSON(node$children[[1]], simplifyVector = FALSE),
+          error = function(e) NULL
+        )
+
+        if (is.list(config)) {
+          node$children[[1]] <- jsonlite::toJSON(
+            .merge_editor_selectize_options(config),
+            auto_unbox = TRUE,
+            null = "null"
+          )
+        }
+      }
+
+      node$children <- lapply(node$children, patch_node)
+      return(node)
+    }
+
+    if (inherits(node, "shiny.tag.list")) {
+      return(structure(lapply(unclass(node), patch_node), class = "shiny.tag.list"))
+    }
+
+    if (is.list(node)) {
+      return(lapply(node, patch_node))
+    }
+
+    node
+  }
+
+  patch_node(tag)
+}
+
+.editor_select_input <- function(...) {
+  .editorize_selectize_tag(shiny::selectInput(...))
+}
+
+.editor_selectize_input <- function(...) {
+  .editorize_selectize_tag(shiny::selectizeInput(...))
+}
+
 build_results_sidebar_controls <- function(inputs) {
   inputs <- Filter(Negate(is.null), inputs)
   if (length(inputs) == 0) {
     return(NULL)
   }
 
-  htmltools::tags$div(
+  .editorize_selectize_tag(htmltools::tags$div(
     class = "results-sidebar-controls",
     lapply(inputs, function(input_control) {
       htmltools::tags$div(
@@ -405,7 +469,7 @@ build_results_sidebar_controls <- function(inputs) {
         input_control
       )
     })
-  )
+  ))
 }
 
 #' Get DSA Setting Choices
@@ -523,60 +587,6 @@ scenario_params_dependency <- function() {
 #' @keywords internal
 twsa_params_dependency <- function() {
   list(grid_core_dependency(), grid_spec_dependency("twsa-spec"))
-}
-
-#' Apply Scenario Parameters to Model
-#'
-#' Takes a list of scenario objects from the JS grid and applies them to the model,
-#' replacing any existing scenarios.
-#'
-#' @param model An openqaly model object.
-#' @param scenarios A list of scenario objects with name, description,
-#'   variable_overrides, and setting_overrides.
-#' @return The modified model object.
-#' @keywords internal
-apply_scenario_params <- function(model, scenarios) {
-  # Remove existing scenarios
-  if (!is.null(model$scenarios)) {
-    for (s in rev(model$scenarios)) {
-      model <- openqaly::remove_scenario(model, s$name)
-    }
-  }
-  # Add new scenarios from UI
-  for (s in scenarios) {
-    model <- openqaly::add_scenario(model, s$name, s$description %||% "")
-    var_ovs <- s$variable_overrides
-    if (!is.null(var_ovs)) {
-      for (v in var_ovs) {
-        expr <- rlang::parse_expr(v$value)
-        model <- rlang::inject(openqaly::add_scenario_variable(
-          model,
-          scenario = s$name,
-          variable = v$name,
-          value = !!expr,
-          strategy = v$strategy %||% "",
-          group = v$group %||% ""
-        ))
-      }
-    }
-    set_ovs <- s$setting_overrides
-    if (!is.null(set_ovs)) {
-      for (st in set_ovs) {
-        val <- st$value
-        if (is.character(val)) {
-          numeric_val <- suppressWarnings(as.numeric(val))
-          if (!is.na(numeric_val)) val <- numeric_val
-        }
-        model <- openqaly::add_scenario_setting(
-          model,
-          scenario = s$name,
-          setting = st$name,
-          value = val
-        )
-      }
-    }
-  }
-  model
 }
 
 #' Variables Table Dependency
@@ -710,95 +720,6 @@ strategies_table_dependency <- function() {
   list(grid_core_dependency(), grid_spec_dependency("strategies-spec"))
 }
 
-#' Normalize DSA Parameters from Shiny Input
-#'
-#' Shiny/jsonlite can deserialize a JS array of objects as a data frame,
-#' a flat named list (single-element array), or a list of named character
-#' vectors. This function normalizes all cases to a list of proper R lists.
-#'
-#' @param params Raw DSA parameter input from Shiny.
-#'
-#' @return A list of lists, each representing one DSA parameter.
-#' @keywords internal
-normalize_dsa_params <- function(params) {
-  if (is.null(params) || length(params) == 0) return(list())
-  # Data frame -> split into one list per row
-  if (is.data.frame(params)) {
-    return(lapply(seq_len(nrow(params)), function(i) as.list(params[i, , drop = FALSE])))
-  }
-  # Named list with "type" key - could be a single param (scalars) or
-
-  # multiple params flattened column-wise (vectors of length > 1)
-  if (is.list(params) && !is.null(names(params)) && "type" %in% names(params)) {
-    if (length(params$type) > 1) {
-      # Column-wise list of vectors -> convert to row-wise list of lists
-      n <- length(params$type)
-      return(lapply(seq_len(n), function(i) {
-        lapply(params, function(col) col[[i]])
-      }))
-    }
-    return(list(as.list(params)))
-  }
-  # List of params - ensure each element is a proper list (not atomic vector)
-  if (is.list(params)) {
-    return(lapply(params, as.list))
-  }
-  # Named atomic vector (Shiny deserializes JS array of objects as a flat
-  # character vector with repeated names: type,name,...,type,name,...)
-  if (is.atomic(params) && !is.null(names(params)) && "type" %in% names(params)) {
-    type_idx <- which(names(params) == "type")
-    boundaries <- c(type_idx, length(params) + 1L)
-    return(lapply(seq_along(type_idx), function(i) {
-      as.list(params[boundaries[i]:(boundaries[i + 1L] - 1L)])
-    }))
-  }
-  # Other unexpected type - cannot normalize
-  list()
-}
-
-#' Apply DSA Parameters to a Model
-#'
-#' Takes a list of DSA parameter specifications and adds them to a model
-#' using \code{openqaly::add_dsa_variable} or \code{openqaly::add_dsa_setting}.
-#'
-#' @param model An openqaly model object.
-#' @param params A list of DSA parameter lists (as returned by
-#'   \code{normalize_dsa_params}).
-#'
-#' @return The model with DSA parameters added.
-#' @keywords internal
-apply_dsa_params <- function(model, params) {
-  params <- normalize_dsa_params(params)
-  for (p in params) {
-    if (is.null(p$low) || is.null(p$high) ||
-        nchar(trimws(p$low)) == 0 || nchar(trimws(p$high)) == 0) {
-      next
-    }
-    if (p$type == "variable") {
-      low_expr <- rlang::parse_expr(p$low)
-      high_expr <- rlang::parse_expr(p$high)
-      model <- rlang::inject(openqaly::add_dsa_variable(
-        model,
-        variable = p$name,
-        low = !!low_expr,
-        high = !!high_expr,
-        strategy = p$strategy %||% "",
-        group = p$group %||% "",
-        display_name = p$display_name
-      ))
-    } else {
-      model <- openqaly::add_dsa_setting(
-        model,
-        setting = p$name,
-        low = as.numeric(p$low),
-        high = as.numeric(p$high),
-        display_name = p$display_name
-      )
-    }
-  }
-  model
-}
-
 #' PSA Parameters Dependency
 #'
 #' Returns the HTML dependency for the PSA parameter table JS and CSS assets.
@@ -809,95 +730,6 @@ psa_params_dependency <- function() {
   list(grid_core_dependency(), grid_spec_dependency("psa-spec"))
 }
 
-#' Normalize PSA Parameters from Shiny Input
-#'
-#' Shiny/jsonlite can deserialize a JS array of objects in various formats.
-#' This function normalizes all cases to a list of proper R lists, each
-#' containing name, strategy, group, and sampling fields.
-#'
-#' @param params Raw PSA parameter input from Shiny.
-#'
-#' @return A list of lists, each representing one PSA parameter.
-#' @keywords internal
-normalize_psa_params <- function(params) {
-  if (is.null(params) || length(params) == 0) return(list())
-  if (is.data.frame(params)) {
-    return(lapply(seq_len(nrow(params)), function(i) as.list(params[i, , drop = FALSE])))
-  }
-  if (is.list(params) && !is.null(names(params)) && "name" %in% names(params)) {
-    if (length(params$name) > 1) {
-      n <- length(params$name)
-      return(lapply(seq_len(n), function(i) {
-        lapply(params, function(col) col[[i]])
-      }))
-    }
-    return(list(as.list(params)))
-  }
-  if (is.list(params)) {
-    return(lapply(params, as.list))
-  }
-  list()
-}
-
-#' Apply PSA Parameters to a Model
-#'
-#' Takes univariate sampling params and multivariate sampling specs from the
-#' UI and applies them to a model. Univariate params update the sampling
-#' distribution on each variable. Multivariate specs are removed and re-added.
-#'
-#' @param model An openqaly model object.
-#' @param params A list of univariate PSA parameter lists with name, strategy,
-#'   group, and sampling fields.
-#' @param multivariate A list of multivariate sampling specs with name,
-#'   distribution, variables, and description fields.
-#'
-#' @return The modified model object.
-#' @keywords internal
-apply_psa_params <- function(model, params, multivariate = NULL) {
-  params <- normalize_psa_params(params)
-  for (p in params) {
-    sampling_str <- p$sampling %||% ""
-    if (!nzchar(trimws(sampling_str))) next
-    sampling_expr <- rlang::parse_expr(sampling_str)
-    model <- rlang::inject(openqaly::edit_variable(
-      model,
-      name = p$name,
-      strategy = if (nzchar(p$strategy %||% "")) p$strategy else NA_character_,
-      group = if (nzchar(p$group %||% "")) p$group else NA_character_,
-      sampling = !!sampling_expr
-    ))
-  }
-  # Remove existing multivariate specs and re-add from UI
-
-  if (!is.null(multivariate)) {
-    existing <- model$multivariate_sampling
-    if (!is.null(existing)) {
-      for (spec in rev(existing)) {
-        model <- openqaly::remove_multivariate_sampling(model, spec$name)
-      }
-    }
-    for (mv in multivariate) {
-      mv_type <- mv$type %||% ""
-      if (!nzchar(mv_type)) next
-      add_args <- list(
-        model,
-        name = mv$name,
-        type = mv_type,
-        variables = as.character(unlist(mv$variables))
-      )
-      if (nzchar(mv$strategy %||% "")) add_args$strategy <- mv$strategy
-      if (nzchar(mv$group %||% "")) add_args$group <- mv$group
-      if (mv_type == "dirichlet") {
-        if (!is.null(mv$n)) add_args$n <- as.numeric(mv$n)
-      } else if (mv_type == "mvnormal") {
-        if (!is.null(mv$covariance)) add_args$covariance <- mv$covariance
-      }
-      model <- do.call(openqaly::add_multivariate_sampling, add_args)
-    }
-  }
-  model
-}
-
 #' Threshold Parameters Dependency
 #'
 #' Returns the HTML dependency for the threshold parameter table JS and CSS assets.
@@ -906,127 +738,4 @@ apply_psa_params <- function(model, params, multivariate = NULL) {
 #' @export
 threshold_params_dependency <- function() {
   list(grid_core_dependency(), grid_spec_dependency("threshold-spec"))
-}
-
-#' Normalize Threshold Parameters from Shiny Input
-#'
-#' Shiny/jsonlite can deserialize a JS array of objects in various formats.
-#' This function normalizes all cases to a list of proper R lists.
-#'
-#' @param params Raw threshold parameter input from Shiny.
-#'
-#' @return A list of lists, each representing one threshold analysis.
-#' @keywords internal
-normalize_threshold_params <- function(params) {
-  if (is.null(params) || length(params) == 0) return(list())
-  if (is.data.frame(params)) {
-    return(lapply(seq_len(nrow(params)), function(i) as.list(params[i, , drop = FALSE])))
-  }
-  if (is.list(params) && !is.null(names(params)) && "name" %in% names(params)) {
-    if (length(params$name) > 1) {
-      n <- length(params$name)
-      return(lapply(seq_len(n), function(i) {
-        lapply(params, function(col) col[[i]])
-      }))
-    }
-    return(list(as.list(params)))
-  }
-  if (is.list(params)) {
-    return(lapply(params, as.list))
-  }
-  list()
-}
-
-#' Apply Threshold Parameters to a Model
-#'
-#' Takes a list of threshold analysis specifications from the UI and applies
-#' them to the model, replacing any existing threshold analyses.
-#'
-#' @param model An openqaly model object.
-#' @param analyses A list of threshold analysis lists with name, variable,
-#'   lower, upper, condition, variable_strategy, variable_group, and active.
-#' @return The modified model object.
-#' @export
-apply_threshold_params <- function(model, analyses) {
-  analyses <- normalize_threshold_params(analyses)
-  # Remove existing threshold analyses
-  if (length(model$threshold_analyses) > 0) {
-    for (ta in rev(model$threshold_analyses)) {
-      model <- openqaly::remove_threshold_analysis(model, ta$name)
-    }
-  }
-  # Add from UI
-  for (a in analyses) {
-    cond <- a$condition
-    if (is.null(cond) || is.null(cond$output)) next
-
-    condition <- switch(cond$output,
-      "outcomes" = openqaly::threshold_condition_outcomes(
-        summary = if (nzchar(cond$summary %||% "")) cond$summary else NULL,
-        value = if (nzchar(cond$value %||% "")) cond$value else NULL,
-        type = cond$type %||% "absolute",
-        strategy = if ((cond$type %||% "absolute") == "absolute") cond$strategy else NULL,
-        referent = if ((cond$type %||% "absolute") == "difference") cond$referent else NULL,
-        comparator = if ((cond$type %||% "absolute") == "difference") cond$comparator else NULL,
-        discounted = if (is.null(cond$discounted)) TRUE else as.logical(cond$discounted),
-        target_value = as.numeric(cond$target_value %||% 0),
-        group = cond$group %||% ""
-      ),
-      "costs" = openqaly::threshold_condition_costs(
-        summary = if (nzchar(cond$summary %||% "")) cond$summary else NULL,
-        value = if (nzchar(cond$value %||% "")) cond$value else NULL,
-        type = cond$type %||% "absolute",
-        strategy = if ((cond$type %||% "absolute") == "absolute") cond$strategy else NULL,
-        referent = if ((cond$type %||% "absolute") == "difference") cond$referent else NULL,
-        comparator = if ((cond$type %||% "absolute") == "difference") cond$comparator else NULL,
-        discounted = if (is.null(cond$discounted)) TRUE else as.logical(cond$discounted),
-        target_value = as.numeric(cond$target_value %||% 0),
-        group = cond$group %||% ""
-      ),
-      "nmb" = openqaly::threshold_condition_nmb(
-        health_summary = cond$health_summary,
-        cost_summary = cond$cost_summary,
-        referent = cond$referent,
-        comparator = cond$comparator,
-        discounted = if (is.null(cond$discounted)) TRUE else as.logical(cond$discounted),
-        target_value = as.numeric(cond$target_value %||% 0),
-        group = cond$group %||% "",
-        wtp = if (!is.null(cond$wtp) && nzchar(cond$wtp)) as.numeric(cond$wtp) else NULL
-      ),
-      "ce" = openqaly::threshold_condition_ce(
-        health_summary = cond$health_summary,
-        cost_summary = cond$cost_summary,
-        referent = cond$referent,
-        comparator = cond$comparator,
-        discounted = if (is.null(cond$discounted)) TRUE else as.logical(cond$discounted),
-        group = cond$group %||% "",
-        wtp = if (!is.null(cond$wtp) && nzchar(cond$wtp)) as.numeric(cond$wtp) else NULL
-      ),
-      "trace" = openqaly::threshold_condition_trace(
-        state = cond$state,
-        time = as.numeric(cond$time),
-        time_unit = cond$time_unit %||% "cycle",
-        type = cond$type %||% "absolute",
-        strategy = if ((cond$type %||% "absolute") == "absolute") cond$strategy else NULL,
-        referent = if ((cond$type %||% "absolute") == "difference") cond$referent else NULL,
-        comparator = if ((cond$type %||% "absolute") == "difference") cond$comparator else NULL,
-        target_value = as.numeric(cond$target_value),
-        group = cond$group %||% ""
-      )
-    )
-    if (is.null(condition)) next
-
-    model <- openqaly::add_threshold_analysis(
-      model,
-      name = a$name,
-      variable = a$variable,
-      lower = as.numeric(a$lower),
-      upper = as.numeric(a$upper),
-      condition = condition,
-      variable_strategy = a$variable_strategy %||% "",
-      variable_group = a$variable_group %||% "",
-      active = if (is.null(a$active)) TRUE else as.logical(a$active)
-    )
-  }
-  model
 }

@@ -316,7 +316,7 @@ twsaResultTabServer <- function(id, analysis_type, twsa_results, metadata) {
       tryCatch({
         if (analysis_type == "outcomes") {
           shiny::req(input$outcome)
-          args <- list(res, summary_name = input$outcome)
+          args <- list(res, outcome = input$outcome)
           if (!is.null(tn)) args$twsa_name <- tn
           if (!is.null(input$groups)) args$groups <- input$groups
           if (!is.null(input$discounted)) args$discounted <- input$discounted
@@ -331,7 +331,7 @@ twsaResultTabServer <- function(id, analysis_type, twsa_results, metadata) {
 
         } else if (analysis_type == "costs") {
           shiny::req(input$outcome)
-          args <- list(res, summary_name = input$outcome)
+          args <- list(res, outcome = input$outcome)
           if (!is.null(tn)) args$twsa_name <- tn
           if (!is.null(input$groups)) args$groups <- input$groups
           if (!is.null(input$discounted)) args$discounted <- input$discounted
@@ -396,7 +396,7 @@ twsaResultTabServer <- function(id, analysis_type, twsa_results, metadata) {
       tryCatch({
         ft <- if (analysis_type == "outcomes") {
           shiny::req(input$outcome)
-          args <- list(res, summary_name = input$outcome)
+          args <- list(res, outcome = input$outcome)
           if (!is.null(tn)) args$twsa_name <- tn
           if (!is.null(input$groups)) args$groups <- input$groups
           if (!is.null(input$discounted)) args$discounted <- input$discounted
@@ -411,7 +411,7 @@ twsaResultTabServer <- function(id, analysis_type, twsa_results, metadata) {
 
         } else if (analysis_type == "costs") {
           shiny::req(input$outcome)
-          args <- list(res, summary_name = input$outcome)
+          args <- list(res, outcome = input$outcome)
           if (!is.null(tn)) args$twsa_name <- tn
           if (!is.null(input$groups)) args$groups <- input$groups
           if (!is.null(input$discounted)) args$discounted <- input$discounted

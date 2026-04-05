@@ -987,11 +987,11 @@ pairwiseCeResultsServer <- function(id, results, metadata) {
       cost_choices <- get_cost_summary_choices(meta)
 
       build_results_sidebar_controls(list(
-        shiny::selectInput(ns("outcome_summary"), "Outcome Summary",
+        shiny::selectInput(ns("health_outcome"), "Health Outcome",
           choices = outcome_choices,
           selected = if (length(outcome_choices) > 0) outcome_choices[1] else NULL
         ),
-        shiny::selectInput(ns("cost_summary"), "Cost Summary",
+        shiny::selectInput(ns("cost_outcome"), "Cost Outcome",
           choices = cost_choices,
           selected = if (length(cost_choices) > 0) cost_choices[1] else NULL
         ),
@@ -1011,8 +1011,8 @@ pairwiseCeResultsServer <- function(id, results, metadata) {
     build_args <- function(res, include_wtp = FALSE) {
       args <- list(
         res,
-        outcome_summary = input$outcome_summary,
-        cost_summary = input$cost_summary
+        health_outcome = input$health_outcome,
+        cost_outcome = input$cost_outcome
       )
       if (include_wtp && !is.null(input$wtp)) args$wtp <- input$wtp
       if (!is.null(input$groups)) args$groups <- input$groups
@@ -1024,8 +1024,8 @@ pairwiseCeResultsServer <- function(id, results, metadata) {
     output$result_plot <- shiny::renderPlot({
       res <- results()
       shiny::req(
-        res, input$viz_type, input$outcome_summary,
-        input$cost_summary, input$viz_type != "table",
+        res, input$viz_type, input$health_outcome,
+        input$cost_outcome, input$viz_type != "table",
         input$comparators, input$interventions
       )
       args <- build_args(res, include_wtp = TRUE)
@@ -1042,7 +1042,7 @@ pairwiseCeResultsServer <- function(id, results, metadata) {
       res <- results()
       shiny::req(
         res, input$viz_type == "table",
-        input$outcome_summary, input$cost_summary,
+        input$health_outcome, input$cost_outcome,
         input$comparators, input$interventions
       )
       args <- build_args(res, include_wtp = FALSE)
@@ -1134,11 +1134,11 @@ incrementalCeResultsServer <- function(id, results, metadata) {
       cost_choices <- get_cost_summary_choices(meta)
 
       build_results_sidebar_controls(list(
-        shiny::selectInput(ns("outcome_summary"), "Outcome Summary",
+        shiny::selectInput(ns("health_outcome"), "Health Outcome",
           choices = outcome_choices,
           selected = if (length(outcome_choices) > 0) outcome_choices[1] else NULL
         ),
-        shiny::selectInput(ns("cost_summary"), "Cost Summary",
+        shiny::selectInput(ns("cost_outcome"), "Cost Outcome",
           choices = cost_choices,
           selected = if (length(cost_choices) > 0) cost_choices[1] else NULL
         ),
@@ -1150,8 +1150,8 @@ incrementalCeResultsServer <- function(id, results, metadata) {
     build_args <- function(res) {
       args <- list(
         res,
-        outcome_summary = input$outcome_summary,
-        cost_summary = input$cost_summary
+        health_outcome = input$health_outcome,
+        cost_outcome = input$cost_outcome
       )
       if (!is.null(input$groups)) args$groups <- input$groups
       if (!is.null(input$strategies)) args$strategies <- input$strategies
@@ -1160,7 +1160,7 @@ incrementalCeResultsServer <- function(id, results, metadata) {
 
     output$result_plot <- shiny::renderPlot({
       res <- results()
-      shiny::req(res, input$viz_type, input$outcome_summary, input$cost_summary, input$viz_type != "table")
+      shiny::req(res, input$viz_type, input$health_outcome, input$cost_outcome, input$viz_type != "table")
       args <- build_args(res)
       error_msg(NULL)
       tryCatch({
@@ -1173,7 +1173,7 @@ incrementalCeResultsServer <- function(id, results, metadata) {
 
     output$result_table <- shiny::renderUI({
       res <- results()
-      shiny::req(res, input$viz_type == "table", input$outcome_summary, input$cost_summary)
+      shiny::req(res, input$viz_type == "table", input$health_outcome, input$cost_outcome)
       args <- build_args(res)
       error_msg(NULL)
       tryCatch({

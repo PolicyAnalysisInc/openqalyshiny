@@ -83,6 +83,37 @@
     return el.getAttribute("data-update-on") || "change";
   }
 
+  function getAutocompleteParent(el) {
+    return el.getAttribute("data-autocomplete-parent") || "";
+  }
+
+  function ensureAutocompleteLayer(editor, el) {
+    if (!editor || getAutocompleteParent(el) !== "body") {
+      return;
+    }
+
+    const completer = editor.completer;
+    const popup = completer && completer.popup;
+    const container = popup && popup.container;
+
+    if (!container) {
+      return;
+    }
+
+    container.classList.add("formula-input-autocomplete-popup");
+    if (container.parentNode !== document.body) {
+      document.body.appendChild(container);
+    }
+
+    const tooltip = document.querySelector(".ace_tooltip");
+    if (tooltip) {
+      tooltip.classList.add("formula-input-autocomplete-tooltip");
+      if (tooltip.parentNode !== document.body) {
+        document.body.appendChild(tooltip);
+      }
+    }
+  }
+
   function setFormulaEditorValue(el, editor, value) {
     const stringValue = (value == null) ? "" : String(value);
 
@@ -188,6 +219,7 @@
 
         // Set our completer as the only completer (disable built-in completers)
         editor.completers = [completer];
+        ensureAutocompleteLayer(editor, el);
 
         // Intercept Enter key - trigger Shiny update instead of newline
         // Do not accept autocomplete on Enter - that's for Tab
@@ -254,6 +286,7 @@
 
         // Trigger change event on input
         editor.on("change", function() {
+          ensureAutocompleteLayer(editor, el);
           if (el._formulaSuppressChange) {
             return;
           }
@@ -275,6 +308,14 @@
           $(el).trigger("formula-input:commit");
         });
 
+        editor.commands.on("afterExec", function() {
+          ensureAutocompleteLayer(editor, el);
+        });
+
+        editor.on("focus", function() {
+          ensureAutocompleteLayer(editor, el);
+        });
+
         // Store editor reference
         el._formulaEditor = editor;
         el._formulaDirty = false;
@@ -289,6 +330,7 @@
             if (!el._formulaEditor) return;
             el._formulaEditor.resize(true);
             el._formulaEditor.renderer.updateFull();
+            ensureAutocompleteLayer(el._formulaEditor, el);
           });
         };
 

@@ -458,7 +458,7 @@ psaResultTabServer <- function(id, analysis_type, psa_results, metadata) {
       tryCatch({
         if (analysis_type == "outcomes") {
           shiny::req(input$outcome)
-          args <- list(res, outcome_summary = input$outcome)
+          args <- list(res, outcome = input$outcome)
           if (!is.null(input$groups)) args$groups <- input$groups
           if (!is.null(input$strategies)) args$strategies <- input$strategies
           if (!is.null(input$discounted)) args$discounted <- input$discounted
@@ -470,7 +470,7 @@ psaResultTabServer <- function(id, analysis_type, psa_results, metadata) {
 
         } else if (analysis_type == "costs") {
           shiny::req(input$outcome)
-          args <- list(res, outcome_summary = input$outcome)
+          args <- list(res, outcome = input$outcome)
           if (!is.null(input$groups)) args$groups <- input$groups
           if (!is.null(input$strategies)) args$strategies <- input$strategies
           if (!is.null(input$discounted)) args$discounted <- input$discounted
@@ -484,8 +484,8 @@ psaResultTabServer <- function(id, analysis_type, psa_results, metadata) {
           shiny::req(input$health_outcome, input$cost_outcome, input$wtp,
                      input$interventions, input$comparators)
           args <- list(res,
-            outcome_summary = input$health_outcome,
-            cost_summary = input$cost_outcome,
+            health_outcome = input$health_outcome,
+            cost_outcome = input$cost_outcome,
             wtp = input$wtp
           )
           if (!is.null(input$groups)) args$groups <- input$groups
@@ -500,8 +500,8 @@ psaResultTabServer <- function(id, analysis_type, psa_results, metadata) {
         } else if (analysis_type == "incremental_ce") {
           shiny::req(input$health_outcome, input$cost_outcome)
           args <- list(res,
-            outcome_summary = input$health_outcome,
-            cost_summary = input$cost_outcome
+            health_outcome = input$health_outcome,
+            cost_outcome = input$cost_outcome
           )
           if (!is.null(input$groups)) args$groups <- input$groups
           if (input$viz_type == "scatter") {
@@ -514,8 +514,8 @@ psaResultTabServer <- function(id, analysis_type, psa_results, metadata) {
           shiny::req(input$health_outcome, input$cost_outcome,
                      input$interventions, input$comparators)
           args <- list(res,
-            outcome_summary = input$health_outcome,
-            cost_summary = input$cost_outcome,
+            health_outcome = input$health_outcome,
+            cost_outcome = input$cost_outcome,
             interventions = input$interventions,
             comparators = input$comparators
           )
@@ -530,8 +530,8 @@ psaResultTabServer <- function(id, analysis_type, psa_results, metadata) {
         } else if (analysis_type == "evpi") {
           shiny::req(input$health_outcome, input$cost_outcome)
           args <- list(res,
-            outcome_summary = input$health_outcome,
-            cost_summary = input$cost_outcome
+            health_outcome = input$health_outcome,
+            cost_outcome = input$cost_outcome
           )
           if (!is.null(input$groups)) args$groups <- input$groups
           do.call(openqaly::evpi_plot, args)
@@ -556,7 +556,7 @@ psaResultTabServer <- function(id, analysis_type, psa_results, metadata) {
       tryCatch({
         ft <- if (analysis_type == "outcomes") {
           shiny::req(input$outcome)
-          args <- list(res, outcome_summary = input$outcome)
+          args <- list(res, outcome = input$outcome)
           if (!is.null(input$groups)) args$groups <- input$groups
           if (!is.null(input$strategies)) args$strategies <- input$strategies
           if (!is.null(input$discounted)) args$discounted <- input$discounted
@@ -564,7 +564,7 @@ psaResultTabServer <- function(id, analysis_type, psa_results, metadata) {
 
         } else if (analysis_type == "costs") {
           shiny::req(input$outcome)
-          args <- list(res, outcome_summary = input$outcome)
+          args <- list(res, outcome = input$outcome)
           if (!is.null(input$groups)) args$groups <- input$groups
           if (!is.null(input$strategies)) args$strategies <- input$strategies
           if (!is.null(input$discounted)) args$discounted <- input$discounted
@@ -574,8 +574,8 @@ psaResultTabServer <- function(id, analysis_type, psa_results, metadata) {
           shiny::req(input$health_outcome, input$cost_outcome, input$wtp,
                      input$interventions, input$comparators)
           args <- list(res,
-            outcome_summary = input$health_outcome,
-            cost_summary = input$cost_outcome,
+            health_outcome = input$health_outcome,
+            cost_outcome = input$cost_outcome,
             wtp = input$wtp
           )
           if (!is.null(input$groups)) args$groups <- input$groups
@@ -586,8 +586,8 @@ psaResultTabServer <- function(id, analysis_type, psa_results, metadata) {
         } else if (analysis_type == "incremental_ce") {
           shiny::req(input$health_outcome, input$cost_outcome)
           args <- list(res,
-            outcome_summary = input$health_outcome,
-            cost_summary = input$cost_outcome
+            health_outcome = input$health_outcome,
+            cost_outcome = input$cost_outcome
           )
           if (!is.null(input$groups)) args$groups <- input$groups
           do.call(openqaly::incremental_ceac_table, args)
@@ -596,8 +596,8 @@ psaResultTabServer <- function(id, analysis_type, psa_results, metadata) {
           shiny::req(input$health_outcome, input$cost_outcome,
                      input$interventions, input$comparators)
           args <- list(res,
-            outcome_summary = input$health_outcome,
-            cost_summary = input$cost_outcome,
+            health_outcome = input$health_outcome,
+            cost_outcome = input$cost_outcome,
             interventions = input$interventions,
             comparators = input$comparators
           )
@@ -607,8 +607,8 @@ psaResultTabServer <- function(id, analysis_type, psa_results, metadata) {
         } else if (analysis_type == "evpi") {
           shiny::req(input$health_outcome, input$cost_outcome)
           args <- list(res,
-            outcome_summary = input$health_outcome,
-            cost_summary = input$cost_outcome
+            health_outcome = input$health_outcome,
+            cost_outcome = input$cost_outcome
           )
           if (!is.null(input$groups)) args$groups <- input$groups
           do.call(openqaly::evpi_table, args)

@@ -286,7 +286,7 @@ scenarioResultTabServer <- function(id, analysis_type, scenario_results, metadat
       tryCatch({
         if (analysis_type == "outcomes") {
           shiny::req(input$outcome)
-          args <- list(res, summary_name = input$outcome)
+          args <- list(res, outcome = input$outcome)
           if (!is.null(input$groups)) args$groups <- input$groups
           if (!is.null(input$discounted)) args$discounted <- input$discounted
           if (!is.null(input$analysis_type) && input$analysis_type == "absolute") {
@@ -300,7 +300,7 @@ scenarioResultTabServer <- function(id, analysis_type, scenario_results, metadat
 
         } else if (analysis_type == "costs") {
           shiny::req(input$outcome)
-          args <- list(res, summary_name = input$outcome)
+          args <- list(res, outcome = input$outcome)
           if (!is.null(input$groups)) args$groups <- input$groups
           if (!is.null(input$discounted)) args$discounted <- input$discounted
           if (!is.null(input$analysis_type) && input$analysis_type == "absolute") {

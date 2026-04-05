@@ -259,7 +259,7 @@ updateOverrideInput <- function(session, inputId, override_name, value,
         labels <- vapply(choices, function(x) x$label %||% as.character(x$value), character(1))
         choices <- stats::setNames(values, labels)
       }
-      shiny::selectInput(
+      .editor_select_input(
         inputId = override_id,
         label = NULL,
         choices = choices,
