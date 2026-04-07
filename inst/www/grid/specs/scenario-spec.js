@@ -385,7 +385,8 @@
             field: "value",
             widthGrow: 2,
             minWidth: 450,
-            editor: OQGrid.editors.formula(choices.terms, choices.suggestions)
+            editor: OQGrid.editors.formula(choices.terms, choices.suggestions),
+            formatter: OQGrid.fmt.formula(choices.terms)
           }
 
           // Delete column is added automatically by grid-controller

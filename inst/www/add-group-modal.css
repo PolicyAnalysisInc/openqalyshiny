@@ -1,8 +1,8 @@
 /* Add Group Modal — Variables table styles */
 
-/* Make the modal 80% of the viewport */
+/* Make the modal 80% of the viewport, capped at 1000px */
 .add-group-modal .modal-dialog {
-  max-width: 80vw;
+  max-width: 1000px;
   width: 80vw;
 }
 
@@ -11,10 +11,45 @@
   overflow-y: auto;
 }
 
+/* Form labels */
+.add-group-modal label {
+  text-transform: uppercase;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--oq-text-secondary, #6c757d);
+  letter-spacing: 0.4px;
+}
+
+/* Form inputs */
+.add-group-modal .form-control,
+.add-group-modal .form-select {
+  font-size: var(--oq-text-sm, 0.8125rem);
+  padding: 7px 10px;
+  border: 1px solid #adb5bd;
+  border-radius: var(--oq-radius, 6px);
+  background: var(--oq-surface, #fff);
+  color: var(--oq-text, #1a1d23);
+}
+
+.add-group-modal .form-control:focus,
+.add-group-modal .form-select:focus {
+  border-color: var(--oq-border-focus, #6366f1);
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.12);
+}
+
+/* Variables section */
 #add-group-vars-container {
   width: 100%;
   margin-bottom: 0.25rem;
   overflow-x: auto;
+  border-top: 1px solid var(--oq-border, #dee2e6);
+  padding-top: 1rem;
+}
+
+/* Variables section title */
+.add-group-modal .variables-section-title {
+  font-size: 0.875rem;
+  font-weight: 600;
 }
 
 /* Match variables table row/cell sizing */
@@ -25,6 +60,23 @@
 
 #add-group-vars-container .tabulator-col-title {
   font-size: 0.85rem;
+}
+
+/* Footer buttons */
+.add-group-modal .modal-footer .btn {
+  font-size: var(--oq-text-sm, 0.8125rem);
+  padding: 7px 16px;
+  border-radius: var(--oq-radius, 6px);
+}
+
+.add-group-modal .modal-footer .btn-primary {
+  background-color: var(--oq-primary, #6366f1);
+  border-color: var(--oq-primary, #6366f1);
+}
+
+.add-group-modal .modal-footer .btn-primary:hover {
+  background-color: var(--oq-primary-hover, #4f46e5);
+  border-color: var(--oq-primary-hover, #4f46e5);
 }
 
 /* Ensure formula overlay renders above Bootstrap modal (z-index ~1055) */

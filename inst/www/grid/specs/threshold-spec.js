@@ -360,7 +360,7 @@
         // Create single add button
         var addBtn = document.createElement("button");
         addBtn.type = "button";
-        addBtn.className = "oq-grid-add-btn threshold-add-variable-btn";
+        addBtn.className = "oq-btn oq-btn-sm threshold-add-variable-btn";
         addBtn.textContent = "+ Add Variable";
         addBtn.addEventListener("click", function() {
           var defaultVar = choices.variables.length > 0 ? choices.variables[0] : "";

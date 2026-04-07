@@ -46,11 +46,16 @@
 
       addRow: {
         buttonText: "+ Add Summary",
-        requireConfirm: true,
-        firstEditField: "name",
         emptyRow: {
-          _isNew: true, name: "", values: "", type: "outcome",
+          name: "", values: "", type: "outcome",
           display_name: "", description: "", wtp: ""
+        },
+        generateDefaults: function(row, tableData) {
+          var existing = {};
+          for (var i = 0; i < tableData.length; i++) existing[tableData[i].name] = true;
+          var n = 1;
+          while (existing["new_summary_" + n]) n++;
+          row.name = "new_summary_" + n;
         }
       },
 
@@ -65,11 +70,6 @@
             summary_type: row.type || "outcome",
             wtp: (row.wtp || "").trim()
           };
-        },
-        addValidate: function(row) {
-          if (!(row.name || "").trim() || !(row.values || "").trim())
-            return "Name and values are required.";
-          return null;
         },
         remove: function(row) {
           return { type: "remove_summary", name: row.name };

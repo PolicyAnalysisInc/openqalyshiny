@@ -1,6 +1,6 @@
 #scripts_ace_editor {
-  border: 1px solid #dee2e6;
-  border-radius: 4px;
+  border: 1px solid var(--oq-border);
+  border-radius: var(--oq-radius-md);
   position: relative;
   flex: 1 1 auto;
   min-height: 0;
@@ -16,12 +16,12 @@
   display: flex;
   align-items: center;
   gap: 0.75rem;
-  background: #323232;
+  background: var(--oq-text);
   color: #fff;
   padding: 0.625rem 1rem;
-  border-radius: 0.5rem;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
-  font-size: 0.875rem;
+  border-radius: var(--oq-radius-md);
+  box-shadow: var(--oq-shadow-lg);
+  font-size: var(--oq-text-sm);
   z-index: 9999;
   opacity: 0;
   transition: transform 0.3s ease, opacity 0.3s ease;
@@ -40,17 +40,17 @@
 
 .progress-snackbar-track {
   width: 120px;
-  height: 6px;
+  height: 4px;
   background: rgba(255, 255, 255, 0.2);
-  border-radius: 3px;
+  border-radius: 2px;
   overflow: hidden;
 }
 
 .progress-snackbar-fill {
   height: 100%;
   width: 0%;
-  background: #4dabf7;
-  border-radius: 3px;
+  background: var(--oq-primary);
+  border-radius: 2px;
   transition: width 0.25s ease;
 }
 

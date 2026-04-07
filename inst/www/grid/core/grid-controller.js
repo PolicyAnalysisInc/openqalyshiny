@@ -36,7 +36,7 @@
       height: "100%",
       selectableRange: true,
       selectableRangeColumns: true,
-      selectableRangeRows: true,
+      selectableRangeRows: false,
       selectableRangeClearCells: true,
       editTriggerEvent: "dblclick",
       clipboard: true,
@@ -111,7 +111,10 @@
 
     var addBtn = document.createElement("button");
     addBtn.type = "button";
-    addBtn.className = "oq-grid-add-btn";
+    addBtn.className = "oq-btn oq-btn-sm";
+    addBtn.style.marginTop = "8px";
+    addBtn.style.marginBottom = "8px";
+    addBtn.style.alignSelf = "flex-start";
     addBtn.textContent = addRow.buttonText || "+ Add";
 
     // Determine where to place the button
@@ -134,22 +137,26 @@
         });
       });
     } else {
-      // Inline pattern: add a new row to the grid
+      // Immediate dispatch: build a complete row with defaults and send to Shiny
       addBtn.addEventListener("click", function() {
-        var emptyRow = typeof addRow.emptyRow === "function"
+        var row = typeof addRow.emptyRow === "function"
           ? addRow.emptyRow(self.data)
           : JSON.parse(JSON.stringify(addRow.emptyRow || {}));
 
-        self.table.addRow(emptyRow, false).then(function(row) {
-          OQGrid.relayout(self.table);
-          row.getElement().scrollIntoView({ behavior: "smooth", block: "nearest" });
-          if (addRow.firstEditField) {
-            var cell = row.getCell(addRow.firstEditField);
-            if (cell) {
-              setTimeout(function() { cell.edit(); }, 50);
-            }
+        delete row._isNew;
+
+        // Let spec fill in valid defaults
+        if (addRow.generateDefaults) {
+          addRow.generateDefaults(row, self.table.getData(), self.data);
+        }
+
+        // Dispatch add action immediately
+        if (spec.actions && spec.actions.add) {
+          var payload = spec.actions.add(row);
+          if (payload) {
+            OQGrid.shiny.dispatch(self.inputId, payload);
           }
-        });
+        }
       });
     }
   };

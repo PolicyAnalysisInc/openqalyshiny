@@ -84,7 +84,7 @@
         }
 
         cols.push({ title: "Formula", field: "formula", widthGrow: 2, minWidth: 450,
-          editor: fEditor, formatter: OQGrid.fmt.emdash });
+          editor: fEditor, formatter: OQGrid.fmt.formula(data.terms) });
         cols.push({ title: "Discounting Override", field: "discounting_override",
           widthGrow: 1, minWidth: 120,
           editor: "input", formatter: OQGrid.fmt.emdash });
@@ -94,16 +94,21 @@
 
       addRow: {
         buttonText: "+ Add Value",
-        requireConfirm: true,
-        firstEditField: "name",
         emptyRow: function(data) {
           var row = {
-            _isNew: true, name: "", formula: "", type: "cost",
+            name: "", formula: "0", type: "cost",
             display_name: "", description: "", discounting_override: ""
           };
-          if (data.modelType !== "decision_tree") row.state = "";
+          if (data.modelType !== "decision_tree") row.state = "All";
           if (data.modelType === "markov") row.destination = "";
           return row;
+        },
+        generateDefaults: function(row, tableData) {
+          var existing = {};
+          for (var i = 0; i < tableData.length; i++) existing[tableData[i].name] = true;
+          var n = 1;
+          while (existing["new_value_" + n]) n++;
+          row.name = "new_value_" + n;
         }
       },
 
@@ -146,11 +151,6 @@
             description: (row.description || "").trim(),
             discounting_override: (row.discounting_override || "").trim()
           };
-        },
-        addValidate: function(row) {
-          if (!(row.name || "").trim() || !(row.formula || "").trim())
-            return "Name and formula are required.";
-          return null;
         },
         remove: function(row) {
           return {

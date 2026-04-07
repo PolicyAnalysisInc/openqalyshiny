@@ -44,18 +44,23 @@
 
           { title: "Formula", field: "formula", widthGrow: 2, minWidth: 450,
             editor: OQGrid.editors.formula(data.terms, data.suggestions),
-            formatter: OQGrid.fmt.emdash }
+            formatter: OQGrid.fmt.formula(data.terms) }
         ];
       },
 
       addRow: {
         buttonText: "+ Add Variable",
-        requireConfirm: true,
-        firstEditField: "name",
         emptyRow: {
-          _isNew: true, name: "", formula: "",
+          name: "", formula: "0",
           display_name: "", description: "",
           strategy: "", group: ""
+        },
+        generateDefaults: function(row, tableData) {
+          var existing = {};
+          for (var i = 0; i < tableData.length; i++) existing[tableData[i].name] = true;
+          var n = 1;
+          while (existing["new_variable_" + n]) n++;
+          row.name = "new_variable_" + n;
         }
       },
 
@@ -68,11 +73,6 @@
             display_name: (row.display_name || "").trim(),
             description: (row.description || "").trim()
           };
-        },
-        addValidate: function(row) {
-          if (!(row.name || "").trim() || !(row.formula || "").trim())
-            return "Name and formula are required.";
-          return null;
         },
         remove: function(row) {
           return {

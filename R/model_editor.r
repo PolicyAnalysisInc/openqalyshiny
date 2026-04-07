@@ -260,26 +260,27 @@ dispatch_model_action <- function(model, action) {
     },
     "add_transition" = {
       model_type <- action$model_type %||% openqaly::get_model_type(model)
+      parsed_formula <- rlang::parse_expr(action$formula)
       if (model_type == "markov") {
-        openqaly::add_transition(
+        rlang::inject(openqaly::add_transition(
           model,
           from_state = action$from_state,
           to_state = action$to_state,
-          formula = rlang::parse_expr(action$formula)
-        )
+          formula = !!parsed_formula
+        ))
       } else if (model_type == "psm") {
-        openqaly::add_psm_transition(
+        rlang::inject(openqaly::add_psm_transition(
           model,
           endpoint = action$endpoint,
           time_unit = action$time_unit,
-          formula = rlang::parse_expr(action$formula)
-        )
+          formula = !!parsed_formula
+        ))
       } else if (model_type == "custom_psm") {
-        openqaly::add_custom_psm_transition(
+        rlang::inject(openqaly::add_custom_psm_transition(
           model,
           state = action$state,
-          formula = rlang::parse_expr(action$formula)
-        )
+          formula = !!parsed_formula
+        ))
       } else {
         stop("Unsupported model type for transitions: ", model_type)
       }
@@ -479,8 +480,10 @@ dispatch_model_action <- function(model, action) {
     "add_tree_node" = {
       args <- list(model = model, tree_name = action$tree_name, node = action$node)
       if (nzchar(action$parent %||% "")) args$parent <- action$parent
-      if (nzchar(action$formula %||% "")) {
-        args$formula <- rlang::parse_expr(action$formula)
+      args$formula <- if (nzchar(action$formula %||% "")) {
+        rlang::parse_expr(action$formula)
+      } else {
+        NA
       }
       if (nzchar(action$tags %||% "")) args$tags <- action$tags
       rlang::inject(openqaly::add_tree_node(!!!args))
@@ -1028,6 +1031,15 @@ run_model_editor <- function(path = NULL, options = list()) {
     )
   }
 
+  empty_state <- function(icon, title, subtitle = NULL) {
+    tags$div(
+      class = "empty-state-placeholder",
+      tags$div(class = "empty-state-icon", icon),
+      tags$div(class = "empty-state-title", title),
+      if (!is.null(subtitle)) tags$div(class = "empty-state-subtitle", subtitle)
+    )
+  }
+
   analysis_sidebar <- function(sidebar_id,
                                visualization_content,
                                overrides_output_id,
@@ -1081,11 +1093,24 @@ run_model_editor <- function(path = NULL, options = list()) {
                  "ext-language_tools.min.js"),
       all_files = FALSE
     ),
+    htmltools::htmlDependency(
+      name = "design-tokens",
+      version = "1.0.0",
+      src = system.file("www", package = "openqalyshiny"),
+      stylesheet = "design-tokens.css",
+      all_files = FALSE
+    ),
     scripts_editor_dependency(),
     documentation_editor_dependency(),
     formula_input_dependency(),
     override_input_dependency(),
     tags$head(
+      tags$link(rel = "preconnect", href = "https://fonts.googleapis.com"),
+      tags$link(rel = "preconnect", href = "https://fonts.gstatic.com", crossorigin = NA),
+      tags$link(
+        rel = "stylesheet",
+        href = "https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap"
+      ),
       tags$script(shiny::HTML("
         // Ctrl+S / Cmd+S save shortcut
         document.addEventListener('keydown', function(e) {
@@ -1211,33 +1236,56 @@ run_model_editor <- function(path = NULL, options = list()) {
         .app-bar {
           display: flex;
           align-items: center;
-          background-color: #2c3e50;
-          color: white;
+          background-color: var(--oq-surface);
+          color: var(--oq-text);
           padding: 0 16px;
-          height: 48px;
+          height: var(--oq-topbar-h);
+          flex-shrink: 0;
+          border-bottom: 1px solid var(--oq-border);
+          box-shadow: var(--oq-shadow-xs);
+        }
+        .app-bar-logo {
+          width: 28px;
+          height: 28px;
+          border-radius: 7px;
+          background: var(--oq-primary);
+          color: var(--oq-text-inverse);
+          font-size: 15px;
+          font-weight: 700;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          margin-right: 10px;
+          flex-shrink: 0;
+        }
+        .app-bar-sep {
+          width: 1px;
+          height: 24px;
+          background: var(--oq-border);
+          margin: 0 12px;
           flex-shrink: 0;
         }
         .app-bar-title {
-          font-size: 18px;
+          font-size: var(--oq-text-md);
           font-weight: 600;
           margin-right: 24px;
         }
         .app-bar .dropdown .btn {
-          color: white;
+          color: var(--oq-text);
           background: transparent;
           border: none;
         }
         .app-bar .dropdown .btn:hover,
         .app-bar .dropdown .btn:focus {
-          background: rgba(255,255,255,0.1);
+          background: var(--oq-surface-hover);
         }
         .no-model-message {
           display: flex;
           align-items: center;
           justify-content: center;
           height: 100%;
-          color: #999;
-          font-size: 18px;
+          color: var(--oq-text-tertiary);
+          font-size: var(--oq-text-md);
         }
         [data-display-if='output.model_loaded'] {
           flex: 1 1 auto;
@@ -1253,7 +1301,7 @@ run_model_editor <- function(path = NULL, options = list()) {
         }
         .model-content {
           padding: 16px;
-          overflow-x: auto; overflow-y: hidden;
+          overflow-x: auto; overflow-y: auto;
           flex: 1 1 auto;
           min-height: 0;
           display: flex;
@@ -1274,25 +1322,25 @@ run_model_editor <- function(path = NULL, options = list()) {
           min-height: 0;
         }
         .tables-sidebar {
-          width: 220px;
-          min-width: 220px;
-          border-right: 1px solid #dee2e6;
+          width: 240px;
+          min-width: 240px;
+          border-right: 1px solid var(--oq-border);
           overflow-y: auto;
           padding: 8px;
         }
         .tables-sidebar-item {
           display: flex;
           align-items: center;
-          padding: 6px 8px;
+          padding: 8px 10px;
           cursor: pointer;
-          border-radius: 4px;
+          border-radius: 6px;
           margin-bottom: 2px;
         }
         .tables-sidebar-item:hover {
-          background-color: #f0f0f0;
+          background-color: var(--oq-surface-hover);
         }
         .tables-sidebar-item.active {
-          background-color: #e2e6ea;
+          background-color: var(--oq-surface-active);
           font-weight: 600;
         }
         .tables-sidebar-item .table-name {
@@ -1300,6 +1348,10 @@ run_model_editor <- function(path = NULL, options = list()) {
           overflow: hidden;
           text-overflow: ellipsis;
           white-space: nowrap;
+        }
+        .tables-sidebar-item .table-description {
+          font-size: 11px;
+          color: var(--oq-text-tertiary);
         }
         .tables-sidebar-item .table-actions {
           display: flex;
@@ -1312,10 +1364,16 @@ run_model_editor <- function(path = NULL, options = list()) {
           line-height: 1;
           border: none;
           background: transparent;
-          color: #666;
+          color: var(--oq-text-tertiary);
+          opacity: 0;
+          transition: opacity var(--oq-transition), color var(--oq-transition);
+        }
+        .tables-sidebar-item:hover .table-actions .btn,
+        .tables-sidebar-item.active .table-actions .btn {
+          opacity: 1;
         }
         .tables-sidebar-item .table-actions .btn:hover {
-          color: #333;
+          color: var(--oq-text);
         }
         .tables-editor {
           flex-grow: 1;
@@ -1331,25 +1389,25 @@ run_model_editor <- function(path = NULL, options = list()) {
           overflow: hidden;
         }
         .scripts-sidebar {
-          width: 220px;
-          min-width: 220px;
-          border-right: 1px solid #dee2e6;
+          width: 240px;
+          min-width: 240px;
+          border-right: 1px solid var(--oq-border);
           overflow-y: auto;
           padding: 8px;
         }
         .scripts-sidebar-item {
           display: flex;
           align-items: center;
-          padding: 6px 8px;
+          padding: 8px 10px;
           cursor: pointer;
-          border-radius: 4px;
+          border-radius: 6px;
           margin-bottom: 2px;
         }
         .scripts-sidebar-item:hover {
-          background-color: #f0f0f0;
+          background-color: var(--oq-surface-hover);
         }
         .scripts-sidebar-item.active {
-          background-color: #e2e6ea;
+          background-color: var(--oq-surface-active);
           font-weight: 600;
         }
         .scripts-sidebar-item .script-name {
@@ -1369,10 +1427,16 @@ run_model_editor <- function(path = NULL, options = list()) {
           line-height: 1;
           border: none;
           background: transparent;
-          color: #666;
+          color: var(--oq-text-tertiary);
+          opacity: 0;
+          transition: opacity var(--oq-transition), color var(--oq-transition);
+        }
+        .scripts-sidebar-item:hover .script-actions .btn,
+        .scripts-sidebar-item.active .script-actions .btn {
+          opacity: 1;
         }
         .scripts-sidebar-item .script-actions .btn:hover {
-          color: #333;
+          color: var(--oq-text);
         }
         .scripts-editor {
           flex-grow: 1;
@@ -1389,25 +1453,25 @@ run_model_editor <- function(path = NULL, options = list()) {
           min-height: 0;
         }
         .trees-sidebar {
-          width: 220px;
-          min-width: 220px;
-          border-right: 1px solid #dee2e6;
+          width: 240px;
+          min-width: 240px;
+          border-right: 1px solid var(--oq-border);
           overflow-y: auto;
           padding: 8px;
         }
         .trees-sidebar-item {
           display: flex;
           align-items: center;
-          padding: 6px 8px;
+          padding: 8px 10px;
           cursor: pointer;
-          border-radius: 4px;
+          border-radius: 6px;
           margin-bottom: 2px;
         }
         .trees-sidebar-item:hover {
-          background-color: #f0f0f0;
+          background-color: var(--oq-surface-hover);
         }
         .trees-sidebar-item.active {
-          background-color: #e2e6ea;
+          background-color: var(--oq-surface-active);
           font-weight: 600;
         }
         .trees-sidebar-item .tree-name {
@@ -1427,10 +1491,16 @@ run_model_editor <- function(path = NULL, options = list()) {
           line-height: 1;
           border: none;
           background: transparent;
-          color: #666;
+          color: var(--oq-text-tertiary);
+          opacity: 0;
+          transition: opacity var(--oq-transition), color var(--oq-transition);
+        }
+        .trees-sidebar-item:hover .tree-actions .btn,
+        .trees-sidebar-item.active .tree-actions .btn {
+          opacity: 1;
         }
         .trees-sidebar-item .tree-actions .btn:hover {
-          color: #333;
+          color: var(--oq-text);
         }
         .trees-editor {
           flex-grow: 1;
@@ -1482,9 +1552,10 @@ run_model_editor <- function(path = NULL, options = list()) {
           border-radius: 50%;
           top: 2px; left: 2px;
           transition: transform 0.2s;
+          box-shadow: var(--oq-shadow-xs);
         }
         .trees-preview-toggle input:checked + .trees-toggle-slider {
-          background: var(--bs-primary, #0d6efd);
+          background: var(--oq-primary);
         }
         .trees-preview-toggle input:checked + .trees-toggle-slider::after {
           transform: translateX(14px);
@@ -1517,21 +1588,172 @@ run_model_editor <- function(path = NULL, options = list()) {
         #scripts_ace_editor {
           flex: 1 1 auto;
           min-height: 200px;
+          border: 1px solid var(--oq-border);
+          border-radius: 8px;
         }
-        .settings-form {
-          max-width: 600px;
-          padding: 16px;
+        /* ── Settings page ── */
+        .settings-scroll {
+          flex: 1;
+          overflow-y: auto;
+          padding: 20px 24px;
         }
-        .settings-form .form-group {
-          margin-bottom: 12px;
+        .settings-container {
+          max-width: 720px;
+          background: var(--oq-surface);
+          border: 1px solid var(--oq-border);
+          border-radius: var(--oq-radius-md);
+          box-shadow: var(--oq-shadow-xs);
+          padding: 20px 24px;
+        }
+        .settings-section-header {
+          font-weight: 600;
+          font-size: var(--oq-text-sm);
+          color: var(--oq-text);
+          margin: 0 0 12px;
+          padding-bottom: 6px;
+          border-bottom: 1px solid var(--oq-border-light);
+        }
+        .settings-section-header:not(:first-child) {
+          margin-top: 24px;
+        }
+        .settings-grid {
+          display: grid;
+          grid-template-columns: 1fr 1fr 1fr;
+          gap: 12px 16px;
+          min-width: 0;
+        }
+        .settings-grid > * {
+          min-width: 0;
+        }
+        .settings-grid .form-group {
+          margin-bottom: 0;
+        }
+        .settings-grid .form-group label,
+        .settings-grid .form-group .control-label {
+          font-size: var(--oq-text-xs);
+          font-weight: 600;
+          color: var(--oq-text-secondary);
+          text-transform: uppercase;
+          letter-spacing: 0.3px;
+          margin-bottom: 4px;
+        }
+        .settings-grid .form-group .form-control {
+          width: 100%;
+          max-width: none;
+        }
+        .settings-grid .field-checkbox {
+          display: flex;
+          flex-direction: row;
+          align-items: center;
+          gap: 8px;
+          padding-top: 22px;
+        }
+        .settings-grid .field-checkbox .checkbox {
+          margin: 0;
+        }
+        .settings-grid .field-checkbox .checkbox label {
+          font-size: var(--oq-text-xs);
+          font-weight: 600;
+          color: var(--oq-text-secondary);
+          text-transform: uppercase;
+          letter-spacing: 0.3px;
+        }
+        .settings-grid .field-checkbox input[type='checkbox'] {
+          accent-color: var(--oq-primary);
+        }
+        .settings-grid .label-row {
+          display: flex;
+          align-items: center;
+          gap: 4px;
+          margin-bottom: 4px;
+        }
+        .settings-grid .label-row label,
+        .settings-grid .label-row .control-label {
+          margin-bottom: 0;
+        }
+        .info-trigger {
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          width: 15px;
+          height: 15px;
+          border-radius: 50%;
+          border: none;
+          background: transparent;
+          color: var(--oq-text-tertiary);
+          font-size: 11px;
+          cursor: help;
+          padding: 0;
+          transition: color var(--oq-transition);
+          flex-shrink: 0;
+        }
+        .info-trigger:hover {
+          color: var(--oq-primary);
+        }
+        .info-popover {
+          display: none;
+        }
+        .info-popover-floating {
+          position: fixed;
+          z-index: 10000;
+          width: 240px;
+          padding: 10px 12px;
+          background: var(--oq-text);
+          color: var(--oq-text-inverse);
+          font-size: var(--oq-text-xs);
+          font-weight: 400;
+          text-transform: none;
+          letter-spacing: 0;
+          line-height: 1.5;
+          border-radius: var(--oq-radius);
+          box-shadow: var(--oq-shadow-md);
+          pointer-events: none;
+        }
+        .info-popover-floating .arrow {
+          position: absolute;
+          width: 10px;
+          height: 10px;
+          background: var(--oq-text);
+          transform: rotate(45deg);
+        }
+        .dt-card {
+          margin-top: 16px;
+          max-width: 720px;
+          background: var(--oq-surface);
+          border: 1px solid var(--oq-border);
+          border-radius: var(--oq-radius-md);
+          box-shadow: var(--oq-shadow-xs);
+          padding: 20px 24px;
+        }
+        .dt-card .settings-section-header:first-child {
+          margin-top: 0;
         }
         .app-bar .btn:disabled {
           opacity: 0.3;
           cursor: default;
           pointer-events: none;
         }
+        .app-bar .btn-undo,
+        .app-bar .btn-redo {
+          width: 32px;
+          height: 32px;
+          padding: 0;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          color: var(--oq-text-secondary);
+          background: transparent;
+          border: none;
+          border-radius: 4px;
+          transition: all var(--oq-transition);
+        }
+        .app-bar .btn-undo:hover,
+        .app-bar .btn-redo:hover {
+          background: var(--oq-surface-hover);
+          color: var(--oq-text);
+        }
         .app-bar-hamburger {
-          color: white;
+          color: var(--oq-text);
           background: transparent;
           border: none;
           font-size: 18px;
@@ -1540,12 +1762,25 @@ run_model_editor <- function(path = NULL, options = list()) {
         }
         .app-bar-hamburger:hover,
         .app-bar-hamburger:focus {
-          color: white;
-          background: rgba(255,255,255,0.1);
+          color: var(--oq-text);
+          background: var(--oq-surface-hover);
         }
         .app-page-link.active {
           font-weight: 600;
           background-color: #e9ecef;
+        }
+        .dropdown-menu .dropdown-item.app-page-link {
+          display: flex;
+          align-items: center;
+          gap: 0.5em;
+        }
+        .dropdown-menu .dropdown-item.app-page-link > i,
+        .dropdown-menu .dropdown-item.app-page-link > svg {
+          width: 1.25em;
+          text-align: center;
+          flex-shrink: 0;
+          display: inline-flex;
+          justify-content: center;
         }
         .app-page { display: none; }
         .app-page.active {
@@ -1554,16 +1789,40 @@ run_model_editor <- function(path = NULL, options = list()) {
           flex: 1 1 auto;
           min-height: 0;
         }
+        .results-page {
+          min-height: 500px;
+          height: calc(100vh - var(--oq-topbar-h, 52px));
+          height: calc(100dvh - var(--oq-topbar-h, 52px));
+        }
         .results-page .bslib-sidebar-layout {
           flex: 1 1 auto;
           min-height: 0;
+          height: 100%;
           border: none;
+          gap: 12px;
+          padding: 12px;
+          --_padding: 0px;
+          --_padding-icon: 0px;
+          --_vert-border: none;
+          --_sidebar-bg: transparent;
+          --_main-bg: transparent;
         }
+        .results-page .bslib-sidebar-layout > .collapse-toggle {
+          display: none !important;
+        }
+        .results-page .bslib-sidebar-layout > .sidebar,
         .results-page .bslib-sidebar-layout > .main {
           display: flex;
           flex-direction: column;
-          flex: 1 1 auto;
           min-height: 0;
+          border: 1px solid var(--oq-border);
+          border-radius: var(--oq-radius-md, 8px);
+          box-shadow: var(--oq-shadow-xs);
+          overflow: hidden;
+          background: var(--oq-surface);
+        }
+        .results-page .bslib-sidebar-layout > .main {
+          padding: 0;
         }
         .results-page .bslib-sidebar-layout > .main > .card,
         .results-page .bslib-sidebar-layout > .main > .shiny-panel-conditional,
@@ -1625,6 +1884,7 @@ run_model_editor <- function(path = NULL, options = list()) {
         }
         .results-analysis-sidebar {
           overflow: hidden !important;
+          background: var(--oq-surface);
         }
         .results-analysis-sidebar > .sidebar-content {
           display: flex;
@@ -1632,11 +1892,13 @@ run_model_editor <- function(path = NULL, options = list()) {
           height: 100%;
           min-height: 0;
           overflow: hidden;
+          padding: 0;
+          gap: 0;
         }
         .results-sidebar-shell {
           display: flex;
           flex-direction: column;
-          gap: 12px;
+          gap: 0;
           flex: 1 1 auto;
           min-height: 0;
         }
@@ -1651,23 +1913,75 @@ run_model_editor <- function(path = NULL, options = list()) {
         .results-sidebar-tabs > .card {
           margin-bottom: 0;
           overflow: visible;
+          border: none;
+          border-radius: 0;
+          box-shadow: none;
+        }
+        .results-sidebar-tabs > .card > .card-header {
+          background: transparent;
+          border: none;
+          border-bottom: 1px solid var(--oq-border);
+          padding: 0 16px;
+          min-height: 40px;
+        }
+        .results-sidebar-tabs > .card > .card-header .nav {
+          display: flex;
+          align-items: stretch;
+          margin-bottom: -1px;
+        }
+        .results-sidebar-tabs > .card > .card-header .nav-link {
+          display: flex;
+          align-items: center;
+          padding: 10px 14px;
+          font-size: 0.8125rem;
+          font-weight: 500;
+          color: #6b7280;
+          border: none;
+          background: transparent;
+          position: relative;
+          transition: color var(--oq-transition);
+        }
+        .results-sidebar-tabs > .card > .card-header .nav-link:hover {
+          color: var(--oq-text);
+        }
+        .results-sidebar-tabs > .card > .card-header .nav-link.active {
+          color: var(--oq-primary);
+          background: transparent;
+          border: none;
+        }
+        .results-sidebar-tabs > .card > .card-header .nav-link.active::after {
+          content: '';
+          position: absolute;
+          bottom: -1px;
+          left: 8px;
+          right: 8px;
+          height: 2px;
+          background: var(--oq-primary);
         }
         .results-sidebar-tabs > .card > .tab-content {
           overflow: hidden;
+          position: relative;
         }
-        .results-sidebar-tabs > .card > .tab-content > .tab-pane.active {
-          display: flex;
+        .results-sidebar-tabs > .card > .tab-content > .tab-pane {
+          display: flex !important;
           flex: 1 1 auto;
           flex-direction: column;
           min-height: 0;
+        }
+        .results-sidebar-tabs > .card > .tab-content > .tab-pane:not(.active) {
+          position: absolute;
+          width: 0;
+          height: 0;
+          overflow: hidden;
+          opacity: 0;
+          pointer-events: none;
         }
         .results-sidebar-tabs > .card > .tab-content > .tab-pane.active > .card-body {
           display: flex;
           flex: 1 1 auto;
           flex-direction: column;
           min-height: 0;
-          padding-top: 0;
-          padding-bottom: 0;
+          padding: 0;
         }
         .results-sidebar-panel-scroll {
           display: flex;
@@ -1676,8 +1990,7 @@ run_model_editor <- function(path = NULL, options = list()) {
           min-height: 0;
           overflow-y: auto;
           overflow-x: visible;
-          padding-top: 12px;
-          padding-bottom: 12px;
+          padding: 12px 16px;
         }
         .results-sidebar-controls {
           display: flex;
@@ -1691,14 +2004,18 @@ run_model_editor <- function(path = NULL, options = list()) {
         }
         .results-sidebar-footer {
           flex: 0 0 auto;
-          background: var(--bs-body-bg, #fff);
-          border-top: 1px solid var(--bs-border-color, #dee2e6);
-          padding-top: 12px;
-          margin-top: auto;
+          background: var(--oq-surface);
+          border-top: 1px solid var(--oq-border);
+          padding: 12px 16px;
         }
         .results-sidebar-footer .shiny-input-container,
         .results-sidebar-footer .form-group {
-          margin-bottom: 12px;
+          margin-bottom: 10px;
+          font-size: 0.8125rem;
+          color: var(--oq-text-secondary);
+        }
+        .results-sidebar-footer input[type='checkbox'] {
+          accent-color: var(--oq-primary);
         }
         .results-sidebar-footer .shiny-input-container:last-child,
         .results-sidebar-footer .form-group:last-child {
@@ -1706,6 +2023,21 @@ run_model_editor <- function(path = NULL, options = list()) {
         }
         .results-sidebar-footer .btn {
           width: 100%;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 6px;
+          padding: 9px 16px;
+          font-size: 0.8125rem;
+          font-weight: 600;
+          background: var(--oq-primary);
+          border: none;
+          border-radius: 6px;
+          color: var(--oq-text-inverse);
+          transition: background 0.15s ease;
+        }
+        .results-sidebar-footer .btn:hover {
+          background: var(--oq-primary-hover);
         }
         .results-footer-grid {
           display: grid;
@@ -1715,6 +2047,146 @@ run_model_editor <- function(path = NULL, options = list()) {
         .results-footer-grid .shiny-input-container,
         .results-footer-grid .form-group {
           margin-bottom: 0;
+        }
+        /* -- Empty state placeholders -- */
+        .empty-state-placeholder {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+          padding: var(--oq-sp-8) var(--oq-sp-4);
+          min-height: 120px;
+          text-align: center;
+          gap: var(--oq-sp-2);
+        }
+        .empty-state-icon {
+          font-size: 1.75rem;
+          color: var(--oq-text-tertiary);
+          opacity: 0.6;
+        }
+        .empty-state-title {
+          font-size: var(--oq-text-sm);
+          color: var(--oq-text-secondary);
+        }
+        .empty-state-subtitle {
+          font-size: var(--oq-text-xs);
+          color: var(--oq-text-tertiary);
+        }
+        /* -- Underline tab bar overrides (issue 08) -- */
+        .nav-underline {
+          border-bottom: 1px solid var(--oq-border);
+          overflow-x: auto;
+          scrollbar-width: none;
+          flex-shrink: 0;
+        }
+        .nav-underline::-webkit-scrollbar {
+          display: none;
+        }
+        .nav-underline .nav-item {
+          display: flex;
+          align-items: stretch;
+          margin-bottom: -1px;
+        }
+        .nav-underline .nav-link {
+          display: flex;
+          align-items: center;
+          padding: 10px 16px;
+          font-size: 0.8125rem;
+          font-weight: 500;
+          color: #6b7280;
+          border: none;
+          background: transparent;
+          position: relative;
+          transition: color var(--oq-transition);
+        }
+        .nav-underline .nav-link:hover {
+          color: var(--oq-text);
+        }
+        .nav-underline .nav-link.active {
+          color: var(--oq-primary);
+          background: transparent;
+          border: none;
+        }
+        .nav-underline .nav-link.active::after {
+          content: '';
+          position: absolute;
+          bottom: -1px;
+          left: 8px;
+          right: 8px;
+          height: 2px;
+          background: var(--oq-primary);
+        }
+        /* -- Handsontable styling (issue 20) -- */
+        .tables-editor .handsontable th {
+          background: #f0f2f5;
+          font-size: 0.75rem;
+          font-weight: 600;
+          color: #6b7280;
+          text-align: center;
+        }
+        .tables-editor .handsontable td {
+          font-size: 0.8125rem;
+          padding: 5px 10px;
+        }
+        .tables-editor .handsontable td,
+        .tables-editor .handsontable th {
+          border-color: #edf0f3;
+        }
+        .tables-editor .handsontable tbody tr:first-child td {
+          font-weight: 700;
+        }
+        /* -- Results page tab bar overrides (issue 40) -- */
+        .results-page .bslib-sidebar-layout > .main > .card,
+        .results-page .bslib-sidebar-layout > .main > .shiny-panel-conditional > .card {
+          border: none;
+          border-radius: 0;
+          box-shadow: none;
+          overflow: hidden;
+          flex: 1 1 auto;
+        }
+        .results-page .card > .card-header {
+          border: none;
+          border-bottom: 1px solid var(--oq-border);
+          border-radius: 0;
+          padding: 0 16px;
+          background: var(--oq-surface);
+        }
+        .results-page .card > .card-header .nav {
+          display: flex;
+          align-items: stretch;
+          margin-bottom: -1px;
+        }
+        .results-page .card > .card-header .nav-link {
+          display: flex;
+          align-items: center;
+          padding: 10px 14px;
+          font-size: 0.8125rem;
+          font-weight: 500;
+          color: #6b7280;
+          border: none;
+          background: transparent;
+          position: relative;
+          transition: color var(--oq-transition);
+        }
+        .results-page .card > .card-header .nav-link:hover {
+          color: var(--oq-text);
+        }
+        .results-page .card > .card-header .nav-link.active {
+          color: var(--oq-primary);
+          background: transparent;
+          border: none;
+        }
+        .results-page .card > .card-header .nav-link.active::after {
+          content: '';
+          position: absolute;
+          bottom: -1px;
+          left: 8px;
+          right: 8px;
+          height: 2px;
+          background: var(--oq-primary);
+        }
+        .results-page .card > .tab-content {
+          border: none;
         }
         .selectize-dropdown,
         .selectize-dropdown.form-control,
@@ -1888,7 +2360,7 @@ run_model_editor <- function(path = NULL, options = list()) {
               class = "dropdown-item app-page-link active",
               `data-page` = "documentation",
               onclick = "switchAppPage('documentation')",
-              "Documentation"
+              shiny::icon("file-lines"), "Documentation"
             )
           ),
           tags$li(
@@ -1896,7 +2368,7 @@ run_model_editor <- function(path = NULL, options = list()) {
               class = "dropdown-item app-page-link",
               `data-page` = "editor",
               onclick = "switchAppPage('editor')",
-              "Model Inputs"
+              shiny::icon("sliders"), "Model Inputs"
             )
           ),
           tags$li(
@@ -1904,7 +2376,7 @@ run_model_editor <- function(path = NULL, options = list()) {
               class = "dropdown-item app-page-link",
               `data-page` = "results",
               onclick = "switchAppPage('results')",
-              "Base Case"
+              shiny::icon("play"), "Base Case"
             )
           ),
           tags$li(
@@ -1912,7 +2384,7 @@ run_model_editor <- function(path = NULL, options = list()) {
               class = "dropdown-item app-page-link",
               `data-page` = "vbp",
               onclick = "switchAppPage('vbp')",
-              "VBP"
+              shiny::icon("dollar-sign"), "VBP"
             )
           ),
           tags$li(
@@ -1920,7 +2392,7 @@ run_model_editor <- function(path = NULL, options = list()) {
               class = "dropdown-item app-page-link",
               `data-page` = "dsa",
               onclick = "switchAppPage('dsa')",
-              "DSA"
+              shiny::icon("chart-bar"), "DSA"
             )
           ),
           tags$li(
@@ -1928,7 +2400,7 @@ run_model_editor <- function(path = NULL, options = list()) {
               class = "dropdown-item app-page-link",
               `data-page` = "scenario",
               onclick = "switchAppPage('scenario')",
-              "Scenario Analysis"
+              shiny::icon("layer-group"), "Scenario Analysis"
             )
           ),
           tags$li(
@@ -1936,7 +2408,7 @@ run_model_editor <- function(path = NULL, options = list()) {
               class = "dropdown-item app-page-link",
               `data-page` = "twsa",
               onclick = "switchAppPage('twsa')",
-              "TWSA"
+              shiny::icon("grip"), "TWSA"
             )
           ),
           tags$li(
@@ -1944,7 +2416,7 @@ run_model_editor <- function(path = NULL, options = list()) {
               class = "dropdown-item app-page-link",
               `data-page` = "threshold",
               onclick = "switchAppPage('threshold')",
-              "Threshold"
+              shiny::icon("bullseye"), "Threshold"
             )
           ),
           tags$li(
@@ -1952,12 +2424,14 @@ run_model_editor <- function(path = NULL, options = list()) {
               class = "dropdown-item app-page-link",
               `data-page` = "psa",
               onclick = "switchAppPage('psa')",
-              "PSA"
+              shiny::icon("chart-area"), "PSA"
             )
           )
         )
       ),
+      tags$div(class = "app-bar-logo", "Q"),
       tags$span(class = "app-bar-title", shiny::textOutput("editor_title", inline = TRUE)),
+      tags$div(class = "app-bar-sep"),
       tags$div(
         class = "dropdown",
         tags$button(
@@ -1972,7 +2446,7 @@ run_model_editor <- function(path = NULL, options = list()) {
           tags$li(
             shinyFiles::shinyFilesButton(
               "open_file",
-              "Open",
+              tagList(shiny::icon("folder-open"), "Open"),
               "Select a model file",
               multiple = FALSE,
               class = "dropdown-item",
@@ -1984,10 +2458,12 @@ run_model_editor <- function(path = NULL, options = list()) {
             tags$button(
               class = "dropdown-item", type = "button",
               onclick = "Shiny.setInputValue('save_file', Math.random(), {priority: 'event'});",
-              "Save")
+              shiny::icon("floppy-disk"), "Save")
           ),
           tags$li(
-            shinyFiles::shinySaveButton("save_as_file", "Save As...", "Save model as...",
+            shinyFiles::shinySaveButton("save_as_file",
+              tagList(shiny::icon("file-export"), "Save As..."),
+              "Save model as...",
               filetype = list(JSON = "json", YAML = c("yaml", "yml")),
               class = "dropdown-item",
               style = "background: none; border: none; width: 100%; text-align: left; color: inherit;")
@@ -1997,7 +2473,7 @@ run_model_editor <- function(path = NULL, options = list()) {
             tags$button(
               class = "dropdown-item", type = "button",
               onclick = "Shiny.setInputValue('version_history', Math.random(), {priority: 'event'});",
-              "Version History...")
+              shiny::icon("clock-rotate-left"), "Version History...")
           )
         )
       ),
@@ -2017,7 +2493,7 @@ run_model_editor <- function(path = NULL, options = list()) {
               class = "dropdown-item",
               type = "button",
               onclick = "Shiny.setInputValue('show_diff_modal', Math.random(), {priority: 'event'})",
-              "Model Diff"
+              shiny::icon("code-compare"), "Model Diff"
             )
           )
         )
@@ -2160,6 +2636,14 @@ run_model_editor <- function(path = NULL, options = list()) {
               shiny::conditionalPanel(
                 condition = "output.has_editor_results && input.results_tabs == 'transitions'",
                 transitionHeatmapSidebarUI("editor_transitions")
+              ),
+              shiny::conditionalPanel(
+                condition = "!output.has_editor_results",
+                empty_state(
+                  icon = "\u2699",
+                  title = "No visualization controls",
+                  subtitle = "Run the model to configure visualizations"
+                )
               )
             ),
             overrides_output_id = "results_sidebar_overrides",
@@ -2179,8 +2663,13 @@ run_model_editor <- function(path = NULL, options = list()) {
           shiny::conditionalPanel(
             condition = "!output.has_editor_results",
             tags$div(
-              id = "editor_no_results_msg", class = "text-muted p-3",
-              "Run the model to see results."
+              id = "editor_no_results_msg",
+              style = "display:flex; align-items:center; justify-content:center; height:100%;",
+              empty_state(
+                icon = "\u25B6",
+                title = "Run the model to see results",
+                subtitle = "Results will appear here once the model has been executed"
+              )
             )
           ),
           shiny::conditionalPanel(
@@ -2216,7 +2705,14 @@ run_model_editor <- function(path = NULL, options = list()) {
               tab_value_panel("dsa_tabs", "costs", dsaResultTabSidebarUI("editor_dsa_costs")),
               tab_value_panel("dsa_tabs", "nmb", dsaResultTabSidebarUI("editor_dsa_nmb")),
               tab_value_panel("dsa_tabs", "ce", dsaResultTabSidebarUI("editor_dsa_ce")),
-              tab_value_panel("dsa_tabs", "vbp", dsaResultTabSidebarUI("editor_dsa_vbp"))
+              tab_value_panel("dsa_tabs", "vbp", dsaResultTabSidebarUI("editor_dsa_vbp")),
+              tab_value_panel("dsa_tabs", "inputs",
+                empty_state(
+                  icon = "\u2699",
+                  title = "No visualization controls",
+                  subtitle = "Select a result tab to configure visualizations"
+                )
+              )
             ),
             overrides_output_id = "dsa_sidebar_overrides",
             footer_content = shiny::actionButton(
@@ -2247,7 +2743,14 @@ run_model_editor <- function(path = NULL, options = list()) {
           sidebar = analysis_sidebar(
             sidebar_id = "vbp_sidebar",
             visualization_content = shiny::tagList(
-              tab_value_panel("vbp_tabs", "results", vbpResultsSidebarUI("editor_vbp"))
+              tab_value_panel("vbp_tabs", "results", vbpResultsSidebarUI("editor_vbp")),
+              tab_value_panel("vbp_tabs", "inputs",
+                empty_state(
+                  icon = "\u2699",
+                  title = "No visualization controls",
+                  subtitle = "Select a result tab to configure visualizations"
+                )
+              )
             ),
             overrides_output_id = "vbp_sidebar_overrides",
             footer_content = shiny::actionButton(
@@ -2278,7 +2781,14 @@ run_model_editor <- function(path = NULL, options = list()) {
               tab_value_panel("scenario_tabs", "costs", scenarioResultTabSidebarUI("editor_scenario_costs")),
               tab_value_panel("scenario_tabs", "nmb", scenarioResultTabSidebarUI("editor_scenario_nmb")),
               tab_value_panel("scenario_tabs", "ce", scenarioResultTabSidebarUI("editor_scenario_ce")),
-              tab_value_panel("scenario_tabs", "vbp", scenarioResultTabSidebarUI("editor_scenario_vbp"))
+              tab_value_panel("scenario_tabs", "vbp", scenarioResultTabSidebarUI("editor_scenario_vbp")),
+              tab_value_panel("scenario_tabs", "inputs",
+                empty_state(
+                  icon = "\u2699",
+                  title = "No visualization controls",
+                  subtitle = "Select a result tab to configure visualizations"
+                )
+              )
             ),
             overrides_output_id = "scenario_sidebar_overrides",
             footer_content = shiny::actionButton(
@@ -2313,7 +2823,14 @@ run_model_editor <- function(path = NULL, options = list()) {
               tab_value_panel("twsa_tabs", "costs", twsaResultTabSidebarUI("editor_twsa_costs")),
               tab_value_panel("twsa_tabs", "nmb", twsaResultTabSidebarUI("editor_twsa_nmb")),
               tab_value_panel("twsa_tabs", "ce", twsaResultTabSidebarUI("editor_twsa_ce")),
-              tab_value_panel("twsa_tabs", "vbp", twsaResultTabSidebarUI("editor_twsa_vbp"))
+              tab_value_panel("twsa_tabs", "vbp", twsaResultTabSidebarUI("editor_twsa_vbp")),
+              tab_value_panel("twsa_tabs", "inputs",
+                empty_state(
+                  icon = "\u2699",
+                  title = "No visualization controls",
+                  subtitle = "Select a result tab to configure visualizations"
+                )
+              )
             ),
             overrides_output_id = "twsa_sidebar_overrides",
             footer_content = shiny::actionButton(
@@ -2345,7 +2862,21 @@ run_model_editor <- function(path = NULL, options = list()) {
             sidebar_id = "threshold_sidebar",
             visualization_content = shiny::tagList(
               tab_value_panel("threshold_tabs", "detail", thresholdResultTabSidebarUI("editor_threshold_detail")),
-              tab_value_panel("threshold_tabs", "convergence", thresholdResultTabSidebarUI("editor_threshold_convergence"))
+              tab_value_panel("threshold_tabs", "convergence", thresholdResultTabSidebarUI("editor_threshold_convergence")),
+              tab_value_panel("threshold_tabs", "inputs",
+                empty_state(
+                  icon = "\u2699",
+                  title = "No visualization controls",
+                  subtitle = "Select a result tab to configure visualizations"
+                )
+              ),
+              tab_value_panel("threshold_tabs", "summary",
+                empty_state(
+                  icon = "\u2699",
+                  title = "No visualization controls",
+                  subtitle = "Select a result tab to configure visualizations"
+                )
+              )
             ),
             overrides_output_id = "threshold_sidebar_overrides",
             footer_content = shiny::actionButton(
@@ -2380,7 +2911,21 @@ run_model_editor <- function(path = NULL, options = list()) {
               tab_value_panel("psa_tabs", "incremental_ce", psaResultTabSidebarUI("editor_psa_incremental_ce")),
               tab_value_panel("psa_tabs", "pairwise_ce", psaResultTabSidebarUI("editor_psa_pairwise_ce")),
               tab_value_panel("psa_tabs", "evpi", psaResultTabSidebarUI("editor_psa_evpi")),
-              tab_value_panel("psa_tabs", "parameters", psaResultTabSidebarUI("editor_psa_parameters"))
+              tab_value_panel("psa_tabs", "parameters", psaResultTabSidebarUI("editor_psa_parameters")),
+              tab_value_panel("psa_tabs", "univariate_sampling",
+                empty_state(
+                  icon = "\u2699",
+                  title = "No visualization controls",
+                  subtitle = "Select a result tab to configure visualizations"
+                )
+              ),
+              tab_value_panel("psa_tabs", "multivariate_sampling",
+                empty_state(
+                  icon = "\u2699",
+                  title = "No visualization controls",
+                  subtitle = "Select a result tab to configure visualizations"
+                )
+              )
             ),
             overrides_output_id = "psa_sidebar_overrides",
             footer_content = shiny::uiOutput("psa_footer_controls")
@@ -2671,16 +3216,21 @@ run_model_editor <- function(path = NULL, options = list()) {
         tags$style(shiny::HTML("
           .modal-body { display: flex; flex-direction: column; }
           .version-history-layout { flex: 1; min-height: 0; display: flex; gap: 16px; }
-          .version-list { min-width: 200px; overflow-y: auto;
-            border-right: 1px solid #dee2e6; padding-right: 12px; }
+          .version-list { min-width: 220px; max-width: 260px; overflow-y: auto;
+            border-right: 1px solid var(--oq-border); padding-right: 12px; }
           .version-diff-pane { flex: 1; min-width: 0; min-height: 0; overflow-y: auto;
             display: flex; flex-direction: column; }
+          .version-diff-pane select { font-family: var(--oq-font); font-size: var(--oq-text-sm);
+            border: 1px solid var(--oq-border); border-radius: var(--oq-radius-sm); padding: 4px 8px; }
+          .version-diff-pane .diff-container { border: 1px solid var(--oq-border);
+            border-radius: var(--oq-radius); font-family: var(--oq-font-mono);
+            font-size: var(--oq-text-xs); }
           .version-item { padding: 8px 12px; cursor: pointer; border-radius: 4px; margin-bottom: 4px; }
-          .version-item:hover { background: #f0f0f0; }
-          .version-item-active { background: #e7f1ff; border-left: 3px solid #0d6efd; }
-          .version-timestamp { font-weight: 500; font-size: 0.9em; }
-          .version-relative { color: #6c757d; font-size: 0.8em; }
-          .version-message { font-size: 0.85em; color: #495057; margin-top: 2px;
+          .version-item:hover { background: var(--oq-surface-hover); }
+          .version-item-active { background: var(--oq-primary-light); border-left: 3px solid var(--oq-primary); }
+          .version-timestamp { font-weight: 500; font-size: var(--oq-text-sm); color: var(--oq-text); }
+          .version-relative { color: var(--oq-text-tertiary); font-size: var(--oq-text-xs); }
+          .version-message { font-size: var(--oq-text-xs); color: var(--oq-text-secondary); margin-top: 2px;
             white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 180px; }
         ")),
         tags$div(
@@ -3276,7 +3826,9 @@ run_model_editor <- function(path = NULL, options = list()) {
         } else if (action$type %in% c("add_variable", "add_state", "add_transition",
                                         "force_remove_state", "remove_transition",
                                         "add_summary", "edit_summary",
-                                        "force_remove_summary")) {
+                                        "force_remove_summary",
+                                        "add_tree_node", "remove_tree_node",
+                                        "remove_variable")) {
           file_load_counter(file_load_counter() + 1L)
         }
       }, error = function(e) {
@@ -3323,7 +3875,7 @@ run_model_editor <- function(path = NULL, options = list()) {
             cur.banner = "Current"
           )
           shiny::tags$div(
-            style = "max-height: 70vh; overflow: auto;",
+            style = "max-height: 500px; overflow: auto;",
             shiny::HTML(as.character(diff_result))
           )
         }
@@ -5602,142 +6154,265 @@ run_model_editor <- function(path = NULL, options = list()) {
       m <- model()
       shiny::req(m)
       s <- openqaly::get_settings(m)
+      model_type <- openqaly::get_model_type(m)
+
+      model_type_labels <- c(markov = "Markov", psm = "PSM", custom_psm = "Custom PSM", decision_tree = "Decision Tree")
+
+      # Helper: info icon with popover text
+      info_icon <- function(text) {
+        tags$button(class = "info-trigger",
+          shiny::icon("circle-info"),
+          tags$span(class = "info-popover", text)
+        )
+      }
+
+      country_choices <- c(
+        "United States (US)" = "US", "United Kingdom (GB)" = "GB",
+        "Canada (CA)" = "CA", "India (IN)" = "IN",
+        "Germany (DE)" = "DE", "Switzerland (CH)" = "CH",
+        "France (FR)" = "FR", "Italy (IT)" = "IT",
+        "Spain (ES)" = "ES", "Mexico (MX)" = "MX",
+        "Netherlands (NL)" = "NL", "Norway (NO)" = "NO",
+        "Sweden (SE)" = "SE", "Denmark (DK)" = "DK",
+        "Finland (FI)" = "FI", "Japan (JP)" = "JP",
+        "China (CN)" = "CN", "South Korea (KR)" = "KR",
+        "Brazil (BR)" = "BR", "Poland (PL)" = "PL",
+        "Czech Republic (CZ)" = "CZ", "Hungary (HU)" = "HU",
+        "Russia (RU)" = "RU", "Ukraine (UA)" = "UA",
+        "Israel (IL)" = "IL"
+      )
 
       tags$div(
-        class = "settings-form",
-        style = "overflow-y: auto; height: 100%; padding: 1px;",
-        bslib::card(
-          bslib::card_header("Model Settings"),
-          bslib::card_body(
-            shiny::textInput("setting_model_type", "Model Type",
-                             value = {
-                               model_type_labels <- c(markov = "Markov", psm = "PSM", custom_psm = "Custom PSM", decision_tree = "Decision Tree")
-                               mt <- openqaly::get_model_type(m)
-                               model_type_labels[mt] %||% mt
-                             }),
-            tags$script(shiny::HTML(
-              "document.getElementById('setting_model_type').setAttribute('disabled', 'disabled');"
-            )),
-            bslib::layout_columns(
-              col_widths = c(6, 6),
-              shiny::numericInput("setting_timeframe", "Timeframe",
-                                  value = s$timeframe %||% 10, min = 1),
-              shiny::selectInput("setting_timeframe_unit", "Timeframe Unit",
-                                  choices = c("Years" = "years", "Months" = "months", "Weeks" = "weeks", "Days" = "days", "Cycles" = "cycles"),
-                                  selected = s$timeframe_unit %||% "years")
+        class = "settings-scroll",
+        style = "height: 100%;",
+        tags$div(
+          class = "settings-container",
+
+          # ── Model section ──
+          tags$div(class = "settings-section-header", "Model"),
+          tags$div(class = "settings-grid",
+            tags$div(
+              tags$div(class = "label-row",
+                tags$label(class = "control-label", "Model Type"),
+                info_icon("The model structure. Set at creation and cannot be changed.")
+              ),
+              shiny::textInput("setting_model_type", label = NULL,
+                               value = model_type_labels[model_type] %||% model_type)
             ),
-            bslib::layout_columns(
-              col_widths = c(6, 6),
-              shiny::numericInput("setting_cycle_length", "Cycle Length",
-                                  value = s$cycle_length %||% 1, min = 0, step = 0.1),
-              shiny::selectInput("setting_cycle_length_unit", "Cycle Length Unit",
-                                  choices = c("Years" = "years", "Months" = "months", "Weeks" = "weeks", "Days" = "days"),
-                                  selected = s$cycle_length_unit %||% "years")
+            if (model_type != "decision_tree") {
+              tags$div(
+                tags$div(class = "label-row",
+                  tags$label(class = "control-label", "Half-Cycle Method"),
+                  info_icon("Half-cycle correction for value calculations. Start uses state occupancy at the beginning of each cycle, End uses occupancy at the end of each cycle, and Life-Table averages the two.")
+                ),
+                shiny::selectInput("setting_half_cycle_method", label = NULL,
+                                    choices = c("Start" = "start", "End" = "end", "Life-Table" = "life-table"),
+                                    selected = s$half_cycle_method %||% "start")
+              )
+            }
+          ),
+          tags$script(shiny::HTML(
+            "document.getElementById('setting_model_type').setAttribute('disabled', 'disabled');"
+          )),
+
+          # ── Time & Cycles section (hidden for decision_tree) ──
+          if (model_type != "decision_tree") {
+            tagList(
+              tags$div(class = "settings-section-header", "Time & Cycles"),
+              tags$div(class = "settings-grid",
+                tags$div(
+                  tags$div(class = "label-row",
+                    tags$label(class = "control-label", "Timeframe"),
+                    info_icon("Total time horizon for the model simulation.")
+                  ),
+                  shiny::numericInput("setting_timeframe", label = NULL,
+                                      value = s$timeframe %||% 10, min = 1)
+                ),
+                tags$div(
+                  tags$div(class = "label-row",
+                    tags$label(class = "control-label", "Timeframe Unit"),
+                    info_icon("Unit for the time horizon. \"Cycles\" expresses the timeframe directly in model cycles.")
+                  ),
+                  shiny::selectInput("setting_timeframe_unit", label = NULL,
+                                      choices = c("Years" = "years", "Months" = "months", "Weeks" = "weeks", "Days" = "days", "Cycles" = "cycles"),
+                                      selected = s$timeframe_unit %||% "years")
+                ),
+                tags$div(
+                  tags$div(class = "label-row",
+                    tags$label(class = "control-label", "Days Per Year"),
+                    info_icon("Number of days per year used when converting between time units. Use 365.25 to account for leap years.")
+                  ),
+                  shiny::numericInput("setting_days_per_year", label = NULL,
+                                      value = s$days_per_year %||% 365.25, min = 1)
+                ),
+                tags$div(
+                  tags$div(class = "label-row",
+                    tags$label(class = "control-label", "Cycle Length"),
+                    info_icon("Duration of each model cycle. Shorter cycles give more precision but increase run time.")
+                  ),
+                  shiny::numericInput("setting_cycle_length", label = NULL,
+                                      value = s$cycle_length %||% 1, min = 0, step = 0.1)
+                ),
+                tags$div(
+                  tags$div(class = "label-row",
+                    tags$label(class = "control-label", "Cycle Length Unit"),
+                    info_icon("Unit for the cycle length.")
+                  ),
+                  shiny::selectInput("setting_cycle_length_unit", label = NULL,
+                                      choices = c("Years" = "years", "Months" = "months", "Weeks" = "weeks", "Days" = "days"),
+                                      selected = s$cycle_length_unit %||% "years")
+                ),
+                if (model_type == "markov") {
+                  tags$div(class = "field-checkbox",
+                    shiny::checkboxInput("setting_reduce_state_cycle", "Reduce State Cycle",
+                                          value = s$reduce_state_cycle %||% FALSE),
+                    info_icon("Optimizes tunnel states by detecting where transitions and values stop changing with time in state, reducing the number of tunnel states needed.")
+                  )
+                }
+              )
+            )
+          },
+
+          # ── Discounting section ──
+          tags$div(class = "settings-section-header", "Discounting"),
+          tags$div(class = "settings-grid",
+            tags$div(
+              tags$div(class = "label-row",
+                tags$label(class = "control-label", "Costs (%)"),
+                info_icon("Annual discount rate applied to future costs, as a percentage.")
+              ),
+              shiny::numericInput("setting_discount_cost", label = NULL,
+                                  value = s$discount_cost %||% 0, min = 0, max = 100, step = 0.5)
             ),
-            bslib::layout_columns(
-              col_widths = c(6, 6),
-              shiny::numericInput("setting_discount_cost", "Discount Rate - Costs (%)",
-                                  value = s$discount_cost %||% 0, min = 0, max = 100, step = 0.5),
-              shiny::numericInput("setting_discount_outcomes", "Discount Rate - Outcomes (%)",
+            tags$div(
+              tags$div(class = "label-row",
+                tags$label(class = "control-label", "Outcomes (%)"),
+                info_icon("Annual discount rate applied to future health outcomes (e.g. QALYs, life years), as a percentage.")
+              ),
+              shiny::numericInput("setting_discount_outcomes", label = NULL,
                                   value = s$discount_outcomes %||% 0, min = 0, max = 100, step = 0.5)
+            )
+          ),
+
+          # ── Locale section ──
+          tags$div(class = "settings-section-header", "Locale"),
+          tags$div(class = "settings-grid",
+            tags$div(
+              tags$div(class = "label-row",
+                tags$label(class = "control-label", "Country"),
+                info_icon("Sets the currency symbol and default number formatting used in results.")
+              ),
+              shiny::selectInput("setting_country", label = NULL,
+                                  choices = country_choices,
+                                  selected = s$country %||% "US")
             ),
-            shiny::selectInput("setting_half_cycle_method", "Half-Cycle Method",
-                                choices = c("Start" = "start", "End" = "end", "Life-Table" = "life-table"),
-                                selected = s$half_cycle_method %||% "start"),
-            shiny::numericInput("setting_days_per_year", "Days Per Year",
-                                value = s$days_per_year %||% 365.25, min = 1),
-            shiny::checkboxInput("setting_reduce_state_cycle", "Reduce State Cycle",
-                                  value = s$reduce_state_cycle %||% FALSE),
-            bslib::layout_columns(
-              col_widths = c(6, 6),
-              shiny::selectInput("setting_country", "Country",
-                                  choices = c(
-                                    "United States (US)" = "US",
-                                    "United Kingdom (GB)" = "GB",
-                                    "Canada (CA)" = "CA",
-                                    "India (IN)" = "IN",
-                                    "Germany (DE)" = "DE",
-                                    "Switzerland (CH)" = "CH",
-                                    "France (FR)" = "FR",
-                                    "Italy (IT)" = "IT",
-                                    "Spain (ES)" = "ES",
-                                    "Mexico (MX)" = "MX",
-                                    "Netherlands (NL)" = "NL",
-                                    "Norway (NO)" = "NO",
-                                    "Sweden (SE)" = "SE",
-                                    "Denmark (DK)" = "DK",
-                                    "Finland (FI)" = "FI",
-                                    "Japan (JP)" = "JP",
-                                    "China (CN)" = "CN",
-                                    "South Korea (KR)" = "KR",
-                                    "Brazil (BR)" = "BR",
-                                    "Poland (PL)" = "PL",
-                                    "Czech Republic (CZ)" = "CZ",
-                                    "Hungary (HU)" = "HU",
-                                    "Russia (RU)" = "RU",
-                                    "Ukraine (UA)" = "UA",
-                                    "Israel (IL)" = "IL"
-                                  ),
-                                  selected = s$country %||% "US"),
-              shiny::selectInput("setting_number_country", "Number Country",
-                                  choices = c(
-                                    "Same as Country" = "",
-                                    "United States (US)" = "US",
-                                    "United Kingdom (GB)" = "GB",
-                                    "Canada (CA)" = "CA",
-                                    "India (IN)" = "IN",
-                                    "Germany (DE)" = "DE",
-                                    "Switzerland (CH)" = "CH",
-                                    "France (FR)" = "FR",
-                                    "Italy (IT)" = "IT",
-                                    "Spain (ES)" = "ES",
-                                    "Mexico (MX)" = "MX",
-                                    "Netherlands (NL)" = "NL",
-                                    "Norway (NO)" = "NO",
-                                    "Sweden (SE)" = "SE",
-                                    "Denmark (DK)" = "DK",
-                                    "Finland (FI)" = "FI",
-                                    "Japan (JP)" = "JP",
-                                    "China (CN)" = "CN",
-                                    "South Korea (KR)" = "KR",
-                                    "Brazil (BR)" = "BR",
-                                    "Poland (PL)" = "PL",
-                                    "Czech Republic (CZ)" = "CZ",
-                                    "Hungary (HU)" = "HU",
-                                    "Russia (RU)" = "RU",
-                                    "Ukraine (UA)" = "UA",
-                                    "Israel (IL)" = "IL"
-                                  ),
+            tags$div(
+              tags$div(class = "label-row",
+                tags$label(class = "control-label", "Number Country"),
+                info_icon("Overrides the decimal and thousands separators independently of the currency. Defaults to the selected country.")
+              ),
+              shiny::selectInput("setting_number_country", label = NULL,
+                                  choices = c("Same as Country" = "", country_choices),
                                   selected = s$number_country %||% "")
             )
           )
-        ),
-        if (openqaly::get_model_type(m) != "decision_tree") {
+        ), # end settings-container
+
+        # ── Decision Tree section (hidden for decision_tree model type) ──
+        if (model_type != "decision_tree") {
           tnames <- openqaly::get_tree_names(m)
           tree_choices <- stats::setNames(tnames, tnames)
           dt_config <- openqaly::get_decision_tree(m)
           current_tree <- dt_config$tree_name %||% ""
           current_duration <- dt_config$duration %||% ""
           current_unit <- dt_config$duration_unit %||% "days"
-          bslib::card(
-            bslib::card_header("Decision Tree"),
-            bslib::card_body(
-              shiny::selectInput("setting_dt_tree", "Active Tree",
-                                 choices = c("None" = "", tree_choices),
-                                 selected = current_tree),
-              bslib::layout_columns(
-                col_widths = c(6, 6),
-                shiny::textInput("setting_dt_duration", "Duration",
+          tags$div(class = "dt-card",
+            tags$div(class = "settings-section-header", style = "margin-top: 0;", "Decision Tree"),
+            tags$div(class = "settings-grid",
+              tags$div(
+                tags$div(class = "label-row",
+                  tags$label(class = "control-label", "Active Tree"),
+                  info_icon("Decision tree to run before the Markov or PSM phase. Its duration is subtracted from the total time horizon.")
+                ),
+                shiny::selectInput("setting_dt_tree", label = NULL,
+                                   choices = c("None" = "", tree_choices),
+                                   selected = current_tree)
+              ),
+              tags$div(
+                tags$div(class = "label-row",
+                  tags$label(class = "control-label", "Duration"),
+                  info_icon("Length of the decision tree phase. Can be a number or a variable name.")
+                ),
+                shiny::textInput("setting_dt_duration", label = NULL,
                                  value = current_duration,
-                                 placeholder = "e.g. 30 or variable name"),
-                shiny::selectInput("setting_dt_duration_unit", "Duration Unit",
+                                 placeholder = "e.g. 30 or variable name")
+              ),
+              tags$div(
+                tags$div(class = "label-row",
+                  tags$label(class = "control-label", "Duration Unit"),
+                  info_icon("Unit for the decision tree duration.")
+                ),
+                shiny::selectInput("setting_dt_duration_unit", label = NULL,
                                    choices = c("Days" = "days", "Weeks" = "weeks",
                                                "Months" = "months", "Years" = "years"),
                                    selected = current_unit)
               )
             )
           )
-        }
+        },
+
+        # Info popover JS
+        tags$script(shiny::HTML("
+          (function() {
+            var floating = null;
+            function show(trigger) {
+              var content = trigger.querySelector('.info-popover');
+              if (!content) return;
+              floating = document.createElement('div');
+              floating.className = 'info-popover-floating';
+              var text = document.createElement('span');
+              text.textContent = content.textContent;
+              floating.appendChild(text);
+              var arrow = document.createElement('div');
+              arrow.className = 'arrow';
+              floating.appendChild(arrow);
+              document.body.appendChild(floating);
+              position(trigger);
+            }
+            function position(trigger) {
+              if (!floating) return;
+              var rect = trigger.getBoundingClientRect();
+              var fw = floating.offsetWidth;
+              var fh = floating.offsetHeight;
+              var arrow = floating.querySelector('.arrow');
+              var pad = 8;
+              var above = rect.top - fh - 8;
+              var below = rect.bottom + 8;
+              var placeBelow = above < pad;
+              var top = placeBelow ? below : above;
+              var left = rect.left + rect.width / 2 - fw / 2;
+              left = Math.max(pad, Math.min(left, window.innerWidth - fw - pad));
+              floating.style.top = top + 'px';
+              floating.style.left = left + 'px';
+              var arrowLeft = rect.left + rect.width / 2 - left - 5;
+              arrowLeft = Math.max(12, Math.min(arrowLeft, fw - 12));
+              if (placeBelow) {
+                arrow.style.top = '-4px';
+                arrow.style.bottom = '';
+                arrow.style.left = arrowLeft + 'px';
+              } else {
+                arrow.style.bottom = '-4px';
+                arrow.style.top = '';
+                arrow.style.left = arrowLeft + 'px';
+              }
+            }
+            function hide() {
+              if (floating) { floating.remove(); floating = null; }
+            }
+            $(document).on('mouseenter', '.info-trigger', function() { show(this); });
+            $(document).on('mouseleave', '.info-trigger', hide);
+          })();
+        "))
       )
     })
 

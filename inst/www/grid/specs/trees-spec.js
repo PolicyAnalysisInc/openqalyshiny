@@ -64,15 +64,20 @@
             formatter: OQGrid.fmt.tags },
           { title: "Formula", field: "formula", widthGrow: 2, minWidth: 200,
             editor: OQGrid.editors.formula(data.terms, data.suggestions),
-            formatter: OQGrid.fmt.emdash }
+            formatter: OQGrid.fmt.formula(data.terms) }
         ];
       },
 
       addRow: {
         buttonText: "+ Add Node",
-        requireConfirm: true,
-        firstEditField: "node",
-        emptyRow: { _isNew: true, node: "", parent: "", formula: "", tags: "" },
+        emptyRow: { node: "", parent: "", formula: "0", tags: "" },
+        generateDefaults: function(row, tableData) {
+          var existing = {};
+          for (var i = 0; i < tableData.length; i++) existing[tableData[i].node] = true;
+          var n = 1;
+          while (existing["new_node_" + n]) n++;
+          row.node = "new_node_" + n;
+        },
         // Custom button placement in trees toolbar
         buttonContainer: function(containerDiv) {
           var treesEditor = containerDiv.closest(".trees-editor");
@@ -90,10 +95,6 @@
             formula: (row.formula || "").trim(),
             tags: (row.tags || "").trim()
           };
-        },
-        addValidate: function(row) {
-          if (!(row.node || "").trim()) return "Node is required.";
-          return null;
         },
         remove: function(row) {
           return {

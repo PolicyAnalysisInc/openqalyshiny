@@ -7,7 +7,6 @@
 
   OQGrid.actions.sync = {
     onCellEdited: function(controller, cell) {
-      OQGrid.relayout(controller.table);
       this.syncData(controller);
     },
 

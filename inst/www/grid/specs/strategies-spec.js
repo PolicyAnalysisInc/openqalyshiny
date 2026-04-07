@@ -40,7 +40,7 @@
               field: "var__" + data.varColumns[i].name,
               widthGrow: 1, minWidth: 450,
               editor: fEditor,
-              formatter: OQGrid.fmt.emdash
+              formatter: OQGrid.fmt.formula(data.terms)
             });
           }
         }

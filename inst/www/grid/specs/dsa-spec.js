@@ -218,7 +218,8 @@
             field: "low",
             widthGrow: 1,
             minWidth: 450,
-            editor: OQGrid.editors.formula(choices.terms, choices.suggestions)
+            editor: OQGrid.editors.formula(choices.terms, choices.suggestions),
+            formatter: OQGrid.fmt.formula(choices.terms)
           },
 
           // High column (formula editor)
@@ -227,7 +228,8 @@
             field: "high",
             widthGrow: 1,
             minWidth: 450,
-            editor: OQGrid.editors.formula(choices.terms, choices.suggestions)
+            editor: OQGrid.editors.formula(choices.terms, choices.suggestions),
+            formatter: OQGrid.fmt.formula(choices.terms)
           }
 
           // Delete column is added automatically by grid-controller

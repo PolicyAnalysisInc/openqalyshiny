@@ -32,7 +32,7 @@
             title: "Initial Probability", field: "initial_probability",
             widthGrow: 2, minWidth: 200,
             editor: OQGrid.editors.formula(data.terms, data.suggestions),
-            formatter: OQGrid.fmt.emdash
+            formatter: OQGrid.fmt.formula(data.terms)
           });
           cols.push({
             title: "State Group", field: "state_group", minWidth: 120,
@@ -48,7 +48,7 @@
           });
           cols.push({
             title: "Cycle Limit", field: "state_cycle_limit", minWidth: 100,
-            editor: "input", formatter: OQGrid.fmt.emdash
+            editor: OQGrid.editors.numeric(), formatter: OQGrid.fmt.cycleLimit
           });
           cols.push({
             title: "Cycle Limit Unit", field: "state_cycle_limit_unit", minWidth: 120,
@@ -93,10 +93,6 @@
           }
           return payload;
         },
-        addValidate: function(row) {
-          if (!(row.name || "").trim()) return "Name is required.";
-          return null;
-        },
         remove: null, // set dynamically below
         edit: function(row, field, value, oldValue) {
           var name = row.name;
@@ -115,12 +111,17 @@
           // Enable add row for markov
           controller.spec.addRow = {
             buttonText: "+ Add State",
-            requireConfirm: true,
-            firstEditField: "name",
             emptyRow: {
-              _isNew: true, name: "", display_name: "", description: "",
-              initial_probability: "", state_group: "", share_state_time: "No",
+              name: "", display_name: "", description: "",
+              initial_probability: "0", state_group: "", share_state_time: "No",
               state_cycle_limit: "", state_cycle_limit_unit: "cycles"
+            },
+            generateDefaults: function(row, tableData) {
+              var existing = {};
+              for (var i = 0; i < tableData.length; i++) existing[tableData[i].name] = true;
+              var n = 1;
+              while (existing["new_state_" + n]) n++;
+              row.name = "new_state_" + n;
             }
           };
           controller._setupAddButton();

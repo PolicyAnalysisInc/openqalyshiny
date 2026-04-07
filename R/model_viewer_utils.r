@@ -511,7 +511,7 @@ get_dsa_setting_choices <- function() {
 grid_core_dependency <- function() {
   htmltools::htmlDependency(
     name = "oq-grid-core",
-    version = "1.0.0",
+    version = "1.0.7",
     src = c(file = system.file("www/grid", package = "openqalyshiny")),
     script = c(
       # Core infrastructure (order matters)
@@ -529,6 +529,7 @@ grid_core_dependency <- function() {
       "helpers/distribution-parser.js",
       # Editors
       "editors/formula-editor.js",
+      "editors/numeric-editor.js",
       "editors/typeahead-editor.js",
       "editors/multi-tag-editor.js",
       "editors/distribution-editor.js",
@@ -558,7 +559,7 @@ grid_core_dependency <- function() {
 grid_spec_dependency <- function(spec_name) {
   htmltools::htmlDependency(
     name = paste0("oq-grid-", spec_name),
-    version = "1.0.0",
+    version = "1.0.1",
     src = c(file = system.file("www/grid/specs", package = "openqalyshiny")),
     script = paste0(spec_name, ".js"),
     all_files = FALSE

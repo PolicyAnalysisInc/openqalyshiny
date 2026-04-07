@@ -5,20 +5,22 @@
   flex-direction: column;
   position: relative;
   overflow: hidden;
-  background-color: #e9ecef;
+  background-color: var(--oq-surface-sunken);
 }
 
 /* ── Rendered View (default mode) ── */
 .doc-rendered-view {
   flex: 1 1 auto;
   overflow-y: auto;
-  padding: 16px;
+  padding: 24px 80px;
   cursor: pointer;
   transition: background-color 0.15s ease;
+  line-height: 1.7;
+  font-size: var(--oq-text-base);
 }
 
 .doc-rendered-view:hover {
-  background-color: rgba(0, 0, 0, 0.02);
+  background-color: #eceef2;
 }
 
 .doc-placeholder {
@@ -29,9 +31,9 @@
 }
 
 /* Rendered markdown styling */
-.doc-rendered-view h1 { font-size: 1.8em; margin: 0.8em 0 0.4em; font-weight: 600; border-bottom: 1px solid #eee; padding-bottom: 0.3em; }
-.doc-rendered-view h2 { font-size: 1.5em; margin: 0.7em 0 0.35em; font-weight: 600; border-bottom: 1px solid #eee; padding-bottom: 0.25em; }
-.doc-rendered-view h3 { font-size: 1.25em; margin: 0.6em 0 0.3em; font-weight: 600; }
+.doc-rendered-view h1 { font-size: 1.8em; margin: 0.8em 0 0.4em; font-weight: 700; border-bottom: 1px solid var(--oq-border-light); padding-bottom: 0.3em; }
+.doc-rendered-view h2 { font-size: 1.4em; margin: 1em 0 0.35em; font-weight: 600; border-bottom: 1px solid var(--oq-border-light); padding-bottom: 0.25em; }
+.doc-rendered-view h3 { font-size: 1.15em; margin: 0.8em 0 0.3em; font-weight: 600; }
 .doc-rendered-view h4 { font-size: 1.1em; margin: 0.5em 0 0.25em; font-weight: 600; }
 .doc-rendered-view h5,
 .doc-rendered-view h6 { font-size: 1em; margin: 0.5em 0 0.25em; font-weight: 600; }
@@ -42,25 +44,26 @@
 .doc-rendered-view li { margin: 0.2em 0; line-height: 1.6; }
 
 .doc-rendered-view blockquote {
-  border-left: 4px solid #ddd;
+  border-left: 3px solid var(--oq-primary);
   margin: 0.5em 0;
   padding: 0.5em 1em;
   color: #666;
-  background: #f9f9f9;
+  background: var(--oq-primary-bg);
+  border-radius: 0 var(--oq-radius-sm) var(--oq-radius-sm) 0;
 }
 
 .doc-rendered-view code {
-  background: #f4f4f4;
+  background: rgba(0,0,0,0.05);
   padding: 0.15em 0.4em;
   border-radius: 3px;
   font-size: 0.9em;
-  font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+  font-family: var(--oq-font-mono);
 }
 
 .doc-rendered-view pre {
-  background: #f6f8fa;
-  border: 1px solid #e1e4e8;
-  border-radius: 6px;
+  background: var(--oq-surface);
+  border: 1px solid var(--oq-border);
+  border-radius: 8px;
   padding: 12px 16px;
   overflow-x: auto;
   margin: 0.8em 0;
@@ -82,18 +85,14 @@
 
 .doc-rendered-view th,
 .doc-rendered-view td {
-  border: 1px solid #ddd;
+  border: 1px solid var(--oq-border);
   padding: 6px 12px;
   text-align: left;
 }
 
 .doc-rendered-view th {
-  background: #f6f8fa;
+  background: var(--oq-surface-sunken);
   font-weight: 600;
-}
-
-.doc-rendered-view tr:nth-child(even) {
-  background: #fafafa;
 }
 
 .doc-rendered-view img {
@@ -104,12 +103,12 @@
 
 .doc-rendered-view hr {
   border: none;
-  border-top: 1px solid #eee;
+  border-top: 1px solid var(--oq-border-light);
   margin: 1em 0;
 }
 
 .doc-rendered-view a {
-  color: #0366d6;
+  color: var(--oq-primary);
   text-decoration: none;
 }
 
@@ -136,18 +135,18 @@
   top: 8px;
   right: 16px;
   z-index: 110;
-  padding: 4px 16px;
+  padding: 5px 16px;
   font-size: 13px;
   font-weight: 500;
   color: #fff;
-  background: #0d6efd;
+  background: var(--oq-primary);
   border: none;
-  border-radius: 4px;
+  border-radius: 6px;
   cursor: pointer;
 }
 
 .doc-done-btn:hover {
-  background: #0b5ed7;
+  background: var(--oq-primary-hover);
 }
 
 .documentation-editor-container.editing .doc-done-btn {
@@ -189,14 +188,14 @@
 
 .doc-editor-view .milkdown .ProseMirror {
   min-height: 100%;
-  padding: 12px 80px;
+  padding: 24px 80px;
   outline: none;
-  background-color: #e9ecef;
+  background-color: var(--oq-surface-sunken);
 }
 
 .doc-editor-view .milkdown .ProseMirror p {
   margin: 0.5em 0;
-  line-height: 1.6;
+  line-height: 1.7;
   word-wrap: break-word;
 }
 
@@ -208,6 +207,32 @@
 /* Crepe toolbar / tooltip z-index fixes */
 .doc-editor-view .milkdown-toolbar {
   z-index: 100;
+}
+
+/* Milkdown toolbar button styling */
+.doc-editor-view .milkdown-toolbar button {
+  width: 30px;
+  height: 28px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--oq-text-secondary);
+  background: transparent;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background var(--oq-transition);
+}
+.doc-editor-view .milkdown-toolbar button:hover {
+  background: var(--oq-surface-hover);
+}
+
+/* Milkdown toolbar separators */
+.doc-editor-view .milkdown-toolbar [data-separator],
+.doc-editor-view .milkdown-toolbar .separator {
+  width: 1px;
+  height: 18px;
+  background: #edf0f3;
 }
 
 .doc-editor-view .milkdown-link-tooltip,

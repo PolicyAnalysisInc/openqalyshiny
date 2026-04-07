@@ -13,13 +13,11 @@
 
       // Skip new rows — they dispatch on confirm, not on edit
       if (data._isNew) {
-        OQGrid.relayout(controller.table);
         return;
       }
 
       // Skip no-op edits
       if (cell.getOldValue() === cell.getValue()) {
-        OQGrid.relayout(controller.table);
         return;
       }
 
@@ -29,7 +27,6 @@
         if (payload) {
           OQGrid.shiny.dispatch(controller.inputId, payload);
         }
-        OQGrid.relayout(controller.table);
         return;
       }
 
@@ -40,8 +37,6 @@
           OQGrid.shiny.dispatch(controller.inputId, payload);
         }
       }
-
-      OQGrid.relayout(controller.table);
     }
   };
 })();

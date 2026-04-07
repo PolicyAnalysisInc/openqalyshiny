@@ -41,7 +41,7 @@
             editor: "list", editorParams: { values: stateValues },
             formatter: OQGrid.fmt.emdash });
           cols.push({ title: "Formula", field: "formula", widthGrow: 2, minWidth: 450,
-            editor: fEditor, formatter: OQGrid.fmt.emdash });
+            editor: fEditor, formatter: OQGrid.fmt.formula(data.terms) });
         } else if (data.modelType === "psm") {
           cols.push({ title: "Endpoint", field: "endpoint", widthGrow: 1, minWidth: 140,
             editor: "input", formatter: OQGrid.fmt.emdash });
@@ -49,13 +49,13 @@
             editor: "list", editorParams: { values: timeUnitValues },
             formatter: OQGrid.fmt.displayMap(timeUnitMap) });
           cols.push({ title: "Formula", field: "formula", widthGrow: 2, minWidth: 450,
-            editor: fEditor, formatter: OQGrid.fmt.emdash });
+            editor: fEditor, formatter: OQGrid.fmt.formula(data.terms) });
         } else if (data.modelType === "custom_psm") {
           cols.push({ title: "State", field: "state", minWidth: 140,
             editor: "list", editorParams: { values: stateValues },
             formatter: OQGrid.fmt.emdash });
           cols.push({ title: "Formula", field: "formula", widthGrow: 2, minWidth: 450,
-            editor: fEditor, formatter: OQGrid.fmt.emdash });
+            editor: fEditor, formatter: OQGrid.fmt.formula(data.terms) });
         }
 
         return cols;
@@ -63,10 +63,8 @@
 
       addRow: {
         buttonText: "+ Add Transition",
-        requireConfirm: true,
-        firstEditField: null, // set dynamically below
         emptyRow: function(data) {
-          var row = { _isNew: true, formula: "" };
+          var row = { formula: "0" };
           if (data.modelType === "markov") {
             row.from_state = "";
             row.to_state = "";
@@ -77,15 +75,41 @@
             row.state = "";
           }
           return row;
+        },
+        generateDefaults: function(row, tableData, data) {
+          if (data.modelType === "markov") {
+            var states = data.stateNames;
+            var existing = {};
+            for (var i = 0; i < tableData.length; i++) {
+              existing[tableData[i].from_state + "\u2192" + tableData[i].to_state] = true;
+            }
+            for (var f = 0; f < states.length; f++) {
+              for (var t = 0; t < states.length; t++) {
+                if (!existing[states[f] + "\u2192" + states[t]]) {
+                  row.from_state = states[f];
+                  row.to_state = states[t];
+                  return;
+                }
+              }
+            }
+            row.from_state = states[0] || "";
+            row.to_state = states[0] || "";
+          } else if (data.modelType === "psm") {
+            var n = tableData.length + 1;
+            var names = {};
+            for (var i = 0; i < tableData.length; i++) names[tableData[i].endpoint] = true;
+            while (names["endpoint_" + n]) n++;
+            row.endpoint = "endpoint_" + n;
+          } else if (data.modelType === "custom_psm") {
+            var states = data.stateNames;
+            var used = {};
+            for (var i = 0; i < tableData.length; i++) used[tableData[i].state] = true;
+            for (var s = 0; s < states.length; s++) {
+              if (!used[states[s]]) { row.state = states[s]; return; }
+            }
+            row.state = states[0] || "";
+          }
         }
-      },
-
-      // Set firstEditField dynamically after init
-      onInit: function(controller) {
-        var mt = controller.data.modelType;
-        controller.spec.addRow.firstEditField =
-          mt === "markov" ? "from_state" :
-          mt === "psm" ? "endpoint" : "state";
       },
 
       actions: {
@@ -107,19 +131,6 @@
             payload.formula = (row.formula || "").trim();
           }
           return payload;
-        },
-        addValidate: function(row) {
-          if (row.from_state !== undefined) {
-            if (!(row.from_state || "").trim() || !(row.to_state || "").trim() || !(row.formula || "").trim())
-              return "From State, To State, and Formula are required.";
-          } else if (row.endpoint !== undefined) {
-            if (!(row.endpoint || "").trim() || !(row.formula || "").trim())
-              return "Endpoint and Formula are required.";
-          } else if (row.state !== undefined) {
-            if (!(row.state || "").trim() || !(row.formula || "").trim())
-              return "State and Formula are required.";
-          }
-          return null;
         },
         remove: function(row) {
           var payload = { type: "remove_transition" };

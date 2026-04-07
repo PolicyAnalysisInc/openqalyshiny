@@ -1,13 +1,11 @@
 /* =========================================================================
    OQGrid — Unified Styles
-   Replaces 15 per-grid CSS files with one shared stylesheet.
-   All classes use oq-grid- prefix for grid system components.
-   Grid-specific container selectors are preserved for R-side compatibility.
+   Matches design spec at .scratch/design/03-grids.html
+   Uses !important where needed to override tabulator_bootstrap5.min.css
    ========================================================================= */
 
 /* =========================================================================
-   1. GRID CONTAINERS (all grids)
-   Each container selector must match what the R code renders.
+   1. GRID CONTAINERS
    ========================================================================= */
 
 .variables-table-container,
@@ -24,52 +22,61 @@
 .psa-multivariate-container,
 .threshold-params-container,
 .twsa-params-container {
-  width: 100%;
-  margin-bottom: 0.25rem;
-  overflow-x: auto;
+  width: fit-content;
+  max-width: 100%;
   flex: 1 1 auto;
   min-height: 0;
+  border: 1px solid var(--oq-border, #e2e5ea) !important;
+  border-radius: var(--oq-radius-md, 8px) !important;
+  overflow: hidden !important;
+  font-size: var(--oq-text-sm, 0.8125rem);
+  background: var(--oq-surface, #fff) !important;
 }
 
 /* =========================================================================
-   2. TABULATOR COMPACT SIZING (all grids)
+   2. TABULATOR THEME OVERRIDES (beat Bootstrap5 theme)
    ========================================================================= */
 
-.variables-table-container .tabulator-row,
-.states-table-container .tabulator-row,
-.strategies-table-container .tabulator-row,
-.transitions-table-container .tabulator-row,
-.groups-table-container .tabulator-row,
-.summaries-table-container .tabulator-row,
-.values-table-container .tabulator-row,
-.trees-table-container .tabulator-row,
-.dsa-params-container .tabulator-row,
-.scenario-params-container .tabulator-row,
-.psa-params-container .tabulator-row,
-.psa-multivariate-container .tabulator-row,
-.threshold-params-container .tabulator-row,
-.twsa-params-container .tabulator-row {
-  min-height: 32px;
+/* --- Header --- */
+.variables-table-container .tabulator-header,
+.states-table-container .tabulator-header,
+.strategies-table-container .tabulator-header,
+.transitions-table-container .tabulator-header,
+.groups-table-container .tabulator-header,
+.summaries-table-container .tabulator-header,
+.values-table-container .tabulator-header,
+.trees-table-container .tabulator-header,
+.dsa-params-container .tabulator-header,
+.scenario-params-container .tabulator-header,
+.psa-params-container .tabulator-header,
+.psa-multivariate-container .tabulator-header,
+.threshold-params-container .tabulator-header,
+.twsa-params-container .tabulator-header {
+  background: var(--oq-surface-sunken, #f0f2f5) !important;
+  border-top: none !important;
+  border-bottom: 1px solid var(--oq-border, #e2e5ea) !important;
 }
 
-.variables-table-container .tabulator-cell,
-.states-table-container .tabulator-cell,
-.strategies-table-container .tabulator-cell,
-.transitions-table-container .tabulator-cell,
-.groups-table-container .tabulator-cell,
-.summaries-table-container .tabulator-cell,
-.values-table-container .tabulator-cell,
-.trees-table-container .tabulator-cell,
-.dsa-params-container .tabulator-cell,
-.scenario-params-container .tabulator-cell,
-.psa-params-container .tabulator-cell,
-.psa-multivariate-container .tabulator-cell,
-.threshold-params-container .tabulator-cell,
-.twsa-params-container .tabulator-cell {
-  font-size: 0.85rem;
-  padding: 0 6px;
+/* --- Header column cells --- */
+.variables-table-container .tabulator-col,
+.states-table-container .tabulator-col,
+.strategies-table-container .tabulator-col,
+.transitions-table-container .tabulator-col,
+.groups-table-container .tabulator-col,
+.summaries-table-container .tabulator-col,
+.values-table-container .tabulator-col,
+.trees-table-container .tabulator-col,
+.dsa-params-container .tabulator-col,
+.scenario-params-container .tabulator-col,
+.psa-params-container .tabulator-col,
+.psa-multivariate-container .tabulator-col,
+.threshold-params-container .tabulator-col,
+.twsa-params-container .tabulator-col {
+  background: transparent !important;
+  border-right: 1px solid var(--oq-border-light, #edf0f3) !important;
 }
 
+/* --- Header column titles --- */
 .variables-table-container .tabulator-col-title,
 .states-table-container .tabulator-col-title,
 .strategies-table-container .tabulator-col-title,
@@ -84,51 +91,164 @@
 .psa-multivariate-container .tabulator-col-title,
 .threshold-params-container .tabulator-col-title,
 .twsa-params-container .tabulator-col-title {
-  font-size: 0.85rem;
+  text-transform: uppercase;
+  font-size: var(--oq-text-xs, 0.75rem) !important;
+  font-weight: 600;
+  color: var(--oq-text-secondary, #6b7280) !important;
+  letter-spacing: 0.3px;
+}
+
+/* --- Hide sort arrows --- */
+.variables-table-container .tabulator-col-sorter,
+.states-table-container .tabulator-col-sorter,
+.strategies-table-container .tabulator-col-sorter,
+.transitions-table-container .tabulator-col-sorter,
+.groups-table-container .tabulator-col-sorter,
+.summaries-table-container .tabulator-col-sorter,
+.values-table-container .tabulator-col-sorter,
+.trees-table-container .tabulator-col-sorter,
+.dsa-params-container .tabulator-col-sorter,
+.scenario-params-container .tabulator-col-sorter,
+.psa-params-container .tabulator-col-sorter,
+.psa-multivariate-container .tabulator-col-sorter,
+.threshold-params-container .tabulator-col-sorter,
+.twsa-params-container .tabulator-col-sorter {
+  display: none !important;
+}
+
+/* --- Rows --- */
+.variables-table-container .tabulator-row,
+.states-table-container .tabulator-row,
+.strategies-table-container .tabulator-row,
+.transitions-table-container .tabulator-row,
+.groups-table-container .tabulator-row,
+.summaries-table-container .tabulator-row,
+.values-table-container .tabulator-row,
+.trees-table-container .tabulator-row,
+.dsa-params-container .tabulator-row,
+.scenario-params-container .tabulator-row,
+.psa-params-container .tabulator-row,
+.psa-multivariate-container .tabulator-row,
+.threshold-params-container .tabulator-row,
+.twsa-params-container .tabulator-row {
+  min-height: 36px;
+  background: transparent !important;
+  border-bottom: 1px solid var(--oq-border-light, #edf0f3) !important;
+  transition: background var(--oq-transition, 150ms);
+}
+
+/* --- Remove zebra striping --- */
+.variables-table-container .tabulator-row-even,
+.states-table-container .tabulator-row-even,
+.strategies-table-container .tabulator-row-even,
+.transitions-table-container .tabulator-row-even,
+.groups-table-container .tabulator-row-even,
+.summaries-table-container .tabulator-row-even,
+.values-table-container .tabulator-row-even,
+.trees-table-container .tabulator-row-even,
+.dsa-params-container .tabulator-row-even,
+.scenario-params-container .tabulator-row-even,
+.psa-params-container .tabulator-row-even,
+.psa-multivariate-container .tabulator-row-even,
+.threshold-params-container .tabulator-row-even,
+.twsa-params-container .tabulator-row-even {
+  background: transparent !important;
+}
+
+/* --- Row hover --- */
+.variables-table-container .tabulator-row:hover,
+.states-table-container .tabulator-row:hover,
+.strategies-table-container .tabulator-row:hover,
+.transitions-table-container .tabulator-row:hover,
+.groups-table-container .tabulator-row:hover,
+.summaries-table-container .tabulator-row:hover,
+.values-table-container .tabulator-row:hover,
+.trees-table-container .tabulator-row:hover,
+.dsa-params-container .tabulator-row:hover,
+.scenario-params-container .tabulator-row:hover,
+.psa-params-container .tabulator-row:hover,
+.psa-multivariate-container .tabulator-row:hover,
+.threshold-params-container .tabulator-row:hover,
+.twsa-params-container .tabulator-row:hover {
+  background: var(--oq-surface-hover, #f4f6f9) !important;
+}
+
+/* --- Cells --- */
+.variables-table-container .tabulator-cell,
+.states-table-container .tabulator-cell,
+.strategies-table-container .tabulator-cell,
+.transitions-table-container .tabulator-cell,
+.groups-table-container .tabulator-cell,
+.summaries-table-container .tabulator-cell,
+.values-table-container .tabulator-cell,
+.trees-table-container .tabulator-cell,
+.dsa-params-container .tabulator-cell,
+.scenario-params-container .tabulator-cell,
+.psa-params-container .tabulator-cell,
+.psa-multivariate-container .tabulator-cell,
+.threshold-params-container .tabulator-cell,
+.twsa-params-container .tabulator-cell {
+  font-size: var(--oq-text-sm, 0.8125rem);
+  padding: 0 12px !important;
+  background: transparent !important;
+  border-right: 1px solid var(--oq-border-light, #edf0f3) !important;
+  overflow: hidden;
+  line-height: 36px !important;
+  height: 36px !important;
+  vertical-align: middle !important;
 }
 
 /* =========================================================================
-   3. BUTTONS — Add, Delete, Confirm, Cancel
+   3. FORMULA CELL DISPLAY + SYNTAX TOKENS
    ========================================================================= */
 
-/* Delete button (×) */
+.cell-formula {
+  font-family: var(--oq-font-mono, 'JetBrains Mono', 'SF Mono', 'Fira Code', Consolas, monospace);
+  font-size: var(--oq-text-xs, 0.75rem);
+}
+
+.tok-keyword       { color: #d73a49; font-weight: 600; }
+.tok-variable      { color: #6f42c1; }
+.tok-table         { color: #005cc5; font-style: italic; }
+.tok-value         { color: #22863a; }
+.tok-script        { color: #e36209; }
+.tok-tree          { color: #b08800; font-weight: 600; }
+.tok-number        { color: #005cc5; }
+.tok-string        { color: #22863a; }
+.tok-fn            { color: #6f42c1; }
+
+/* =========================================================================
+   4. BUTTONS — Delete, Confirm, Cancel
+   (Add button uses .oq-btn .oq-btn-sm from design-tokens.css)
+   ========================================================================= */
+
+/* Delete button (x) */
 .oq-grid-delete-btn {
   border: none;
   background: none;
-  color: var(--bs-danger, #dc3545);
+  color: var(--oq-text-tertiary, #9ca3af);
   font-size: 1.1rem;
   line-height: 1;
   padding: 0.15rem 0.4rem;
   cursor: pointer;
-  opacity: 0.6;
+  opacity: 0.5;
+  transition: all var(--oq-transition, 150ms);
+}
+
+.tabulator-row:hover .oq-grid-delete-btn {
+  opacity: 0.7;
 }
 
 .oq-grid-delete-btn:hover {
   opacity: 1;
+  color: var(--oq-danger, #ef4444);
 }
 
-/* Add button */
-.oq-grid-add-btn {
-  align-self: flex-start;
-  border: 1px solid var(--bs-border-color, #dee2e6);
-  background: var(--bs-body-bg, #fff);
-  color: var(--bs-body-color, #212529);
-  font-size: 0.8rem;
-  padding: 0.25rem 0.6rem;
-  border-radius: 4px;
-  cursor: pointer;
-  margin-bottom: 0.4rem;
-}
-
-.oq-grid-add-btn:hover {
-  background: var(--bs-tertiary-bg, #f8f9fa);
-}
-
-/* Confirm button (✓) for new rows */
+/* Confirm button (check) for new rows */
 .oq-grid-confirm-btn {
   border: none;
   background: none;
-  color: var(--bs-success, #198754);
+  color: var(--oq-success, #10b981);
   font-size: 1.1rem;
   line-height: 1;
   padding: 0.15rem 0.25rem;
@@ -140,11 +260,11 @@
   opacity: 1;
 }
 
-/* Cancel button (×) for new rows */
+/* Cancel button (x) for new rows */
 .oq-grid-cancel-btn {
   border: none;
   background: none;
-  color: var(--bs-danger, #dc3545);
+  color: var(--oq-danger, #ef4444);
   font-size: 1.1rem;
   line-height: 1;
   padding: 0.15rem 0.25rem;
@@ -180,11 +300,11 @@
 
 .oq-grid-formula-overlay {
   background: #fff;
-  border: 2px solid var(--bs-primary, #0d6efd);
-  border-radius: 3px;
+  border: 2px solid var(--oq-primary, #6366f1);
+  border-radius: 6px;
   box-sizing: border-box;
   overflow: visible;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  box-shadow: var(--oq-shadow-md, 0 4px 12px rgba(0, 0, 0, 0.12));
 }
 
 .oq-grid-formula-overlay .ace_editor {
@@ -226,22 +346,23 @@
   max-height: 180px;
   overflow-y: auto;
   background: var(--bs-body-bg, #fff);
-  border: 1px solid var(--bs-border-color, #dee2e6);
-  border-top: none;
-  border-radius: 0 0 4px 4px;
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.12);
+  border: 1px solid var(--oq-border, #e2e5ea);
+  border-radius: 8px;
+  box-shadow: var(--oq-shadow-md, 0 4px 12px rgba(0, 0, 0, 0.12));
   z-index: 10001;
 }
 
 .oq-grid-typeahead-item {
-  padding: 4px 8px;
+  padding: 7px 12px;
   font-size: 0.85rem;
   cursor: pointer;
+  transition: all var(--oq-transition, 150ms);
 }
 
 .oq-grid-typeahead-item:hover,
 .oq-grid-typeahead-item-active {
-  background: var(--bs-tertiary-bg, #f0f0f0);
+  background: var(--oq-primary-light, #eef2ff);
+  color: var(--oq-primary, #6366f1);
 }
 
 /* =========================================================================
@@ -254,18 +375,28 @@
   flex-wrap: wrap;
   gap: 3px;
   align-items: center;
-  padding: 2px 0;
+  padding: 0;
+  line-height: normal;
+  height: 100%;
 }
 
 .oq-grid-tag {
   display: inline-block;
-  background: var(--bs-primary, #0d6efd);
-  color: #fff;
+  background: var(--oq-primary-light, #eef2ff);
+  color: var(--oq-primary, #6366f1);
   font-size: 0.75rem;
-  padding: 1px 7px;
-  border-radius: 10px;
+  font-weight: 500;
+  padding: 1px 8px;
+  border-radius: 99px;
   line-height: 1.4;
   white-space: nowrap;
+}
+
+/* Suppress cell editing border when multi-tag overlay is active */
+.tabulator-cell.tabulator-editing:has(.oq-grid-multitag-placeholder) {
+  outline: none !important;
+  border-color: transparent !important;
+  box-shadow: none !important;
 }
 
 /* Multi-tag editor overlay */
@@ -279,23 +410,25 @@
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 3px;
-  padding: 3px 4px;
+  gap: 4px;
+  padding: 4px 6px;
   background: var(--bs-body-bg, #fff);
-  border: 2px solid var(--bs-primary, #0d6efd);
-  border-radius: 4px;
+  border: 2px solid var(--oq-primary, #6366f1);
+  border-radius: 6px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
-  min-width: 200px;
+  min-width: 240px;
+  max-width: 400px;
 }
 
 .oq-grid-tag-editable {
   display: inline-flex;
   align-items: center;
-  background: var(--bs-primary, #0d6efd);
-  color: #fff;
-  font-size: 0.75rem;
-  padding: 1px 4px 1px 7px;
-  border-radius: 10px;
+  background: var(--oq-primary-light, #eef2ff);
+  color: var(--oq-primary, #6366f1);
+  font-size: 11px;
+  font-weight: 500;
+  padding: 2px 6px 2px 8px;
+  border-radius: 99px;
   line-height: 1.4;
   white-space: nowrap;
   gap: 3px;
@@ -303,13 +436,21 @@
 
 .oq-grid-tag-remove {
   cursor: pointer;
-  font-size: 0.85rem;
+  font-size: 10px;
   line-height: 1;
-  color: rgba(255, 255, 255, 0.8);
+  color: var(--oq-primary, #6366f1);
   padding: 0 2px;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: all var(--oq-transition, 150ms);
 }
 
 .oq-grid-tag-remove:hover {
+  background: var(--oq-primary, #6366f1);
   color: #fff;
 }
 
@@ -317,7 +458,7 @@
   border: none;
   outline: none;
   background: transparent;
-  font-size: 0.8rem;
+  font-size: 0.8125rem;
   flex: 1 1 60px;
   min-width: 60px;
   padding: 2px 0;
@@ -344,7 +485,7 @@
 
 .oq-grid-multitag-item:hover,
 .oq-grid-multitag-item-active {
-  background: var(--bs-primary, #0d6efd);
+  background: var(--oq-primary, #6366f1);
   color: #fff;
 }
 
@@ -353,9 +494,9 @@
    ========================================================================= */
 
 .tabulator-cell.cell-disabled {
-  color: #999;
+  color: var(--oq-text-tertiary, #9ca3af);
   font-style: italic;
-  background: #f5f5f5;
+  background: var(--oq-surface-sunken, #f0f2f5);
 }
 
 /* =========================================================================
@@ -368,8 +509,8 @@
   flex-direction: row;
   min-height: 300px;
   height: 100%;
-  border: 1px solid #dee2e6;
-  border-radius: 4px;
+  border: 1px solid var(--oq-border, #e2e5ea);
+  border-radius: var(--oq-radius-md, 8px);
   overflow: hidden;
 }
 
@@ -378,18 +519,18 @@
 .twsa-list-panel {
   width: 200px;
   min-width: 200px;
-  border-right: 1px solid #dee2e6;
+  border-right: 1px solid var(--oq-border, #e2e5ea);
   display: flex;
   flex-direction: column;
-  background: #f8f9fa;
+  background: var(--oq-surface-sunken, #f0f2f5);
 }
 
 .scenario-list-toolbar,
 .twsa-list-toolbar {
   display: flex;
   gap: 4px;
-  padding: 6px;
-  border-bottom: 1px solid #dee2e6;
+  padding: 8px;
+  border-bottom: 1px solid var(--oq-border, #e2e5ea);
 }
 
 .scenario-list-toolbar .btn,
@@ -410,7 +551,8 @@
   padding: 6px 10px;
   cursor: pointer;
   font-size: 0.85rem;
-  border-bottom: 1px solid #eee;
+  border-radius: 6px;
+  margin-bottom: 1px;
   user-select: none;
 }
 
@@ -427,18 +569,24 @@
 .scenario-list-item-desc,
 .twsa-list-item-desc {
   font-size: 0.75rem;
-  color: #6c757d;
+  color: var(--oq-text-tertiary, #9ca3af);
   margin-top: 1px;
 }
 
 .scenario-list-item--active,
 .twsa-list-item--active {
-  background: #cfe2ff;
+  background: var(--oq-primary-light, #eef2ff);
+}
+
+.scenario-list-item--active .scenario-list-item-name,
+.twsa-list-item--active .twsa-list-item-name {
+  color: var(--oq-primary, #6366f1);
+  font-weight: 600;
 }
 
 .scenario-list-item--active:hover,
 .twsa-list-item--active:hover {
-  background: #b6d4fe;
+  background: var(--oq-primary-light, #eef2ff);
 }
 
 .scenario-rename-input {
@@ -457,7 +605,7 @@
   min-width: 0;
   display: flex;
   flex-direction: column;
-  padding: 6px;
+  padding: 8px;
 }
 
 .scenario-add-row-btn {
@@ -482,13 +630,22 @@
    10. PSA-SPECIFIC STYLES
    ========================================================================= */
 
-/* Settings section */
+/* Settings wrapper */
+.psa-settings {
+  background: var(--oq-surface, #fff);
+  border: 1px solid var(--oq-border, #e2e5ea);
+  border-radius: var(--oq-radius-md, 8px);
+  padding: 20px;
+  max-width: 700px;
+}
+
+/* Section header */
 .psa-section-header {
   font-weight: 600;
-  font-size: 0.9rem;
-  margin: 1rem 0 0.5rem 0;
-  padding-bottom: 0.25rem;
-  border-bottom: 1px solid var(--bs-border-color, #dee2e6);
+  font-size: var(--oq-text-sm, 0.8125rem);
+  margin: 20px 0 10px 0;
+  padding-bottom: 6px;
+  border-bottom: 1px solid var(--oq-border-light, #edf0f3);
 }
 
 .psa-section-header:first-child {
@@ -514,19 +671,29 @@
 .psa-settings-row input {
   width: 140px;
   font-size: 0.85rem;
+  padding: 7px 10px;
+  border: 1px solid var(--oq-border, #e2e5ea);
+  border-radius: var(--oq-radius, 6px);
+}
+
+.psa-settings-row input:focus {
+  outline: none;
+  border-color: var(--oq-primary, #6366f1);
+  box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.12);
 }
 
 /* Distribution editor overlay */
 .psa-distribution-overlay {
   background: #fff;
-  border: 2px solid var(--bs-primary, #0d6efd);
-  border-radius: 6px;
+  border: 2px solid var(--oq-primary, #6366f1);
+  border-radius: 8px;
   box-sizing: border-box;
   overflow: visible;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.18);
+  box-shadow: var(--oq-shadow-md, 0 4px 12px rgba(0, 0, 0, 0.12));
   z-index: 10000;
-  padding: 10px 12px;
+  padding: 12px 14px;
   min-width: 320px;
+  max-width: 400px;
 }
 
 .psa-distribution-overlay select,
@@ -594,8 +761,8 @@
   flex: 1;
   height: 28px;
   min-width: 0;
-  border: 1px solid var(--bs-border-color, #dee2e6);
-  border-radius: 3px;
+  border: 1px solid var(--oq-border, #e2e5ea);
+  border-radius: 4px;
   overflow: hidden;
   position: relative;
 }
@@ -617,8 +784,8 @@
 }
 
 .psa-mini-ace.focused {
-  border-color: var(--bs-primary, #0d6efd);
-  box-shadow: 0 0 0 2px rgba(13, 110, 253, 0.15);
+  border-color: var(--oq-primary, #6366f1);
+  box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.12);
 }
 
 /* Vector editor */
@@ -777,9 +944,9 @@
   position: fixed;
   z-index: 10500;
   background: var(--bs-body-bg, #fff);
-  border: 1px solid var(--bs-border-color, #dee2e6);
-  border-radius: 6px;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.18);
+  border: 1px solid var(--oq-border, #e2e5ea);
+  border-radius: 8px;
+  box-shadow: var(--oq-shadow-md, 0 4px 12px rgba(0, 0, 0, 0.12));
   min-width: 320px;
   max-width: 400px;
   padding: 0;
@@ -789,8 +956,8 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 8px 12px;
-  border-bottom: 1px solid var(--bs-border-color, #dee2e6);
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--oq-border-light, #edf0f3);
   font-weight: 600;
   font-size: 0.85rem;
 }
@@ -801,7 +968,7 @@
   font-size: 1.1rem;
   line-height: 1;
   cursor: pointer;
-  color: var(--bs-secondary-color, #6c757d);
+  color: var(--oq-text-tertiary, #9ca3af);
   padding: 0 4px;
 }
 
@@ -810,7 +977,7 @@
 }
 
 .tc-editor-body {
-  padding: 10px 12px;
+  padding: 12px 14px;
   max-height: 400px;
   overflow-y: auto;
 }
@@ -825,19 +992,19 @@
 
 .tc-field-row label {
   display: block;
-  font-size: 0.75rem;
+  font-size: 11px;
   font-weight: 500;
   margin-bottom: 2px;
-  color: var(--bs-secondary-color, #6c757d);
+  color: var(--oq-text-secondary, #6b7280);
 }
 
 .tc-field-select,
 .tc-field-input {
   width: 100%;
-  padding: 4px 8px;
-  font-size: 0.8rem;
-  border: 1px solid var(--bs-border-color, #dee2e6);
-  border-radius: 4px;
+  padding: 5px 8px;
+  font-size: 0.8125rem;
+  border: 1px solid var(--oq-border, #e2e5ea);
+  border-radius: 6px;
   background: var(--bs-body-bg, #fff);
   color: var(--bs-body-color, #212529);
 }
@@ -845,20 +1012,20 @@
 .tc-field-select:focus,
 .tc-field-input:focus {
   outline: none;
-  border-color: var(--bs-primary, #0d6efd);
-  box-shadow: 0 0 0 2px rgba(13, 110, 253, 0.15);
+  border-color: var(--oq-primary, #6366f1);
+  box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.12);
 }
 
 .tc-editor-footer {
   display: flex;
   justify-content: flex-end;
   gap: 6px;
-  padding: 8px 12px;
-  border-top: 1px solid var(--bs-border-color, #dee2e6);
+  padding: 10px 14px;
+  border-top: 1px solid var(--oq-border-light, #edf0f3);
 }
 
 .tc-editor-save-btn {
-  background: var(--bs-primary, #0d6efd);
+  background: var(--oq-primary, #6366f1);
   color: #fff;
   border: none;
   border-radius: 4px;
@@ -868,7 +1035,7 @@
 }
 
 .tc-editor-save-btn:hover {
-  background: var(--bs-primary-hover, #0b5ed7);
+  filter: brightness(0.9);
 }
 
 .tc-editor-save-btn:disabled {
@@ -878,7 +1045,7 @@
 
 .tc-editor-cancel-btn {
   background: none;
-  border: 1px solid var(--bs-border-color, #dee2e6);
+  border: 1px solid var(--oq-border, #e2e5ea);
   border-radius: 4px;
   padding: 4px 12px;
   font-size: 0.8rem;
@@ -898,10 +1065,10 @@
   position: fixed;
   z-index: 10000;
   background: #fff;
-  border: 2px solid #0d6efd;
-  border-radius: 4px;
+  border: 2px solid var(--oq-primary, #6366f1);
+  border-radius: 6px;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-  padding: 8px;
+  padding: 10px 12px;
   min-width: 320px;
 }
 
@@ -918,9 +1085,9 @@
 
 .twsa-values-popup .field-label {
   width: 50px;
-  font-size: 0.8rem;
+  font-size: 0.75rem;
   font-weight: 500;
-  color: #495057;
+  color: var(--oq-text-secondary, #6b7280);
   flex-shrink: 0;
 }
 
@@ -931,28 +1098,28 @@
 
 .twsa-values-popup .field-editor input {
   width: 100%;
-  border: 1px solid #ced4da;
-  border-radius: 3px;
-  padding: 3px 6px;
+  border: 1px solid var(--oq-border, #e2e5ea);
+  border-radius: 6px;
+  padding: 4px 8px;
   font-size: 0.85rem;
 }
 
 .twsa-values-popup .field-editor input:focus {
-  border-color: #86b7fe;
+  border-color: var(--oq-primary, #6366f1);
   outline: none;
-  box-shadow: 0 0 0 0.2rem rgba(13, 110, 253, 0.25);
+  box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.12);
 }
 
 .twsa-values-popup .popup-ace-wrap {
-  border: 1px solid #ced4da;
-  border-radius: 3px;
+  border: 1px solid var(--oq-border, #e2e5ea);
+  border-radius: 6px;
   min-height: 26px;
   overflow: visible;
 }
 
 .twsa-values-popup .popup-ace-wrap:focus-within {
-  border-color: #86b7fe;
-  box-shadow: 0 0 0 0.2rem rgba(13, 110, 253, 0.25);
+  border-color: var(--oq-primary, #6366f1);
+  box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.12);
 }
 
 .twsa-values-popup .popup-actions {
@@ -961,7 +1128,7 @@
   gap: 6px;
   margin-top: 8px;
   padding-top: 6px;
-  border-top: 1px solid #eee;
+  border-top: 1px solid var(--oq-border-light, #edf0f3);
 }
 
 .twsa-values-popup .popup-actions .btn {
