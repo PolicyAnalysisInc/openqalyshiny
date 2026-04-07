@@ -129,6 +129,11 @@
       this.containerDiv.parentNode.insertBefore(addBtn, this.containerDiv);
     }
 
+    // Check if adding is possible and disable button if not
+    if (addRow.canAdd) {
+      addBtn.disabled = !addRow.canAdd(this.data.initial || [], this.data);
+    }
+
     if (addRow.useModal) {
       // Modal pattern: dispatch Shiny event to open modal
       addBtn.addEventListener("click", function() {

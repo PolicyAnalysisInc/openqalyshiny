@@ -77,6 +77,15 @@
           return row;
         },
         generateDefaults: function(row, tableData, data) {
+          var next = this._findNext(tableData, data);
+          if (!next) return;
+          var keys = Object.keys(next);
+          for (var i = 0; i < keys.length; i++) row[keys[i]] = next[keys[i]];
+        },
+        canAdd: function(tableData, data) {
+          return !!this._findNext(tableData, data);
+        },
+        _findNext: function(tableData, data) {
           if (data.modelType === "markov") {
             var states = data.stateNames;
             var existing = {};
@@ -86,29 +95,27 @@
             for (var f = 0; f < states.length; f++) {
               for (var t = 0; t < states.length; t++) {
                 if (!existing[states[f] + "\u2192" + states[t]]) {
-                  row.from_state = states[f];
-                  row.to_state = states[t];
-                  return;
+                  return { from_state: states[f], to_state: states[t] };
                 }
               }
             }
-            row.from_state = states[0] || "";
-            row.to_state = states[0] || "";
+            return null;
           } else if (data.modelType === "psm") {
             var n = tableData.length + 1;
             var names = {};
             for (var i = 0; i < tableData.length; i++) names[tableData[i].endpoint] = true;
             while (names["endpoint_" + n]) n++;
-            row.endpoint = "endpoint_" + n;
+            return { endpoint: "endpoint_" + n };
           } else if (data.modelType === "custom_psm") {
             var states = data.stateNames;
             var used = {};
             for (var i = 0; i < tableData.length; i++) used[tableData[i].state] = true;
             for (var s = 0; s < states.length; s++) {
-              if (!used[states[s]]) { row.state = states[s]; return; }
+              if (!used[states[s]]) return { state: states[s] };
             }
-            row.state = states[0] || "";
+            return null;
           }
+          return null;
         }
       },
 
