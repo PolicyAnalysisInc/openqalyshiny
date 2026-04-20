@@ -7,6 +7,7 @@
 
     return {
       name: "trees",
+      nonClearableFields: ["node", "formula"],
       containerSelector: ".trees-table-container",
       dispatchMode: "event",
 
@@ -45,6 +46,7 @@
           { title: "Node", field: "node", widthGrow: 1, minWidth: 120,
             editor: "input", formatter: OQGrid.fmt.emdash },
           { title: "Parent", field: "parent", widthGrow: 1, minWidth: 120,
+            titleFormatter: OQGrid.utils.infoTitle("Parent node in the decision tree hierarchy. Leave empty for the root node."),
             editor: "list",
             editorParams: {
               valuesLookup: function() {
@@ -60,9 +62,11 @@
             },
             formatter: OQGrid.fmt.emdash },
           { title: "Tags", field: "tags", widthGrow: 1, minWidth: 120,
+            titleFormatter: OQGrid.utils.infoTitle("Labels for filtering or grouping tree branches (e.g. by treatment arm)."),
             editor: OQGrid.editors.multiTag(getAvailableTags, { allowFreeText: true }),
             formatter: OQGrid.fmt.tags },
           { title: "Formula", field: "formula", widthGrow: 2, minWidth: 200,
+            titleFormatter: OQGrid.utils.infoTitle("Probability expression for chance nodes. Use 'C' for the complement. Terminal node probabilities are referenced via p() in value formulas."),
             editor: OQGrid.editors.formula(data.terms, data.suggestions),
             formatter: OQGrid.fmt.formula(data.terms) }
         ];

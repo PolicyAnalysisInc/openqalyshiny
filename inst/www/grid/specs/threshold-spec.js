@@ -7,6 +7,7 @@
   OQGrid.registerSpec("threshold", function() {
     return {
       name: "threshold",
+      nonClearableFields: ["variable", "active"],
       containerSelector: ".threshold-params-container",
       dispatchMode: "sync",
 
@@ -65,6 +66,7 @@
           {
             title: "Active",
             field: "active",
+            titleFormatter: OQGrid.utils.infoTitle("Include this parameter in the threshold analysis run."),
             width: 65,
             hozAlign: "center",
             formatter: "tickCross",
@@ -208,6 +210,7 @@
           {
             title: "Lower",
             field: "lower",
+            titleFormatter: OQGrid.utils.infoTitle("Lower bound of the search range for finding the threshold value."),
             widthGrow: 1,
             minWidth: 80,
             editor: "number",
@@ -218,6 +221,7 @@
           {
             title: "Upper",
             field: "upper",
+            titleFormatter: OQGrid.utils.infoTitle("Upper bound of the search range for finding the threshold value."),
             widthGrow: 1,
             minWidth: 80,
             editor: "number",
@@ -228,6 +232,7 @@
           {
             title: "Condition",
             field: "condition",
+            titleFormatter: OQGrid.utils.infoTitle("Defines when the threshold is crossed. Click to configure comparison logic."),
             widthGrow: 2,
             minWidth: 250,
             editor: false,
@@ -357,12 +362,10 @@
         // Store choices on table for rowFormatter
         table._choices = choices;
 
-        // Create single add button
-        var addBtn = document.createElement("button");
-        addBtn.type = "button";
-        addBtn.className = "oq-btn oq-btn-sm threshold-add-variable-btn";
-        addBtn.textContent = "+ Add Variable";
-        addBtn.addEventListener("click", function() {
+        // Wire existing R-created button
+        var parent = controller.containerDiv.parentNode;
+        var addBtn = parent ? parent.querySelector(".threshold-add-btn") : null;
+        if (addBtn) addBtn.addEventListener("click", function() {
           var defaultVar = choices.variables.length > 0 ? choices.variables[0] : "";
           var newRow = {
             active: true,
@@ -397,8 +400,6 @@
             OQGrid.actions.sync.syncData(controller);
           });
         });
-
-        controller.containerDiv.parentNode.insertBefore(addBtn, controller.containerDiv);
 
         // Initial sync
         OQGrid.actions.sync.syncData(controller);

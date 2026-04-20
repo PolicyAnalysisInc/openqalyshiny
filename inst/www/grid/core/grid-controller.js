@@ -41,8 +41,72 @@
       editTriggerEvent: "dblclick",
       clipboard: true,
       clipboardCopyStyled: false,
+      clipboardCopyRowRange: "range",
+      clipboardPasteParser: "range",
+      clipboardPasteAction: "range",
+      clipboardCopyConfig: { columnHeaders: false },
       headerSortClickElement: "icon"
     };
+
+    // EVENT-mode: intercept paste so the grid is NOT modified directly.
+    // Build correct edit payloads from original row data and dispatch to R.
+    var dispatchMode = spec.dispatchMode || "event";
+    if (dispatchMode === "event" && spec.actions && (spec.actions.edit || spec.actions.editVariable)) {
+      tabulatorOpts.clipboardPasteAction = function(rowData) {
+        // rowData = array of objects keyed by field name (from "range" parser)
+        // `this` = Clipboard module; use this.table for the Tabulator instance
+        var table = this.table;
+        var ranges = table.getRanges();
+        if (!ranges || !ranges.length || !rowData || !rowData.length) return;
+
+        var cells2d = ranges[0].getStructuredCells();
+        if (!cells2d || !cells2d.length) return;
+
+        var edits = [];
+        var numRows = Math.min(cells2d.length, rowData.length);
+
+        for (var r = 0; r < numRows; r++) {
+          var rowCells = cells2d[r];
+          var clipObj = rowData[r % rowData.length];
+          if (!rowCells || !rowCells.length || !clipObj) continue;
+
+          // Original row data is intact — grid hasn't been modified
+          var originalRow = rowCells[0].getRow().getData();
+
+          for (var c = 0; c < rowCells.length; c++) {
+            var cell = rowCells[c];
+            var field = cell.getField();
+            if (!field || field.charAt(0) === "_") continue;
+            var def = cell.getColumn().getDefinition();
+            if (!def.editor) continue;
+            if (def.clipboard === false) continue;
+
+            // Parser returns objects keyed by field name
+            if (!(field in clipObj)) continue;
+            var newVal = clipObj[field];
+            if (newVal === undefined || newVal === null) continue;
+
+            var oldVal = cell.getValue();
+            if (String(newVal) === String(oldVal)) continue;
+
+            var payload;
+            if (spec.actions.editVariable && field.indexOf("var__") === 0) {
+              payload = spec.actions.editVariable(originalRow, field, newVal, oldVal);
+            } else if (spec.actions.edit) {
+              payload = spec.actions.edit(originalRow, field, newVal, oldVal);
+            }
+            if (payload) edits.push(payload);
+          }
+        }
+
+        if (edits.length > 0) {
+          OQGrid.shiny.dispatch(self.inputId, {
+            type: "batch_edit",
+            edits: edits
+          });
+        }
+      };
+    }
 
     // Allow spec to override/extend tabulator options
     if (spec.tabulatorOptions) {
@@ -68,6 +132,12 @@
 
     // Setup cell edited handler
     this._setupCellEdited();
+
+    // Setup clipboard paste handler
+    this._setupClipboardPaste();
+
+    // Setup keyboard handler (Enter/F2 to edit, Delete to clear)
+    OQGrid.keyboard.init(this);
 
     // Register custom message handlers
     if (spec.messageHandler) {
@@ -121,6 +191,8 @@
     if (addRow.buttonContainer) {
       var target = addRow.buttonContainer(this.containerDiv);
       if (target) {
+        var existing = target.querySelectorAll('.oq-btn');
+        for (var i = 0; i < existing.length; i++) existing[i].remove();
         target.appendChild(addBtn);
       } else {
         this.containerDiv.parentNode.insertBefore(addBtn, this.containerDiv);
@@ -167,6 +239,25 @@
   };
 
   // =========================================================================
+  // Clipboard paste handler — SYNC-mode only.
+  // EVENT-mode paste is handled by the custom clipboardPasteAction set in
+  // the constructor, which dispatches edit payloads without modifying the grid.
+  // =========================================================================
+  OQGrid.Controller.prototype._setupClipboardPaste = function() {
+    var self = this;
+    var spec = this.spec;
+    var dispatchMode = spec.dispatchMode || "event";
+
+    // EVENT-mode paste is fully handled by custom clipboardPasteAction
+    if (dispatchMode === "event") return;
+
+    // SYNC-mode: sync full grid on paste
+    this.table.on("clipboardPasted", function() {
+      OQGrid.actions.sync.syncData(self);
+    });
+  };
+
+  // =========================================================================
   // Cell edited handler — routes to appropriate action handler
   // =========================================================================
   OQGrid.Controller.prototype._setupCellEdited = function() {
@@ -175,6 +266,7 @@
     var dispatchMode = spec.dispatchMode || "event";
 
     this.table.on("cellEdited", function(cell) {
+      if (self._batchClearing) return;
       if (dispatchMode === "event") {
         OQGrid.actions.crud.onCellEdited(self, cell);
       } else if (dispatchMode === "sync") {

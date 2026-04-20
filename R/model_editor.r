@@ -99,6 +99,7 @@ dispatch_model_action <- function(model, action) {
         field <- action$field
         value <- action$value
         if (field == "formula") {
+          if (!nzchar(value %||% "")) return(model)
           args$formula <- rlang::parse_expr(value)
         } else if (field == "name") {
           args$new_name <- value
@@ -242,6 +243,7 @@ dispatch_model_action <- function(model, action) {
       if (field == "name") {
         args$new_name <- value
       } else if (field == "initial_probability") {
+        if (!nzchar(value %||% "")) return(model)
         args$initial_prob <- rlang::parse_expr(value)
       } else if (field == "share_state_time") {
         args$share_state_time <- identical(value, "Yes") || identical(value, TRUE)
@@ -260,6 +262,7 @@ dispatch_model_action <- function(model, action) {
     },
     "add_transition" = {
       model_type <- action$model_type %||% openqaly::get_model_type(model)
+      if (!nzchar(action$formula %||% "")) return(model)
       parsed_formula <- rlang::parse_expr(action$formula)
       if (model_type == "markov") {
         rlang::inject(openqaly::add_transition(
@@ -269,14 +272,14 @@ dispatch_model_action <- function(model, action) {
           formula = !!parsed_formula
         ))
       } else if (model_type == "psm") {
-        rlang::inject(openqaly::add_psm_transition(
+        rlang::inject(openqaly::add_transition(
           model,
           endpoint = action$endpoint,
           time_unit = action$time_unit,
           formula = !!parsed_formula
         ))
       } else if (model_type == "custom_psm") {
-        rlang::inject(openqaly::add_custom_psm_transition(
+        rlang::inject(openqaly::add_transition(
           model,
           state = action$state,
           formula = !!parsed_formula
@@ -290,23 +293,26 @@ dispatch_model_action <- function(model, action) {
       if (model_type == "markov") {
         args <- list(model = model, from_state = action$from_state, to_state = action$to_state)
         if (action$field == "formula") {
+          if (!nzchar(action$value %||% "")) return(model)
           args$formula <- rlang::parse_expr(action$value)
         }
         rlang::inject(openqaly::edit_transition(!!!args))
       } else if (model_type == "psm") {
         args <- list(model = model, endpoint = action$endpoint)
         if (action$field == "formula") {
+          if (!nzchar(action$value %||% "")) return(model)
           args$formula <- rlang::parse_expr(action$value)
         } else if (action$field == "time_unit") {
           args$time_unit <- action$value
         }
-        rlang::inject(openqaly::edit_psm_transition(!!!args))
+        rlang::inject(openqaly::edit_transition(!!!args))
       } else if (model_type == "custom_psm") {
         args <- list(model = model, state = action$state)
         if (action$field == "formula") {
+          if (!nzchar(action$value %||% "")) return(model)
           args$formula <- rlang::parse_expr(action$value)
         }
-        rlang::inject(openqaly::edit_custom_psm_transition(!!!args))
+        rlang::inject(openqaly::edit_transition(!!!args))
       }
     },
     "remove_transition" = {
@@ -314,9 +320,9 @@ dispatch_model_action <- function(model, action) {
       if (model_type == "markov") {
         openqaly::remove_transition(model, from_state = action$from_state, to_state = action$to_state)
       } else if (model_type == "psm") {
-        openqaly::remove_psm_transition(model, endpoint = action$endpoint)
+        openqaly::remove_transition(model, endpoint = action$endpoint)
       } else if (model_type == "custom_psm") {
-        openqaly::remove_custom_psm_transition(model, state = action$state)
+        openqaly::remove_transition(model, state = action$state)
       }
     },
     "add_value" = {
@@ -389,6 +395,7 @@ dispatch_model_action <- function(model, action) {
           destination = if (nzchar(old_dest)) old_dest else NA_character_
         )
         if (field == "formula") {
+          if (!nzchar(action$value %||% "")) return(model)
           args$formula <- rlang::parse_expr(action$value)
         } else if (field == "name") {
           args$new_name <- action$value
@@ -497,6 +504,7 @@ dispatch_model_action <- function(model, action) {
       } else if (field == "tree_name") {
         args$new_tree_name <- value
       } else if (field == "formula") {
+        if (!nzchar(value %||% "")) return(model)
         args$formula <- rlang::parse_expr(value)
       } else {
         args[[field]] <- value
@@ -511,7 +519,7 @@ dispatch_model_action <- function(model, action) {
     },
     "edit_decision_tree" = {
       args <- list(model = model)
-      if (!is.null(action$duration)) {
+      if (!is.null(action$duration) && nzchar(action$duration)) {
         args$duration <- rlang::parse_expr(action$duration)
       }
       if (!is.null(action$duration_unit)) args$duration_unit <- action$duration_unit
@@ -532,6 +540,9 @@ dispatch_model_action <- function(model, action) {
     },
     "set_documentation" = {
       openqaly::set_documentation(model, text = action$text)
+    },
+    "set_override_expressions" = {
+      openqaly::set_override_expressions(model, action$overrides)
     },
     "set_override_categories" = {
       openqaly::set_override_categories(model, action$categories)
@@ -631,6 +642,7 @@ dispatch_model_action <- function(model, action) {
     },
     # DSA individual actions
     "add_dsa_variable" = {
+      if (!nzchar(action$low %||% "") || !nzchar(action$high %||% "")) return(model)
       low_expr <- rlang::parse_expr(action$low)
       high_expr <- rlang::parse_expr(action$high)
       rlang::inject(openqaly::add_dsa_variable(model,
@@ -645,8 +657,8 @@ dispatch_model_action <- function(model, action) {
       if (!is.null(action$new_variable)) args$new_variable <- action$new_variable
       if (!is.null(action$new_strategy)) args$new_strategy <- action$new_strategy
       if (!is.null(action$new_group)) args$new_group <- action$new_group
-      if (!is.null(action$low)) args$low <- rlang::parse_expr(action$low)
-      if (!is.null(action$high)) args$high <- rlang::parse_expr(action$high)
+      if (!is.null(action$low) && nzchar(action$low)) args$low <- rlang::parse_expr(action$low)
+      if (!is.null(action$high) && nzchar(action$high)) args$high <- rlang::parse_expr(action$high)
       if (!is.null(action$display_name)) args$display_name <- action$display_name
       do.call(openqaly::edit_dsa_variable, args)
     },
@@ -672,6 +684,7 @@ dispatch_model_action <- function(model, action) {
     },
     # Scenario individual actions
     "add_scenario_variable" = {
+      if (!nzchar(action$value %||% "")) return(model)
       expr <- rlang::parse_expr(action$value)
       rlang::inject(openqaly::add_scenario_variable(model,
         scenario = action$scenario, variable = action$variable,
@@ -687,7 +700,7 @@ dispatch_model_action <- function(model, action) {
       if (!is.null(action$new_variable)) args$new_variable <- action$new_variable
       if (!is.null(action$new_strategy)) args$new_strategy <- .str(action$new_strategy)
       if (!is.null(action$new_group)) args$new_group <- .str(action$new_group)
-      if (!is.null(action$value)) {
+      if (!is.null(action$value) && nzchar(action$value)) {
         args$value <- rlang::parse_expr(action$value)
       }
       do.call(openqaly::edit_scenario_variable, args)
@@ -749,10 +762,10 @@ dispatch_model_action <- function(model, action) {
       if (!is.null(action$display_name)) args$display_name <- action$display_name
       if (!is.null(action$include_base_case)) args$include_base_case <- action$include_base_case
       if (!is.null(action$steps)) args$steps <- as.integer(action$steps)
-      if (!is.null(action$min)) args$min <- rlang::parse_expr(action$min)
-      if (!is.null(action$max)) args$max <- rlang::parse_expr(action$max)
-      if (!is.null(action$radius)) args$radius <- rlang::parse_expr(action$radius)
-      if (!is.null(action$values)) args$values <- rlang::parse_expr(action$values)
+      if (!is.null(action$min) && nzchar(action$min)) args$min <- rlang::parse_expr(action$min)
+      if (!is.null(action$max) && nzchar(action$max)) args$max <- rlang::parse_expr(action$max)
+      if (!is.null(action$radius) && nzchar(action$radius)) args$radius <- rlang::parse_expr(action$radius)
+      if (!is.null(action$values) && nzchar(action$values)) args$values <- rlang::parse_expr(action$values)
       rlang::inject(openqaly::add_twsa_variable(!!!args))
     },
     "edit_twsa_variable" = {
@@ -963,6 +976,80 @@ hashed_reactive <- function(expr) {
   })
 }
 
+# Helper: info icon with popover text
+info_icon <- function(text) {
+  tags$button(class = "info-trigger",
+    shiny::icon("circle-info"),
+    tags$span(class = "info-popover", text)
+  )
+}
+
+# Unified sidebar list component used by scripts, tables, and scenarios.
+# items: list of named lists with `name` and optional `description`.
+# selected: the name of the currently selected item (or NULL).
+# select_input, edit_input, delete_input, add_input: Shiny input ids
+# that receive click events (select/edit/delete receive the item name;
+# add receives a button click count).
+oq_sidebar_list_ui <- function(items,
+                                selected = NULL,
+                                add_input,
+                                select_input,
+                                edit_input,
+                                delete_input,
+                                add_label = "Add") {
+  item_tags <- lapply(items, function(it) {
+    nm <- it$name
+    desc <- it$description %||% ""
+    active_class <- if (identical(nm, selected)) " active" else ""
+    nm_js <- gsub("'", "\\\\'", nm)
+    tags$div(
+      class = paste0("oq-sidebar-item", active_class),
+      onclick = sprintf(
+        "Shiny.setInputValue('%s', '%s', {priority: 'event'})",
+        select_input, nm_js
+      ),
+      tags$div(
+        class = "oq-sidebar-item-content",
+        tags$div(class = "oq-sidebar-item-name", nm),
+        if (nzchar(desc)) tags$div(class = "oq-sidebar-item-desc", desc)
+      ),
+      tags$div(
+        class = "oq-sidebar-item-actions",
+        tags$button(
+          type = "button",
+          class = "btn",
+          title = "Edit",
+          onclick = sprintf(
+            "event.stopPropagation(); Shiny.setInputValue('%s', '%s', {priority: 'event'})",
+            edit_input, nm_js
+          ),
+          shiny::icon("pencil")
+        ),
+        tags$button(
+          type = "button",
+          class = "btn",
+          title = "Delete",
+          onclick = sprintf(
+            "event.stopPropagation(); Shiny.setInputValue('%s', '%s', {priority: 'event'})",
+            delete_input, nm_js
+          ),
+          shiny::icon("times")
+        )
+      )
+    )
+  })
+
+  tags$div(
+    class = "oq-sidebar",
+    shiny::actionButton(
+      add_input, add_label,
+      icon = shiny::icon("plus"),
+      class = "btn-outline-primary btn-sm oq-sidebar-add"
+    ),
+    tags$div(class = "oq-sidebar-list", item_tags)
+  )
+}
+
 scripts_editor_dependency <- function() {
   htmltools::htmlDependency(
     name = "scripts-editor",
@@ -1100,6 +1187,7 @@ run_model_editor <- function(path = NULL, options = list()) {
       stylesheet = "design-tokens.css",
       all_files = FALSE
     ),
+    info_hover_dependency(),
     scripts_editor_dependency(),
     documentation_editor_dependency(),
     formula_input_dependency(),
@@ -1118,6 +1206,20 @@ run_model_editor <- function(path = NULL, options = list()) {
             e.preventDefault();
             Shiny.setInputValue('save_file', Math.random(), {priority: 'event'});
           }
+          // Ctrl+N / Cmd+N new model shortcut
+          if ((e.ctrlKey || e.metaKey) && e.key === 'n') {
+            e.preventDefault();
+            Shiny.setInputValue('new_model', Math.random(), {priority: 'event'});
+          }
+        });
+        // Programmatic Save As trigger
+        Shiny.addCustomMessageHandler('trigger_save_as', function(msg) {
+          var btn = document.getElementById('save_as_file');
+          if (btn) btn.click();
+        });
+        // Programmatic page navigation
+        Shiny.addCustomMessageHandler('navigate_page', function(msg) {
+          if (typeof switchAppPage === 'function') switchAppPage(msg.page);
         });
         // Re-initialize widgets after override panel renderUI
         Shiny.addCustomMessageHandler('override-rebind', function(data) {
@@ -1321,44 +1423,90 @@ run_model_editor <- function(path = NULL, options = list()) {
           flex: 1 1 auto;
           min-height: 0;
         }
-        .tables-sidebar {
+        /* Make uiOutput wrappers inside sidebar containers behave as
+           flex items so their .oq-sidebar child can stretch to full
+           height and enable list scrolling. */
+        .tables-tab-container > .shiny-html-output,
+        .scripts-tab-container > .shiny-html-output,
+        .trees-tab-container > .shiny-html-output {
+          display: flex;
+          flex-direction: column;
+          min-height: 0;
+        }
+        /* Unified sidebar component (oq-sidebar)
+           Used by scripts, tables, and scenario inputs */
+        .oq-sidebar {
           width: 240px;
           min-width: 240px;
           border-right: 1px solid var(--oq-border);
-          overflow-y: auto;
-          padding: 8px;
-        }
-        .tables-sidebar-item {
           display: flex;
-          align-items: center;
+          flex-direction: column;
+          min-height: 0;
+          height: 100%;
+        }
+        .oq-sidebar-add {
+          margin: 8px 8px 4px 8px;
+        }
+        .oq-sidebar-list {
+          flex: 1 1 auto;
+          overflow-y: auto;
+          padding: 4px 8px 8px 8px;
+        }
+        .oq-sidebar-item {
+          display: flex;
+          align-items: flex-start;
           padding: 8px 10px;
           cursor: pointer;
           border-radius: 6px;
           margin-bottom: 2px;
         }
-        .tables-sidebar-item:hover {
+        .oq-sidebar-item:hover {
           background-color: var(--oq-surface-hover);
         }
-        .tables-sidebar-item.active {
+        .oq-sidebar-item.active,
+        .oq-sidebar-item--active {
           background-color: var(--oq-surface-active);
-          font-weight: 600;
         }
-        .tables-sidebar-item .table-name {
-          flex-grow: 1;
+        .oq-sidebar-item-content {
+          flex: 1 1 auto;
+          min-width: 0;
+          overflow: hidden;
+          display: flex;
+          flex-direction: column;
+          justify-content: center;
+          min-height: 24px;
+        }
+        .oq-sidebar-item-name {
+          display: block;
           overflow: hidden;
           text-overflow: ellipsis;
           white-space: nowrap;
+          font-weight: 500;
+          line-height: 1.3;
         }
-        .tables-sidebar-item .table-description {
-          font-size: 11px;
-          color: var(--oq-text-tertiary);
+        .oq-sidebar-item.active .oq-sidebar-item-name,
+        .oq-sidebar-item--active .oq-sidebar-item-name {
+          font-weight: 600;
+          color: var(--oq-primary, #6366f1);
         }
-        .tables-sidebar-item .table-actions {
+        .oq-sidebar-item-desc {
+          font-size: 0.75rem;
+          color: var(--oq-text-tertiary, #9ca3af);
+          margin-top: 1px;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+          font-weight: 400;
+          line-height: 1.3;
+        }
+        .oq-sidebar-item-actions {
           display: flex;
           gap: 4px;
           margin-left: 4px;
+          flex-shrink: 0;
+          align-self: center;
         }
-        .tables-sidebar-item .table-actions .btn {
+        .oq-sidebar-item-actions .btn {
           padding: 0 4px;
           font-size: 12px;
           line-height: 1;
@@ -1368,11 +1516,12 @@ run_model_editor <- function(path = NULL, options = list()) {
           opacity: 0;
           transition: opacity var(--oq-transition), color var(--oq-transition);
         }
-        .tables-sidebar-item:hover .table-actions .btn,
-        .tables-sidebar-item.active .table-actions .btn {
+        .oq-sidebar-item:hover .oq-sidebar-item-actions .btn,
+        .oq-sidebar-item.active .oq-sidebar-item-actions .btn,
+        .oq-sidebar-item--active .oq-sidebar-item-actions .btn {
           opacity: 1;
         }
-        .tables-sidebar-item .table-actions .btn:hover {
+        .oq-sidebar-item-actions .btn:hover {
           color: var(--oq-text);
         }
         .tables-editor {
@@ -1388,56 +1537,6 @@ run_model_editor <- function(path = NULL, options = list()) {
           min-height: 0;
           overflow: hidden;
         }
-        .scripts-sidebar {
-          width: 240px;
-          min-width: 240px;
-          border-right: 1px solid var(--oq-border);
-          overflow-y: auto;
-          padding: 8px;
-        }
-        .scripts-sidebar-item {
-          display: flex;
-          align-items: center;
-          padding: 8px 10px;
-          cursor: pointer;
-          border-radius: 6px;
-          margin-bottom: 2px;
-        }
-        .scripts-sidebar-item:hover {
-          background-color: var(--oq-surface-hover);
-        }
-        .scripts-sidebar-item.active {
-          background-color: var(--oq-surface-active);
-          font-weight: 600;
-        }
-        .scripts-sidebar-item .script-name {
-          flex-grow: 1;
-          overflow: hidden;
-          text-overflow: ellipsis;
-          white-space: nowrap;
-        }
-        .scripts-sidebar-item .script-actions {
-          display: flex;
-          gap: 4px;
-          margin-left: 4px;
-        }
-        .scripts-sidebar-item .script-actions .btn {
-          padding: 0 4px;
-          font-size: 12px;
-          line-height: 1;
-          border: none;
-          background: transparent;
-          color: var(--oq-text-tertiary);
-          opacity: 0;
-          transition: opacity var(--oq-transition), color var(--oq-transition);
-        }
-        .scripts-sidebar-item:hover .script-actions .btn,
-        .scripts-sidebar-item.active .script-actions .btn {
-          opacity: 1;
-        }
-        .scripts-sidebar-item .script-actions .btn:hover {
-          color: var(--oq-text);
-        }
         .scripts-editor {
           flex-grow: 1;
           display: flex;
@@ -1451,56 +1550,6 @@ run_model_editor <- function(path = NULL, options = list()) {
           flex-direction: row;
           flex: 1 1 auto;
           min-height: 0;
-        }
-        .trees-sidebar {
-          width: 240px;
-          min-width: 240px;
-          border-right: 1px solid var(--oq-border);
-          overflow-y: auto;
-          padding: 8px;
-        }
-        .trees-sidebar-item {
-          display: flex;
-          align-items: center;
-          padding: 8px 10px;
-          cursor: pointer;
-          border-radius: 6px;
-          margin-bottom: 2px;
-        }
-        .trees-sidebar-item:hover {
-          background-color: var(--oq-surface-hover);
-        }
-        .trees-sidebar-item.active {
-          background-color: var(--oq-surface-active);
-          font-weight: 600;
-        }
-        .trees-sidebar-item .tree-name {
-          flex-grow: 1;
-          overflow: hidden;
-          text-overflow: ellipsis;
-          white-space: nowrap;
-        }
-        .trees-sidebar-item .tree-actions {
-          display: flex;
-          gap: 4px;
-          margin-left: 4px;
-        }
-        .trees-sidebar-item .tree-actions .btn {
-          padding: 0 4px;
-          font-size: 12px;
-          line-height: 1;
-          border: none;
-          background: transparent;
-          color: var(--oq-text-tertiary);
-          opacity: 0;
-          transition: opacity var(--oq-transition), color var(--oq-transition);
-        }
-        .trees-sidebar-item:hover .tree-actions .btn,
-        .trees-sidebar-item.active .tree-actions .btn {
-          opacity: 1;
-        }
-        .trees-sidebar-item .tree-actions .btn:hover {
-          color: var(--oq-text);
         }
         .trees-editor {
           flex-grow: 1;
@@ -1660,61 +1709,6 @@ run_model_editor <- function(path = NULL, options = list()) {
         }
         .settings-grid .field-checkbox input[type='checkbox'] {
           accent-color: var(--oq-primary);
-        }
-        .settings-grid .label-row {
-          display: flex;
-          align-items: center;
-          gap: 4px;
-          margin-bottom: 4px;
-        }
-        .settings-grid .label-row label,
-        .settings-grid .label-row .control-label {
-          margin-bottom: 0;
-        }
-        .info-trigger {
-          display: inline-flex;
-          align-items: center;
-          justify-content: center;
-          width: 15px;
-          height: 15px;
-          border-radius: 50%;
-          border: none;
-          background: transparent;
-          color: var(--oq-text-tertiary);
-          font-size: 11px;
-          cursor: help;
-          padding: 0;
-          transition: color var(--oq-transition);
-          flex-shrink: 0;
-        }
-        .info-trigger:hover {
-          color: var(--oq-primary);
-        }
-        .info-popover {
-          display: none;
-        }
-        .info-popover-floating {
-          position: fixed;
-          z-index: 10000;
-          width: 240px;
-          padding: 10px 12px;
-          background: var(--oq-text);
-          color: var(--oq-text-inverse);
-          font-size: var(--oq-text-xs);
-          font-weight: 400;
-          text-transform: none;
-          letter-spacing: 0;
-          line-height: 1.5;
-          border-radius: var(--oq-radius);
-          box-shadow: var(--oq-shadow-md);
-          pointer-events: none;
-        }
-        .info-popover-floating .arrow {
-          position: absolute;
-          width: 10px;
-          height: 10px;
-          background: var(--oq-text);
-          transform: rotate(45deg);
         }
         .dt-card {
           margin-top: 16px;
@@ -2444,6 +2438,12 @@ run_model_editor <- function(path = NULL, options = list()) {
         tags$ul(
           class = "dropdown-menu",
           tags$li(
+            tags$button(
+              class = "dropdown-item", type = "button",
+              onclick = "Shiny.setInputValue('new_model', Math.random(), {priority: 'event'});",
+              shiny::icon("file-circle-plus"), "New")
+          ),
+          tags$li(
             shinyFiles::shinyFilesButton(
               "open_file",
               tagList(shiny::icon("folder-open"), "Open"),
@@ -2502,15 +2502,13 @@ run_model_editor <- function(path = NULL, options = list()) {
         style = "margin-left: auto; display: flex; gap: 4px;",
         shiny::actionButton("undo_btn", NULL,
           icon = shiny::icon("rotate-left"),
-          class = "btn btn-sm",
-          style = "color: white; background: transparent; border: none;",
+          class = "btn btn-sm btn-undo",
           title = "Undo (Ctrl+Z)",
           disabled = "disabled"
         ),
         shiny::actionButton("redo_btn", NULL,
           icon = shiny::icon("rotate-right"),
-          class = "btn btn-sm",
-          style = "color: white; background: transparent; border: none;",
+          class = "btn btn-sm btn-redo",
           title = "Redo (Ctrl+Shift+Z)",
           disabled = "disabled"
         )
@@ -3066,6 +3064,7 @@ run_model_editor <- function(path = NULL, options = list()) {
     saved_model <- shiny::reactiveVal(NULL)
     pending_restore_version <- shiny::reactiveVal(NULL)
     pending_open_file <- shiny::reactiveVal(NULL)
+    pending_new_model <- shiny::reactiveVal(FALSE)
 
     is_dirty <- shiny::reactive({
       m <- model()
@@ -3318,6 +3317,27 @@ run_model_editor <- function(path = NULL, options = list()) {
       list(status = "ok", model = new)
     }
 
+    apply_batch_edit <- function(action) {
+      edits <- action$edits
+      # Guard against jsonlite simplifying an array of objects into a data.frame
+      if (is.data.frame(edits)) {
+        edits <- lapply(seq_len(nrow(edits)), function(i) as.list(edits[i, , drop = FALSE]))
+      }
+      if (length(edits) == 0) return(list(status = "noop", model = model()))
+
+      old <- model()
+      m <- old
+      for (edit in edits) {
+        m <- dispatch_model_action(m, edit)
+      }
+      if (identical(old, m)) {
+        return(list(status = "noop", model = m))
+      }
+      history$push(old)
+      model(m)
+      list(status = "ok", model = m)
+    }
+
     perform_undo <- function() {
       restored <- history$undo(model())
       if (!is.null(restored)) {
@@ -3339,10 +3359,11 @@ run_model_editor <- function(path = NULL, options = list()) {
     # --- Title bar + dirty state ---
 
     output$editor_title <- shiny::renderText({
+      m <- model()
       fpath <- current_file_path()
       dirty <- is_dirty()
-      if (is.null(fpath)) return("Model Editor")
-      fname <- basename(fpath)
+      if (is.null(m)) return("Model Editor")
+      fname <- if (is.null(fpath)) "Untitled" else basename(fpath)
       if (dirty) paste("Model Editor -", fname, "*") else paste("Model Editor -", fname)
     })
 
@@ -3358,8 +3379,7 @@ run_model_editor <- function(path = NULL, options = list()) {
       fpath <- current_file_path()
       if (is.null(m)) return()
       if (is.null(fpath)) {
-        shiny::showNotification("No file open. Use Save As to save to a new file.",
-          type = "warning", duration = 3)
+        session$sendCustomMessage("trigger_save_as", list())
         return()
       }
       if (!is_dirty()) return()
@@ -3486,6 +3506,147 @@ run_model_editor <- function(path = NULL, options = list()) {
       })
     })
 
+    # --- New Model ---
+
+    show_new_model_type_modal <- function() {
+      shiny::showModal(shiny::modalDialog(
+        title = "New Model",
+        shiny::radioButtons("new_model_type", "Model Type:",
+          choices = c(
+            "Markov" = "markov",
+            "PSM" = "psm",
+            "Custom PSM" = "custom_psm",
+            "Decision Tree" = "decision_tree"
+          ),
+          selected = "markov"
+        ),
+        shiny::helpText(
+          shiny::uiOutput("new_model_type_description")
+        ),
+        easyClose = TRUE,
+        footer = shiny::tagList(
+          shiny::modalButton("Cancel"),
+          tags$button(class = "btn btn-primary", type = "button",
+            onclick = "Shiny.setInputValue('confirm_new_model', Math.random(), {priority: 'event'});",
+            "Create")
+        )
+      ))
+    }
+
+    output$new_model_type_description <- shiny::renderUI({
+      type <- input$new_model_type
+      desc <- switch(type,
+        markov = "Cohort simulation with discrete health states and transition probabilities.",
+        psm = "Partitioned survival model using parametric survival curves.",
+        custom_psm = "Partitioned survival with custom state probability formulas.",
+        decision_tree = "One-time decision analysis with branching outcomes.",
+        ""
+      )
+      tags$span(style = "font-style: italic;", desc)
+    })
+
+    shiny::observeEvent(input$new_model, {
+      m <- model()
+      if (is.null(m)) {
+        show_new_model_type_modal()
+        return()
+      }
+      if (!is_dirty()) {
+        show_new_model_type_modal()
+        return()
+      }
+      pending_new_model(TRUE)
+      has_save_path <- !is.null(current_file_path())
+      footer_buttons <- if (has_save_path) {
+        shiny::tagList(
+          shiny::modalButton("Cancel"),
+          tags$button(class = "btn btn-primary", type = "button",
+            onclick = "Shiny.setInputValue('new_save_first', Math.random(), {priority: 'event'});",
+            "Save & Continue"),
+          tags$button(class = "btn btn-danger", type = "button",
+            onclick = "Shiny.setInputValue('new_discard', Math.random(), {priority: 'event'});",
+            "Discard & Continue")
+        )
+      } else {
+        shiny::tagList(
+          shiny::modalButton("Cancel"),
+          tags$button(class = "btn btn-danger", type = "button",
+            onclick = "Shiny.setInputValue('new_discard', Math.random(), {priority: 'event'});",
+            "Discard & Continue")
+        )
+      }
+      shiny::showModal(shiny::modalDialog(
+        title = "Unsaved Changes",
+        shiny::tags$p("You have unsaved changes. Creating a new model will discard them."),
+        footer = footer_buttons
+      ))
+    })
+
+    shiny::observeEvent(input$new_save_first, {
+      fpath <- current_file_path()
+      if (is.null(fpath)) return()
+      tryCatch({
+        save_model_to_file(model(), fpath, message = "Auto-save before new model")
+        saved_model(model())
+        shiny::removeModal()
+        show_new_model_type_modal()
+      }, error = function(e) {
+        shiny::showNotification(paste("Save failed:", conditionMessage(e)), type = "error", duration = 5)
+      }, finally = {
+        pending_new_model(FALSE)
+      })
+    })
+
+    shiny::observeEvent(input$new_discard, {
+      shiny::removeModal()
+      pending_new_model(FALSE)
+      show_new_model_type_modal()
+    })
+
+    shiny::observeEvent(input$confirm_new_model, {
+      type <- input$new_model_type
+      shiny::req(type)
+      on_run_page(FALSE)
+      session$sendCustomMessage("navigate_page", list(page = "documentation"))
+      new_m <- openqaly::define_model(type)
+      if (identical(type, "psm")) {
+        new_m <- new_m |>
+          openqaly::add_state(
+            "progression_free",
+            display_name = "Progression Free",
+            description  = "No disease progression"
+          ) |>
+          openqaly::add_state(
+            "progressed",
+            display_name = "Progressed",
+            description  = "Disease has progressed"
+          ) |>
+          openqaly::add_state(
+            "dead",
+            display_name = "Dead",
+            description  = "Death"
+          ) |>
+          openqaly::add_transition(
+            endpoint = "PFS",
+            time_unit = "months",
+            formula = 0
+          ) |>
+          openqaly::add_transition(
+            endpoint = "OS",
+            time_unit = "months",
+            formula = 0
+          )
+      }
+      model(new_m)
+      original_model(new_m)
+      saved_model(new_m)
+      current_file_path(NULL)
+      history$clear()
+      file_load_counter(file_load_counter() + 1L)
+      table_render_trigger(table_render_trigger() + 1L)
+      shiny::removeModal()
+    })
+
     # --- Startup path loader ---
 
     if (!is.null(path)) {
@@ -3588,6 +3749,22 @@ run_model_editor <- function(path = NULL, options = list()) {
     shiny::observeEvent(input$model_action, {
       action <- input$model_action
       shiny::req(action$type)
+
+      # Handle batch_edit (clipboard paste) — process sub-edits, single undo step
+      if (action$type == "batch_edit") {
+        tryCatch({
+          result <- apply_batch_edit(action)
+          send_values_update()
+          file_load_counter(file_load_counter() + 1L)
+        }, error = function(e) {
+          shiny::showNotification(
+            paste("Action failed:", conditionMessage(e)),
+            type = "error"
+          )
+          file_load_counter(file_load_counter() + 1L)
+        })
+        return()
+      }
 
       # Handle remove_value dependency errors with force confirmation
       if (action$type == "remove_value") {
@@ -3897,18 +4074,8 @@ run_model_editor <- function(path = NULL, options = list()) {
 
     # --- Results page ---
     editor_results_rv <- shiny::reactiveValues(results = NULL, metadata = NULL)
-    override_value_cache <- shiny::reactiveVal(list())
 
-    extract_override_expression <- function(value) {
-      if (is.list(value) && !is.null(value$value)) {
-        value$value
-      } else {
-        value
-      }
-    }
-
-    build_override_sidebar_panel <- function(cached_values = list()) {
-      m <- model()
+    build_override_sidebar_panel <- function(m) {
       if (is.null(m)) return(NULL)
 
       cats <- openqaly::get_override_categories(m)
@@ -3932,12 +4099,10 @@ run_model_editor <- function(path = NULL, options = list()) {
       sections <- lapply(cats, function(cat) {
         cards <- lapply(cat$overrides, function(override) {
           oid <- .build_override_id(input_id, override)
-          cached_value <- cached_values[[oid]]$expression %||% NULL
           input_widget <- .build_override_input(
             oid,
             override,
-            m,
-            current_value = cached_value
+            m
           )
           default_val <- if (!is.null(override$overridden_expression)) {
             as.character(override$overridden_expression)
@@ -4007,7 +4172,7 @@ run_model_editor <- function(path = NULL, options = list()) {
     render_override_sidebar_output <- function(output_id, page_name) {
       output[[output_id]] <- shiny::renderUI({
         shiny::req(identical(input$active_page, page_name))
-        build_override_sidebar_panel(override_value_cache())
+        build_override_sidebar_panel(shiny::isolate(model()))
       })
     }
 
@@ -4026,73 +4191,48 @@ run_model_editor <- function(path = NULL, options = list()) {
       }
     )
 
-    editor_override_values_live <- shiny::reactive({
+    # Sync override input values to model state via apply_action.
+    # Reads model() (not isolated) to re-enumerate when override structure changes.
+    # No-ops when input values match model's overridden_expression (prevents spurious reruns).
+    shiny::observe({
       m <- model()
-      if (is.null(m)) return(list())
+      if (is.null(m)) return()
       cats <- openqaly::get_override_categories(m)
-      if (length(cats) == 0) return(list())
+      if (length(cats) == 0) return()
 
-      values <- list()
+      changed <- list()
       for (cat in cats) {
         for (override in cat$overrides) {
           input_id <- .build_override_id("editor_overrides", override)
           val <- input[[input_id]]
-          if (!is.null(val)) {
-            values[[input_id]] <- list(
+          if (is.null(val)) next
+          expr <- if (is.list(val) && !is.null(val$value)) val$value else val
+          expr_str <- as.character(expr)
+          model_expr <- as.character(override$overridden_expression %||% "")
+          if (identical(override$input_type, "timeframe")) {
+            parsed_input <- .parse_timeframe_value(expr_str)
+            parsed_model <- .parse_timeframe_value(model_expr)
+            expr_str <- paste0(parsed_input$number, "|", parsed_input$unit)
+            model_expr <- paste0(parsed_model$number, "|", parsed_model$unit)
+          }
+          if (!identical(expr_str, model_expr)) {
+            changed <- c(changed, list(list(
               name = override$name,
-              expression = as.character(extract_override_expression(val)),
+              expression = expr_str,
               strategy = override$strategy %||% "",
               group = override$group %||% ""
-            )
-          }
-        }
-      }
-      values
-    })
-
-    shiny::observeEvent(editor_override_values_live(), {
-      live_values <- editor_override_values_live()
-      if (length(live_values) == 0) {
-        return()
-      }
-
-      cached_values <- override_value_cache()
-      cached_values[names(live_values)] <- live_values
-      override_value_cache(cached_values)
-    }, ignoreNULL = FALSE)
-
-    editor_override_values <- shiny::reactive({
-      m <- model()
-      if (is.null(m)) return(NULL)
-
-      cats <- openqaly::get_override_categories(m)
-      if (length(cats) == 0) return(NULL)
-
-      live_values <- editor_override_values_live()
-      cached_values <- override_value_cache()
-      values <- list()
-
-      for (cat in cats) {
-        for (override in cat$overrides) {
-          oid <- .build_override_id("editor_overrides", override)
-          current_value <- live_values[[oid]] %||% cached_values[[oid]]
-          if (!is.null(current_value)) {
-            values <- c(values, list(current_value))
+            )))
           }
         }
       }
 
-      if (length(values) == 0) NULL else values
+      if (length(changed) > 0) {
+        apply_action(list(type = "set_override_expressions", overrides = changed))
+      }
     })
 
     build_editor_model <- function() {
-      m <- model()
-      vals <- editor_override_values()
-      if (is.null(m)) return(NULL)
-      if (!is.null(vals) && length(vals) > 0) {
-        m <- openqaly::set_override_expressions(m, vals)
-      }
-      m
+      model()
     }
 
     # --- Async model run with progress reporting ---
@@ -4136,7 +4276,7 @@ run_model_editor <- function(path = NULL, options = list()) {
 
     shiny::observe({
       shiny::req(on_run_page(), isTRUE(input$editor_results_auto_run))
-      build_editor_model()
+      model()
       request_editor_rerun()
     })
 
@@ -4162,8 +4302,8 @@ run_model_editor <- function(path = NULL, options = list()) {
       run_state$last_error <- FALSE
       session$sendCustomMessage("editor_progress", list(state = "running", pct = 0))
 
+      cb <- make_file_progress_callback(pf)
       p <- suppressWarnings(promises::future_promise({
-        cb <- make_file_progress_callback(pf)
         openqaly::run_model(m, progress = cb)
       }, seed = TRUE))
 
@@ -4337,7 +4477,7 @@ run_model_editor <- function(path = NULL, options = list()) {
         ),
         shiny::tags$div(
           id = "dsa_params_grid",
-          class = "dsa-params-container",
+          class = "dsa-params-container oq-grid-themed",
           `data-input-id` = "editor_dsa_params",
           `data-variables` = jsonlite::toJSON(var_choices, auto_unbox = TRUE),
           `data-settings` = jsonlite::toJSON(
@@ -4757,23 +4897,16 @@ run_model_editor <- function(path = NULL, options = list()) {
         scenario_params_dependency(),
         formula_input_dependency(),
         class = "scenario-params-wrapper",
-        # Left panel: scenario list
+        # Left panel: scenario list (unified oq-sidebar)
         tags$div(
-          class = "scenario-list-panel",
-          tags$div(
-            class = "scenario-list-toolbar",
-            tags$button(
-              type = "button",
-              class = "btn btn-sm btn-outline-secondary scenario-add-btn",
-              "+ Add"
-            ),
-            tags$button(
-              type = "button",
-              class = "btn btn-sm btn-outline-danger scenario-remove-btn",
-              "Remove"
-            )
+          class = "oq-sidebar",
+          tags$button(
+            type = "button",
+            class = "btn btn-outline-primary btn-sm oq-sidebar-add scenario-add-btn",
+            shiny::icon("plus"),
+            " Add Scenario"
           ),
-          tags$div(class = "scenario-list")
+          tags$div(class = "oq-sidebar-list scenario-list")
         ),
         # Right panel: grid
         tags$div(
@@ -4792,7 +4925,7 @@ run_model_editor <- function(path = NULL, options = list()) {
             )
           ),
           tags$div(
-            class = "scenario-params-container",
+            class = "scenario-params-container oq-grid-themed",
             `data-input-id` = "editor_scenario_params",
             `data-variables` = jsonlite::toJSON(var_choices, auto_unbox = TRUE),
             `data-settings` = jsonlite::toJSON(
@@ -5109,29 +5242,22 @@ run_model_editor <- function(path = NULL, options = list()) {
         twsa_params_dependency(),
         formula_input_dependency(),
         class = "twsa-params-wrapper",
-        # Left panel: TWSA analysis list
+        # Left panel: TWSA analysis list (unified oq-sidebar)
         tags$div(
-          class = "twsa-list-panel",
-          tags$div(
-            class = "twsa-list-toolbar",
-            tags$button(
-              type = "button",
-              class = "btn btn-sm btn-outline-secondary twsa-add-btn",
-              "+ Add"
-            ),
-            tags$button(
-              type = "button",
-              class = "btn btn-sm btn-outline-danger twsa-remove-btn",
-              "Remove"
-            )
+          class = "oq-sidebar",
+          tags$button(
+            type = "button",
+            class = "btn btn-outline-primary btn-sm oq-sidebar-add twsa-add-btn",
+            shiny::icon("plus"),
+            " Add Analysis"
           ),
-          tags$div(class = "twsa-list")
+          tags$div(class = "oq-sidebar-list twsa-list")
         ),
         # Right panel: grid
         tags$div(
           class = "twsa-grid-panel",
           tags$div(
-            class = "twsa-params-container",
+            class = "twsa-params-container oq-grid-themed",
             `data-input-id` = "editor_twsa_params",
             `data-variables` = jsonlite::toJSON(var_choices, auto_unbox = TRUE),
             `data-settings` = jsonlite::toJSON(
@@ -5550,7 +5676,7 @@ run_model_editor <- function(path = NULL, options = list()) {
             )
           ),
           tags$div(
-            class = "psa-params-container",
+            class = "psa-params-container oq-grid-themed",
             `data-input-id` = "editor_psa_params",
             `data-variables` = jsonlite::toJSON(d$var_choices, auto_unbox = TRUE),
             `data-strategies` = jsonlite::toJSON(
@@ -5601,7 +5727,7 @@ run_model_editor <- function(path = NULL, options = list()) {
             )
           ),
           tags$div(
-            class = "psa-multivariate-container",
+            class = "psa-multivariate-container oq-grid-themed",
             `data-input-id` = "editor_psa_multivariate",
             `data-variables` = jsonlite::toJSON(d$var_choices, auto_unbox = TRUE),
             `data-strategies` = jsonlite::toJSON(
@@ -5652,18 +5778,26 @@ run_model_editor <- function(path = NULL, options = list()) {
         ),
         shiny::tags$div(
           class = "mb-3",
+          tags$div(class = "label-row",
+            tags$label(class = "control-label", `for` = "add_mv_type", "Type"),
+            info_icon("Dirichlet for proportions, MV Normal for correlated continuous variables, Multinomial for discrete categorical outcomes.")
+          ),
           .editor_select_input(
             "add_mv_type",
-            "Type",
+            label = NULL,
             choices = c("dirichlet", "mvnormal", "multinomial"),
             selected = "dirichlet"
           )
         ),
         shiny::tags$div(
           class = "mb-3",
+          tags$div(class = "label-row",
+            tags$label(class = "control-label", `for` = "add_mv_variables", "Variables"),
+            info_icon("Select the variables to be jointly sampled from this distribution.")
+          ),
           .editor_selectize_input(
             "add_mv_variables",
-            "Variables",
+            label = NULL,
             choices = d$var_choices,
             selected = character(0),
             multiple = TRUE,
@@ -6023,7 +6157,7 @@ run_model_editor <- function(path = NULL, options = list()) {
           )
         ),
         shiny::tags$div(
-          class = "threshold-params-container",
+          class = "threshold-params-container oq-grid-themed",
           `data-input-id` = "editor_threshold_params",
           `data-variables` = jsonlite::toJSON(var_choices, auto_unbox = TRUE),
           `data-strategies` = jsonlite::toJSON(
@@ -6157,14 +6291,6 @@ run_model_editor <- function(path = NULL, options = list()) {
       model_type <- openqaly::get_model_type(m)
 
       model_type_labels <- c(markov = "Markov", psm = "PSM", custom_psm = "Custom PSM", decision_tree = "Decision Tree")
-
-      # Helper: info icon with popover text
-      info_icon <- function(text) {
-        tags$button(class = "info-trigger",
-          shiny::icon("circle-info"),
-          tags$span(class = "info-popover", text)
-        )
-      }
 
       country_choices <- c(
         "United States (US)" = "US", "United Kingdom (GB)" = "GB",
@@ -6361,58 +6487,6 @@ run_model_editor <- function(path = NULL, options = list()) {
           )
         },
 
-        # Info popover JS
-        tags$script(shiny::HTML("
-          (function() {
-            var floating = null;
-            function show(trigger) {
-              var content = trigger.querySelector('.info-popover');
-              if (!content) return;
-              floating = document.createElement('div');
-              floating.className = 'info-popover-floating';
-              var text = document.createElement('span');
-              text.textContent = content.textContent;
-              floating.appendChild(text);
-              var arrow = document.createElement('div');
-              arrow.className = 'arrow';
-              floating.appendChild(arrow);
-              document.body.appendChild(floating);
-              position(trigger);
-            }
-            function position(trigger) {
-              if (!floating) return;
-              var rect = trigger.getBoundingClientRect();
-              var fw = floating.offsetWidth;
-              var fh = floating.offsetHeight;
-              var arrow = floating.querySelector('.arrow');
-              var pad = 8;
-              var above = rect.top - fh - 8;
-              var below = rect.bottom + 8;
-              var placeBelow = above < pad;
-              var top = placeBelow ? below : above;
-              var left = rect.left + rect.width / 2 - fw / 2;
-              left = Math.max(pad, Math.min(left, window.innerWidth - fw - pad));
-              floating.style.top = top + 'px';
-              floating.style.left = left + 'px';
-              var arrowLeft = rect.left + rect.width / 2 - left - 5;
-              arrowLeft = Math.max(12, Math.min(arrowLeft, fw - 12));
-              if (placeBelow) {
-                arrow.style.top = '-4px';
-                arrow.style.bottom = '';
-                arrow.style.left = arrowLeft + 'px';
-              } else {
-                arrow.style.bottom = '-4px';
-                arrow.style.top = '';
-                arrow.style.left = arrowLeft + 'px';
-              }
-            }
-            function hide() {
-              if (floating) { floating.remove(); floating = null; }
-            }
-            $(document).on('mouseenter', '.info-trigger', function() { show(this); });
-            $(document).on('mouseleave', '.info-trigger', hide);
-          })();
-        "))
       )
     })
 
@@ -6774,46 +6848,23 @@ run_model_editor <- function(path = NULL, options = list()) {
     output$tables_sidebar <- shiny::renderUI({
       tnames <- table_names_val()
       sel <- selected_table()
+      tables <- openqaly::get_tables(model())
 
-      sidebar_items <- lapply(tnames, function(tname) {
-        active_class <- if (identical(tname, sel)) " active" else ""
-        tags$div(
-          class = paste0("tables-sidebar-item", active_class),
-          onclick = sprintf(
-            "Shiny.setInputValue('tables_select_click', '%s', {priority: 'event'})",
-            gsub("'", "\\\\'", tname)
-          ),
-          tags$span(class = "table-name", tname),
-          tags$div(
-            class = "table-actions",
-            tags$button(
-              class = "btn",
-              title = "Edit metadata",
-              onclick = sprintf(
-                "event.stopPropagation(); Shiny.setInputValue('tables_edit_click', '%s', {priority: 'event'})",
-                gsub("'", "\\\\'", tname)
-              ),
-              shiny::icon("pencil")
-            ),
-            tags$button(
-              class = "btn",
-              title = "Delete table",
-              onclick = sprintf(
-                "event.stopPropagation(); Shiny.setInputValue('tables_delete_click', '%s', {priority: 'event'})",
-                gsub("'", "\\\\'", tname)
-              ),
-              shiny::icon("times")
-            )
-          )
+      items <- lapply(tnames, function(tname) {
+        list(
+          name = tname,
+          description = tables[[tname]]$description %||% ""
         )
       })
 
-      tags$div(
-        class = "tables-sidebar",
-        shiny::actionButton("tables_add_click", "Add Table",
-                            icon = shiny::icon("plus"),
-                            class = "btn-outline-primary btn-sm mb-2 w-100"),
-        sidebar_items
+      oq_sidebar_list_ui(
+        items = items,
+        selected = sel,
+        add_input = "tables_add_click",
+        select_input = "tables_select_click",
+        edit_input = "tables_edit_click",
+        delete_input = "tables_delete_click",
+        add_label = "Add Table"
       )
     })
 
@@ -7088,8 +7139,9 @@ run_model_editor <- function(path = NULL, options = list()) {
       sel <- selected_script()
       file_load_counter()  # React to undo/redo and file loads
       m <- shiny::isolate(model())
+      if (is.null(sel) || is.null(m)) return()
       scripts <- openqaly::get_scripts(m)
-      if (is.null(sel) || is.null(m) || is.null(scripts[[sel]])) return()
+      if (is.null(scripts[[sel]])) return()
       script <- scripts[[sel]]
       session$sendCustomMessage("scripts_load_content", list(
         code = script$code %||% ""
@@ -7117,39 +7169,24 @@ run_model_editor <- function(path = NULL, options = list()) {
     output$scripts_tab <- shiny::renderUI({
       snames <- script_names_val()
       sel <- selected_script()
+      scripts <- model()$scripts
 
-      sidebar_items <- lapply(snames, function(sname) {
-        active_class <- if (identical(sname, sel)) " active" else ""
-        tags$div(
-          class = paste0("scripts-sidebar-item", active_class),
-          onclick = sprintf(
-            "Shiny.setInputValue('scripts_select_click', '%s', {priority: 'event'})",
-            gsub("'", "\\\\'", sname)
-          ),
-          tags$span(class = "script-name", sname),
-          tags$div(
-            class = "script-actions",
-            tags$button(
-              class = "btn",
-              title = "Edit metadata",
-              onclick = sprintf(
-                "event.stopPropagation(); Shiny.setInputValue('scripts_edit_click', '%s', {priority: 'event'})",
-                gsub("'", "\\\\'", sname)
-              ),
-              shiny::icon("pencil")
-            ),
-            tags$button(
-              class = "btn",
-              title = "Delete script",
-              onclick = sprintf(
-                "event.stopPropagation(); Shiny.setInputValue('scripts_delete_click', '%s', {priority: 'event'})",
-                gsub("'", "\\\\'", sname)
-              ),
-              shiny::icon("times")
-            )
-          )
+      items <- lapply(snames, function(sname) {
+        list(
+          name = sname,
+          description = scripts[[sname]]$description %||% ""
         )
       })
+
+      sidebar <- oq_sidebar_list_ui(
+        items = items,
+        selected = sel,
+        add_input = "scripts_add_click",
+        select_input = "scripts_select_click",
+        edit_input = "scripts_edit_click",
+        delete_input = "scripts_delete_click",
+        add_label = "Add Script"
+      )
 
       # Build right panel content
       right_panel <- if (!is.null(sel)) {
@@ -7167,19 +7204,11 @@ run_model_editor <- function(path = NULL, options = list()) {
         )
       }
 
-      ui <- tags$div(
+      tags$div(
         class = "scripts-tab-container",
-        tags$div(
-          class = "scripts-sidebar",
-          shiny::actionButton("scripts_add_click", "Add Script",
-                              icon = shiny::icon("plus"),
-                              class = "btn-outline-primary btn-sm mb-2 w-100"),
-          sidebar_items
-        ),
+        sidebar,
         right_panel
       )
-
-      ui
     })
 
     # --- Strategies tab (Tabulator grid) ---
@@ -7227,7 +7256,7 @@ run_model_editor <- function(path = NULL, options = list()) {
         formula_input_dependency(),
         variables_table_dependency(),
         shiny::tags$div(
-          class = "strategies-table-container",
+          class = "strategies-table-container oq-grid-themed",
           `data-input-id` = "strategies_action",
           `data-initial` = jsonlite::toJSON(initial_data, auto_unbox = TRUE),
           `data-var-columns` = jsonlite::toJSON(var_columns, auto_unbox = TRUE),
@@ -7244,6 +7273,21 @@ run_model_editor <- function(path = NULL, options = list()) {
       action <- input$strategies_action
       shiny::req(action$type)
 
+      # Handle batch_edit (clipboard paste)
+      if (action$type == "batch_edit") {
+        tryCatch({
+          result <- apply_batch_edit(action)
+          file_load_counter(file_load_counter() + 1L)
+        }, error = function(e) {
+          shiny::showNotification(
+            paste("Action failed:", conditionMessage(e)),
+            type = "error"
+          )
+          file_load_counter(file_load_counter() + 1L)
+        })
+        return()
+      }
+
       # Intercept modal trigger
       if (action$type == "show_add_strategy_modal") {
         m <- model()
@@ -7257,45 +7301,44 @@ run_model_editor <- function(path = NULL, options = list()) {
         has_vars <- length(strat_var_names) > 0
         add_strategy_has_vars(has_vars)
 
-        # Build modal content — 2-column grid for strategy fields
+        # Build modal content — CSS grid layout for strategy fields
         modal_body <- shiny::tagList(
           shiny::tags$div(
-            class = "row",
+            class = "add-form-grid",
             shiny::tags$div(
-              class = "col-md-6",
-              shiny::textInput("add_strategy_name", "Name", value = "")
+              shiny::textInput("add_strategy_name", "Name", value = "",
+                               width = "100%")
             ),
             shiny::tags$div(
-              class = "col-md-6",
-              shiny::textInput("add_strategy_display_name", "Display Name", value = "")
-            )
-          ),
-          shiny::tags$div(
-            class = "row",
-            shiny::tags$div(
-              class = "col-md-6",
-              shiny::textInput("add_strategy_description", "Description", value = "")
+              shiny::textInput("add_strategy_display_name", "Display Name",
+                               value = "", width = "100%")
             ),
             shiny::tags$div(
-              class = "col-md-6",
-              shiny::selectInput("add_strategy_enabled", "Enabled",
-                                 choices = c("Yes" = "1", "No" = "0"),
-                                 selected = "1")
+              class = "full-width",
+              shiny::textInput("add_strategy_description", "Description",
+                               value = "", width = "100%")
             )
           )
         )
 
         if (has_vars) {
+          n_vars <- length(strat_var_names)
           modal_body <- shiny::tagList(
             modal_body,
-            shiny::tags$hr(),
-            shiny::tags$h5("Strategy-Specific Variables"),
-            shiny::tags$p(
-              class = "text-muted small",
-              "These variables have strategy-specific formulas. ",
-              "Enter formulas for the new strategy, or leave blank to skip."
+            shiny::tags$div(class = "add-modal-divider"),
+            shiny::tags$div(
+              class = "add-vars-header",
+              shiny::tags$span(class = "add-vars-title",
+                               "Strategy-Specific Variables"),
+              shiny::tags$span(class = "add-vars-badge",
+                               paste0(n_vars, " variable",
+                                      if (n_vars != 1) "s"))
             ),
-            shiny::tags$div(id = "add-strategy-vars-container")
+            shiny::tags$p(
+              class = "add-vars-desc",
+              "These variables have strategy-specific formulas."
+            ),
+            shiny::tags$div(id = "add-strategy-vars-container", class = "oq-grid-themed")
           )
         }
 
@@ -7305,7 +7348,8 @@ run_model_editor <- function(path = NULL, options = list()) {
             title = "Add Strategy",
             modal_body,
             size = "l",
-            footer = shiny::tagList(
+            footer = shiny::tags$div(
+              class = "add-modal-footer",
               shiny::modalButton("Cancel"),
               shiny::actionButton("add_strategy_confirm", "Create Strategy",
                                   class = "btn-primary")
@@ -7434,7 +7478,7 @@ run_model_editor <- function(path = NULL, options = list()) {
           name = name,
           display_name = trimws(input$add_strategy_display_name %||% ""),
           description = trimws(input$add_strategy_description %||% ""),
-          enabled = if (input$add_strategy_enabled == "0") 0 else 1
+          enabled = 1
         ))
         file_load_counter(file_load_counter() + 1L)
         shiny::removeModal()
@@ -7455,6 +7499,13 @@ run_model_editor <- function(path = NULL, options = list()) {
       }
 
       var_rows <- input$add_strategy_modal_vars
+      # Guard against jsonlite simplifying an array of objects into a data.frame
+      if (is.data.frame(var_rows)) {
+        var_rows <- lapply(seq_len(nrow(var_rows)), function(i) as.list(var_rows[i, , drop = FALSE]))
+      } else if (is.list(var_rows) && !is.null(names(var_rows))) {
+        # Single object came as a flat named list
+        var_rows <- list(var_rows)
+      }
       old <- model()
 
       tryCatch({
@@ -7467,7 +7518,7 @@ run_model_editor <- function(path = NULL, options = list()) {
           name = name,
           display_name = trimws(input$add_strategy_display_name %||% ""),
           description = trimws(input$add_strategy_description %||% ""),
-          enabled = if (input$add_strategy_enabled == "0") 0 else 1
+          enabled = 1
         ))
 
         # 2. Add variable rows with non-empty formulas
@@ -7543,7 +7594,7 @@ run_model_editor <- function(path = NULL, options = list()) {
         formula_input_dependency(),
         variables_table_dependency(),
         shiny::tags$div(
-          class = "groups-table-container",
+          class = "groups-table-container oq-grid-themed",
           `data-input-id` = "groups_action",
           `data-initial` = jsonlite::toJSON(initial_data, auto_unbox = TRUE),
           `data-var-columns` = jsonlite::toJSON(var_columns, auto_unbox = TRUE),
@@ -7560,6 +7611,21 @@ run_model_editor <- function(path = NULL, options = list()) {
       action <- input$groups_action
       shiny::req(action$type)
 
+      # Handle batch_edit (clipboard paste)
+      if (action$type == "batch_edit") {
+        tryCatch({
+          result <- apply_batch_edit(action)
+          file_load_counter(file_load_counter() + 1L)
+        }, error = function(e) {
+          shiny::showNotification(
+            paste("Action failed:", conditionMessage(e)),
+            type = "error"
+          )
+          file_load_counter(file_load_counter() + 1L)
+        })
+        return()
+      }
+
       # Intercept modal trigger
       if (action$type == "show_add_group_modal") {
         m <- model()
@@ -7572,49 +7638,58 @@ run_model_editor <- function(path = NULL, options = list()) {
         has_vars <- length(grp_var_names) > 0
         add_group_has_vars(has_vars)
 
-        # Build modal content — 2-column grid for group fields
+        # Build modal content — CSS grid layout for group fields
         modal_body <- shiny::tagList(
           shiny::tags$div(
-            class = "row",
+            class = "add-form-grid",
             shiny::tags$div(
-              class = "col-md-6",
-              shiny::textInput("add_group_name", "Name", value = "")
+              shiny::textInput("add_group_name", "Name", value = "",
+                               width = "100%")
             ),
             shiny::tags$div(
-              class = "col-md-6",
-              shiny::textInput("add_group_display_name", "Display Name", value = "")
-            )
-          ),
-          shiny::tags$div(
-            class = "row",
-            shiny::tags$div(
-              class = "col-md-4",
-              shiny::textInput("add_group_description", "Description", value = "")
+              shiny::textInput("add_group_display_name", "Display Name",
+                               value = "", width = "100%")
             ),
             shiny::tags$div(
-              class = "col-md-4",
-              shiny::textInput("add_group_weight", "Weight", value = "1")
+              class = "full-width",
+              shiny::textInput("add_group_description", "Description",
+                               value = "", width = "100%")
             ),
             shiny::tags$div(
-              class = "col-md-4",
-              shiny::selectInput("add_group_enabled", "Enabled",
-                                 choices = c("Yes" = "1", "No" = "0"),
-                                 selected = "1")
+              class = "full-width add-group-weight-field",
+              tags$div(class = "label-row",
+                shiny::tags$label(
+                  class = "control-label",
+                  `for` = "add_group_weight",
+                  "Weight"
+                ),
+                info_icon("Relative weight of this group in the total population.")
+              ),
+              formulaInput("add_group_weight", value = "1",
+                           model = m, context = "variable",
+                           width = "100%")
             )
           )
         )
 
         if (has_vars) {
+          n_vars <- length(grp_var_names)
           modal_body <- shiny::tagList(
             modal_body,
-            shiny::tags$hr(),
-            shiny::tags$h5("Group-Specific Variables"),
-            shiny::tags$p(
-              class = "text-muted small",
-              "These variables have group-specific formulas. ",
-              "Enter formulas for the new group, or leave blank to skip."
+            shiny::tags$div(class = "add-modal-divider"),
+            shiny::tags$div(
+              class = "add-vars-header",
+              shiny::tags$span(class = "add-vars-title",
+                               "Group-Specific Variables"),
+              shiny::tags$span(class = "add-vars-badge",
+                               paste0(n_vars, " variable",
+                                      if (n_vars != 1) "s"))
             ),
-            shiny::tags$div(id = "add-group-vars-container")
+            shiny::tags$p(
+              class = "add-vars-desc",
+              "These variables have group-specific formulas."
+            ),
+            shiny::tags$div(id = "add-group-vars-container", class = "oq-grid-themed")
           )
         }
 
@@ -7624,7 +7699,8 @@ run_model_editor <- function(path = NULL, options = list()) {
             title = "Add Group",
             modal_body,
             size = "l",
-            footer = shiny::tagList(
+            footer = shiny::tags$div(
+              class = "add-modal-footer",
               shiny::modalButton("Cancel"),
               shiny::actionButton("add_group_confirm", "Create Group",
                                   class = "btn-primary")
@@ -7750,8 +7826,8 @@ run_model_editor <- function(path = NULL, options = list()) {
           name = name,
           display_name = trimws(input$add_group_display_name %||% ""),
           description = trimws(input$add_group_description %||% ""),
-          weight = trimws(input$add_group_weight %||% "1"),
-          enabled = if (input$add_group_enabled == "0") 0 else 1
+          weight = trimws(input$add_group_weight$value %||% "1"),
+          enabled = 1
         ))
         file_load_counter(file_load_counter() + 1L)
         shiny::removeModal()
@@ -7772,6 +7848,13 @@ run_model_editor <- function(path = NULL, options = list()) {
       }
 
       var_rows <- input$add_group_modal_vars
+      # Guard against jsonlite simplifying an array of objects into a data.frame
+      if (is.data.frame(var_rows)) {
+        var_rows <- lapply(seq_len(nrow(var_rows)), function(i) as.list(var_rows[i, , drop = FALSE]))
+      } else if (is.list(var_rows) && !is.null(names(var_rows))) {
+        # Single object came as a flat named list
+        var_rows <- list(var_rows)
+      }
       old <- model()
 
       tryCatch({
@@ -7784,8 +7867,8 @@ run_model_editor <- function(path = NULL, options = list()) {
           name = name,
           display_name = trimws(input$add_group_display_name %||% ""),
           description = trimws(input$add_group_description %||% ""),
-          weight = trimws(input$add_group_weight %||% "1"),
-          enabled = if (input$add_group_enabled == "0") 0 else 1
+          weight = trimws(input$add_group_weight$value %||% "1"),
+          enabled = 1
         ))
 
         # 2. Add variable rows with non-empty formulas
@@ -7836,7 +7919,7 @@ run_model_editor <- function(path = NULL, options = list()) {
         row
       })
       tag_args <- list(
-        class = "states-table-container",
+        class = "states-table-container oq-grid-themed",
         `data-input-id` = "model_action",
         `data-initial` = jsonlite::toJSON(initial_data, auto_unbox = TRUE),
         `data-model-type` = model_type
@@ -7883,7 +7966,7 @@ run_model_editor <- function(path = NULL, options = list()) {
         transitions_table_dependency(),
         formula_input_dependency(),
         shiny::tags$div(
-          class = "transitions-table-container",
+          class = "transitions-table-container oq-grid-themed",
           `data-input-id` = "model_action",
           `data-initial` = jsonlite::toJSON(initial_data, auto_unbox = TRUE),
           `data-model-type` = model_type,
@@ -7917,7 +8000,7 @@ run_model_editor <- function(path = NULL, options = list()) {
         variables_table_dependency(),
         formula_input_dependency(),
         shiny::tags$div(
-          class = "variables-table-container",
+          class = "variables-table-container oq-grid-themed",
           `data-input-id` = "model_action",
           `data-initial` = jsonlite::toJSON(initial_data, auto_unbox = TRUE),
           `data-strategies` = jsonlite::toJSON(as.list(strategy_map), auto_unbox = TRUE),
@@ -7961,7 +8044,7 @@ run_model_editor <- function(path = NULL, options = list()) {
         values_table_dependency(),
         formula_input_dependency(),
         shiny::tags$div(
-          class = "values-table-container",
+          class = "values-table-container oq-grid-themed",
           `data-input-id` = "model_action",
           `data-initial` = jsonlite::toJSON(initial_data, auto_unbox = TRUE),
           `data-model-type` = model_type,
@@ -7998,7 +8081,7 @@ run_model_editor <- function(path = NULL, options = list()) {
       shiny::tagList(
         summaries_table_dependency(),
         shiny::tags$div(
-          class = "summaries-table-container",
+          class = "summaries-table-container oq-grid-themed",
           `data-input-id` = "model_action",
           `data-initial` = jsonlite::toJSON(initial_data, auto_unbox = TRUE),
           `data-outcome-values` = jsonlite::toJSON(outcome_values, auto_unbox = FALSE),
@@ -8131,42 +8214,15 @@ run_model_editor <- function(path = NULL, options = list()) {
     output$trees_sidebar <- shiny::renderUI({
       tnames <- tree_names_val()
       sel <- selected_tree()
-      sidebar_items <- lapply(tnames, function(tname) {
-        active_class <- if (identical(tname, sel)) " active" else ""
-        tags$div(
-          class = paste0("trees-sidebar-item", active_class),
-          onclick = sprintf(
-            "Shiny.setInputValue('trees_select_click', '%s', {priority: 'event'})",
-            gsub("'", "\\\\'", tname)
-          ),
-          tags$span(class = "tree-name", tname),
-          tags$div(
-            class = "tree-actions",
-            tags$button(
-              class = "btn", title = "Rename tree",
-              onclick = sprintf(
-                "event.stopPropagation(); Shiny.setInputValue('trees_edit_click', '%s', {priority: 'event'})",
-                gsub("'", "\\\\'", tname)
-              ),
-              shiny::icon("pencil")
-            ),
-            tags$button(
-              class = "btn", title = "Delete tree",
-              onclick = sprintf(
-                "event.stopPropagation(); Shiny.setInputValue('trees_delete_click', '%s', {priority: 'event'})",
-                gsub("'", "\\\\'", tname)
-              ),
-              shiny::icon("times")
-            )
-          )
-        )
-      })
-      tags$div(
-        class = "trees-sidebar",
-        shiny::actionButton("trees_add_click", "Add Tree",
-                            icon = shiny::icon("plus"),
-                            class = "btn-outline-primary btn-sm mb-2 w-100"),
-        sidebar_items
+      items <- lapply(tnames, function(tname) list(name = tname))
+      oq_sidebar_list_ui(
+        items = items,
+        selected = sel,
+        add_input = "trees_add_click",
+        select_input = "trees_select_click",
+        edit_input = "trees_edit_click",
+        delete_input = "trees_delete_click",
+        add_label = "Add Tree"
       )
     })
 
@@ -8205,7 +8261,7 @@ run_model_editor <- function(path = NULL, options = list()) {
         trees_table_dependency(),
         formula_input_dependency(),
         shiny::tags$div(
-          class = "trees-table-container",
+          class = "trees-table-container oq-grid-themed",
           `data-input-id` = "model_action",
           `data-tree-name` = sel,
           `data-initial` = jsonlite::toJSON(initial_data, auto_unbox = TRUE),

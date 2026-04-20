@@ -284,6 +284,7 @@
   OQGrid.registerSpec("psa-univariate", function() {
     return {
       name: "psa-univariate",
+      nonClearableFields: ["name", "strategy", "group", "sampling"],
       containerSelector: ".psa-params-container",
       dispatchMode: "sync",
 
@@ -426,6 +427,7 @@
           {
             title: "Base Case",
             field: "_baseCase",
+            titleFormatter: OQGrid.utils.infoTitle("Current value from the model definition."),
             widthGrow: 1,
             minWidth: 120,
             editor: false,
@@ -440,6 +442,7 @@
           {
             title: "Sampling",
             field: "sampling",
+            titleFormatter: OQGrid.utils.infoTitle("Probability distribution to sample from during PSA. Specify distribution type and parameters."),
             widthGrow: 2,
             minWidth: 250,
             editor: OQGrid.editors.distribution(choices.terms, choices.suggestions),
@@ -677,6 +680,7 @@
   OQGrid.registerSpec("psa-multivariate", function() {
     return {
       name: "psa-multivariate",
+      nonClearableFields: ["name", "variables", "strategy", "group"],
       containerSelector: ".psa-multivariate-container",
       dispatchMode: "sync",
 
@@ -717,6 +721,7 @@
           {
             title: "Variables",
             field: "variables",
+            titleFormatter: OQGrid.utils.infoTitle("Variables that are jointly sampled from this multivariate distribution."),
             widthGrow: 2,
             minWidth: 200,
             editor: OQGrid.editors.tagInput(choices.variables || []),
@@ -778,6 +783,7 @@
           {
             title: "Parameters",
             field: "_params",
+            titleFormatter: OQGrid.utils.infoTitle("Distribution-specific parameters (e.g. alpha values for Dirichlet, covariance matrix for MV Normal)."),
             widthGrow: 2,
             minWidth: 250,
             editor: OQGrid.editors.mvDistribution(choices, choices.terms, choices.suggestions),

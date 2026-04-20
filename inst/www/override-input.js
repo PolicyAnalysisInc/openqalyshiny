@@ -436,9 +436,6 @@
       Shiny.setInputValue(inputId + "-manage_click", Date.now(), {priority: "event"});
     });
 
-    // Rebind to pick up any existing elements
-    Shiny.bindAll(document.body);
-
     console.log("overrideInput binding registered successfully");
   }).catch(function(error) {
     console.error("Failed to initialize overrideInput:", error);

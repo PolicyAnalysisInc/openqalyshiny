@@ -39,6 +39,7 @@
       // Destroy previous instance
       if (OQGrid._active[key]) {
         try {
+          OQGrid.keyboard.destroy(OQGrid._active[key]);
           if (OQGrid._active[key].table) {
             OQGrid._active[key].table.destroy();
           }

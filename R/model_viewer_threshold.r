@@ -67,10 +67,10 @@ thresholdResultTabSidebarUI <- function(id) {
 #' @export
 thresholdResultTabUI <- function(id) {
   ns <- shiny::NS(id)
-  shiny::tagList(
+  results_fill_panel(
     shiny::conditionalPanel(
       condition = sprintf("input['%s'] != 'table'", ns("viz_type")),
-      shiny::plotOutput(ns("result_plot"))
+      results_fill_plot_output(ns("result_plot"))
     ),
     shiny::conditionalPanel(
       condition = sprintf("input['%s'] == 'table'", ns("viz_type")),
@@ -107,7 +107,7 @@ thresholdResultTabServer <- function(id, tab_type, threshold_results) {
         )
       )
 
-      build_results_sidebar_controls(inputs)
+      build_results_sidebar_controls(c(inputs, list(plot_scale_input(ns))))
     })
 
     selected_analysis <- shiny::reactive({
@@ -115,7 +115,9 @@ thresholdResultTabServer <- function(id, tab_type, threshold_results) {
       if (is.null(sel) || sel == "__all__") NULL else sel
     })
 
-    output$result_plot <- shiny::renderPlot({
+    shiny::observe({
+      scale <- input$plot_scale %||% 1
+      output$result_plot <- shiny::renderPlot({
       res <- threshold_results()
       shiny::req(res, input$viz_type, input$viz_type != "table")
       error_msg(NULL)
@@ -133,6 +135,7 @@ thresholdResultTabServer <- function(id, tab_type, threshold_results) {
         error_msg(conditionMessage(e))
         NULL
       })
+    }, res = 72 * scale)
     })
 
     output$result_table <- shiny::renderUI({

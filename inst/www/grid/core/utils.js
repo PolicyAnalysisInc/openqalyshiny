@@ -61,6 +61,36 @@
   };
 
   // =========================================================================
+  // Info title — titleFormatter that adds an info-trigger popover to a header
+  // =========================================================================
+  OQGrid.utils.infoTitle = function(description) {
+    return function(cell) {
+      var title = cell.getValue();
+      var wrapper = document.createElement("span");
+      wrapper.style.display = "inline-flex";
+      wrapper.style.alignItems = "center";
+      wrapper.style.gap = "4px";
+
+      var text = document.createElement("span");
+      text.textContent = title;
+      wrapper.appendChild(text);
+
+      var btn = document.createElement("button");
+      btn.className = "info-trigger";
+      var icon = document.createElement("i");
+      icon.className = "fa-solid fa-circle-info";
+      btn.appendChild(icon);
+      var popover = document.createElement("span");
+      popover.className = "info-popover";
+      popover.textContent = description;
+      btn.appendChild(popover);
+      wrapper.appendChild(btn);
+
+      return wrapper;
+    };
+  };
+
+  // =========================================================================
   // Relayout — redraw with column width distribution and scroll preservation
   // =========================================================================
   OQGrid.relayout = function(table) {

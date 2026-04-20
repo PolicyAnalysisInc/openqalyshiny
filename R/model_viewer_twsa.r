@@ -17,10 +17,10 @@ twsaResultTabSidebarUI <- function(id) {
 #' @keywords internal
 twsaResultTabUI <- function(id) {
   ns <- shiny::NS(id)
-  shiny::tagList(
+  results_fill_panel(
     shiny::conditionalPanel(
       condition = sprintf("input['%s'] != 'table'", ns("viz_type")),
-      shiny::plotOutput(ns("result_plot"))
+      results_fill_plot_output(ns("result_plot"))
     ),
     shiny::conditionalPanel(
       condition = sprintf("input['%s'] == 'table'", ns("viz_type")),
@@ -288,7 +288,7 @@ twsaResultTabServer <- function(id, analysis_type, twsa_results, metadata) {
 
       inputs <- Filter(Negate(is.null), inputs)
 
-      build_results_sidebar_controls(inputs)
+      build_results_sidebar_controls(c(inputs, list(plot_scale_input(ns))))
     })
 
     # Helper to get the selected TWSA name (NULL if only one)
@@ -306,7 +306,9 @@ twsaResultTabServer <- function(id, analysis_type, twsa_results, metadata) {
     })
 
     # ---- Plot rendering ----
-    output$result_plot <- shiny::renderPlot({
+    shiny::observe({
+      scale <- input$plot_scale %||% 1
+      output$result_plot <- shiny::renderPlot({
       res <- twsa_results()
       shiny::req(res, input$viz_type, input$viz_type != "table")
       error_msg(NULL)
@@ -383,6 +385,7 @@ twsaResultTabServer <- function(id, analysis_type, twsa_results, metadata) {
         error_msg(conditionMessage(e))
         NULL
       })
+    }, res = 72 * scale)
     })
 
     # ---- Table rendering ----

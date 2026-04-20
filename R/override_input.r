@@ -345,7 +345,7 @@ updateOverrideInput <- function(session, inputId, override_name, value,
   if (length(parts) == 2) {
     list(number = parts[1], unit = parts[2])
   } else {
-    list(number = "1", unit = "year")
+    list(number = parts[1], unit = "year")
   }
 }
 

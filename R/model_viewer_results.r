@@ -78,7 +78,8 @@ traceResultsServer <- function(id, results, metadata) {
           choices = c("cycle", "day", "week", "month", "year"),
           selected = "cycle"
         ),
-        extra
+        extra,
+        plot_scale_input(ns)
       ))
     })
 
@@ -91,7 +92,9 @@ traceResultsServer <- function(id, results, metadata) {
       args
     }
 
-    output$result_plot <- shiny::renderPlot({
+    shiny::observe({
+      scale <- input$plot_scale %||% 1
+      output$result_plot <- shiny::renderPlot({
       res <- results()
       shiny::req(res, input$viz_type, input$viz_type != "table")
       args <- build_args(res)
@@ -107,6 +110,7 @@ traceResultsServer <- function(id, results, metadata) {
         error_msg(conditionMessage(e))
         NULL
       })
+    }, res = 72 * scale)
     })
 
     output$result_table <- shiny::renderUI({
@@ -311,7 +315,8 @@ outcomesResultsServer <- function(id, results, metadata) {
         if (length(groups) > 1) shiny::selectInput(ns("groups"), "Groups", choices = groups, selected = "overall", multiple = TRUE)
         ),
         strategy_controls,
-        extra
+        extra,
+        list(plot_scale_input(ns))
       ))
     })
 
@@ -330,7 +335,9 @@ outcomesResultsServer <- function(id, results, metadata) {
       args
     }
 
-    output$result_plot <- shiny::renderPlot({
+    shiny::observe({
+      scale <- input$plot_scale %||% 1
+      output$result_plot <- shiny::renderPlot({
       res <- results()
       shiny::req(res, input$viz_type, input$outcome, input$analysis_type, input$viz_type != "table")
       if (input$analysis_type == "differences") {
@@ -351,6 +358,7 @@ outcomesResultsServer <- function(id, results, metadata) {
         error_msg(conditionMessage(e))
         NULL
       })
+    }, res = 72 * scale)
     })
 
     output$result_table <- shiny::renderUI({
@@ -558,7 +566,8 @@ costsResultsServer <- function(id, results, metadata) {
         if (length(groups) > 1) shiny::selectInput(ns("groups"), "Groups", choices = groups, selected = "overall", multiple = TRUE)
         ),
         strategy_controls,
-        extra
+        extra,
+        list(plot_scale_input(ns))
       ))
     })
 
@@ -577,7 +586,9 @@ costsResultsServer <- function(id, results, metadata) {
       args
     }
 
-    output$result_plot <- shiny::renderPlot({
+    shiny::observe({
+      scale <- input$plot_scale %||% 1
+      output$result_plot <- shiny::renderPlot({
       res <- results()
       shiny::req(res, input$viz_type, input$outcome, input$analysis_type, input$viz_type != "table")
       if (input$analysis_type == "differences") {
@@ -598,6 +609,7 @@ costsResultsServer <- function(id, results, metadata) {
         error_msg(conditionMessage(e))
         NULL
       })
+    }, res = 72 * scale)
     })
 
     output$result_table <- shiny::renderUI({
@@ -790,7 +802,8 @@ nmbResultsServer <- function(id, results, metadata) {
           choices = strategies, selected = strategies[-2], multiple = TRUE
         )
         ),
-        extra
+        extra,
+        list(plot_scale_input(ns))
       ))
     })
 
@@ -807,7 +820,9 @@ nmbResultsServer <- function(id, results, metadata) {
       args
     }
 
-    output$result_plot <- shiny::renderPlot({
+    shiny::observe({
+      scale <- input$plot_scale %||% 1
+      output$result_plot <- shiny::renderPlot({
       res <- results()
       shiny::req(
         res, input$viz_type, input$health_outcome,
@@ -828,6 +843,7 @@ nmbResultsServer <- function(id, results, metadata) {
         error_msg(conditionMessage(e))
         NULL
       })
+    }, res = 72 * scale)
     })
 
     output$result_table <- shiny::renderUI({
@@ -1004,7 +1020,8 @@ pairwiseCeResultsServer <- function(id, results, metadata) {
         ),
         if (length(strategies) > 1) shiny::selectInput(ns("comparators"), "Comparators",
           choices = strategies, selected = strategies[-2], multiple = TRUE
-        )
+        ),
+        plot_scale_input(ns)
       ))
     })
 
@@ -1021,7 +1038,9 @@ pairwiseCeResultsServer <- function(id, results, metadata) {
       args
     }
 
-    output$result_plot <- shiny::renderPlot({
+    shiny::observe({
+      scale <- input$plot_scale %||% 1
+      output$result_plot <- shiny::renderPlot({
       res <- results()
       shiny::req(
         res, input$viz_type, input$health_outcome,
@@ -1036,6 +1055,7 @@ pairwiseCeResultsServer <- function(id, results, metadata) {
         error_msg(conditionMessage(e))
         NULL
       })
+    }, res = 72 * scale)
     })
 
     output$result_table <- shiny::renderUI({
@@ -1143,7 +1163,8 @@ incrementalCeResultsServer <- function(id, results, metadata) {
           selected = if (length(cost_choices) > 0) cost_choices[1] else NULL
         ),
         if (length(groups) > 1) shiny::selectInput(ns("groups"), "Groups", choices = groups, selected = "overall", multiple = TRUE),
-        if (length(strategies) > 1) shiny::selectInput(ns("strategies"), "Strategies", choices = strategies, selected = strategies, multiple = TRUE)
+        if (length(strategies) > 1) shiny::selectInput(ns("strategies"), "Strategies", choices = strategies, selected = strategies, multiple = TRUE),
+        plot_scale_input(ns)
       ))
     })
 
@@ -1158,7 +1179,9 @@ incrementalCeResultsServer <- function(id, results, metadata) {
       args
     }
 
-    output$result_plot <- shiny::renderPlot({
+    shiny::observe({
+      scale <- input$plot_scale %||% 1
+      output$result_plot <- shiny::renderPlot({
       res <- results()
       shiny::req(res, input$viz_type, input$health_outcome, input$cost_outcome, input$viz_type != "table")
       args <- build_args(res)
@@ -1169,6 +1192,7 @@ incrementalCeResultsServer <- function(id, results, metadata) {
         error_msg(conditionMessage(e))
         NULL
       })
+    }, res = 72 * scale)
     })
 
     output$result_table <- shiny::renderUI({

@@ -143,8 +143,14 @@
   }
 
   // =========================================================================
-  // Scenario list renderer
+  // Scenario list renderer (uses unified oq-sidebar markup)
   // =========================================================================
+  function makeFAIcon(cls) {
+    var i = document.createElement("i");
+    i.className = "fas " + cls;
+    return i;
+  }
+
   function renderScenarioList(listContainer, table, inputId) {
     while (listContainer.firstChild) {
       listContainer.removeChild(listContainer.firstChild);
@@ -152,20 +158,62 @@
 
     _state.scenarios.forEach(function(s) {
       var item = document.createElement("div");
-      item.className = "scenario-list-item" + (s.id === _state.selectedId ? " scenario-list-item--active" : "");
+      item.className = "oq-sidebar-item" + (s.id === _state.selectedId ? " active" : "");
       item.setAttribute("data-id", s.id);
 
+      var content = document.createElement("div");
+      content.className = "oq-sidebar-item-content";
+
       var nameSpan = document.createElement("div");
-      nameSpan.className = "scenario-list-item-name";
+      nameSpan.className = "oq-sidebar-item-name";
       nameSpan.textContent = s.name;
-      item.appendChild(nameSpan);
+      content.appendChild(nameSpan);
 
       if (s.description) {
         var descSpan = document.createElement("div");
-        descSpan.className = "scenario-list-item-desc";
+        descSpan.className = "oq-sidebar-item-desc";
         descSpan.textContent = s.description;
-        item.appendChild(descSpan);
+        content.appendChild(descSpan);
       }
+
+      item.appendChild(content);
+
+      // Actions: edit + delete
+      var actions = document.createElement("div");
+      actions.className = "oq-sidebar-item-actions";
+
+      var editBtn = document.createElement("button");
+      editBtn.type = "button";
+      editBtn.className = "btn";
+      editBtn.title = "Edit";
+      editBtn.appendChild(makeFAIcon("fa-pencil-alt"));
+      editBtn.addEventListener("click", function(e) {
+        e.stopPropagation();
+        saveGridToState(table);
+        OQGrid.shiny.dispatch("show_edit_scenario_modal", {
+          nonce: Date.now(),
+          id: s.id,
+          name: s.name,
+          description: s.description || ""
+        });
+      });
+      actions.appendChild(editBtn);
+
+      var deleteBtn = document.createElement("button");
+      deleteBtn.type = "button";
+      deleteBtn.className = "btn";
+      deleteBtn.title = "Delete";
+      deleteBtn.appendChild(makeFAIcon("fa-times"));
+      deleteBtn.addEventListener("click", function(e) {
+        e.stopPropagation();
+        OQGrid.shiny.dispatch("remove_scenario_action", {
+          nonce: Date.now(),
+          name: s.name
+        });
+      });
+      actions.appendChild(deleteBtn);
+
+      item.appendChild(actions);
 
       // Click to select
       item.addEventListener("click", function() {
@@ -180,18 +228,6 @@
         syncAllToShiny(table, inputId, true);
       });
 
-      // Double-click to edit via modal
-      item.addEventListener("dblclick", function(e) {
-        e.stopPropagation();
-        saveGridToState(table);
-        OQGrid.shiny.dispatch("show_edit_scenario_modal", {
-          nonce: Date.now(),
-          id: s.id,
-          name: s.name,
-          description: s.description || ""
-        });
-      });
-
       listContainer.appendChild(item);
     });
   }
@@ -202,6 +238,7 @@
   OQGrid.registerSpec("scenario", function() {
     return {
       name: "scenario",
+      nonClearableFields: ["name", "strategy", "group", "value"],
       containerSelector: ".scenario-params-container",
       dispatchMode: "sync",
 
@@ -368,6 +405,7 @@
           {
             title: "Base Case",
             field: "_baseCase",
+            titleFormatter: OQGrid.utils.infoTitle("Current value from the model definition."),
             widthGrow: 1,
             minWidth: 120,
             editor: false,
@@ -383,6 +421,7 @@
           {
             title: "Value",
             field: "value",
+            titleFormatter: OQGrid.utils.infoTitle("Override value for this parameter in the selected scenario."),
             widthGrow: 2,
             minWidth: 450,
             editor: OQGrid.editors.formula(choices.terms, choices.suggestions),
@@ -593,20 +632,7 @@
           });
         }
 
-        // Wire remove-scenario button
-        var removeScenarioBtn = wrapperDiv.querySelector(".scenario-remove-btn");
-        if (removeScenarioBtn) {
-          var newRemBtn = removeScenarioBtn.cloneNode(true);
-          removeScenarioBtn.parentNode.replaceChild(newRemBtn, removeScenarioBtn);
-          newRemBtn.addEventListener("click", function() {
-            var selected = getSelectedScenario();
-            if (!selected) return;
-            OQGrid.shiny.dispatch("remove_scenario_action", {
-              nonce: Date.now(),
-              name: selected.name
-            });
-          });
-        }
+        // (Remove button replaced by per-item delete actions in the sidebar list)
 
         // Wire existing R-created buttons
         var addVarBtn = wrapperDiv.querySelector(".scenario-add-variable-btn") || null;

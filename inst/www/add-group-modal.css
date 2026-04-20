@@ -1,6 +1,6 @@
-/* Add Group Modal — Variables table styles */
+/* Add Group Modal — Redesigned layout */
 
-/* Make the modal 80% of the viewport, capped at 1000px */
+/* Modal sizing */
 .add-group-modal .modal-dialog {
   max-width: 1000px;
   width: 80vw;
@@ -9,62 +9,110 @@
 .add-group-modal .modal-body {
   max-height: 75vh;
   overflow-y: auto;
+  padding: 24px;
+}
+
+/* ── Form grid layout ── */
+.add-group-modal .add-form-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+.add-group-modal .add-form-grid .full-width {
+  grid-column: 1 / -1;
 }
 
 /* Form labels */
-.add-group-modal label {
-  text-transform: uppercase;
-  font-size: 0.75rem;
+.add-group-modal .add-form-grid label {
+  display: block;
+  font-size: var(--oq-text-xs, 0.75rem);
   font-weight: 600;
-  color: var(--oq-text-secondary, #6c757d);
+  color: var(--oq-text-secondary, #6b7280);
+  margin-bottom: 4px;
+  text-transform: uppercase;
   letter-spacing: 0.4px;
 }
 
-/* Form inputs */
-.add-group-modal .form-control,
-.add-group-modal .form-select {
+/* Form controls */
+.add-group-modal .add-form-grid .form-control,
+.add-group-modal .add-form-grid .form-select {
+  font-family: var(--oq-font, inherit);
   font-size: var(--oq-text-sm, 0.8125rem);
   padding: 7px 10px;
-  border: 1px solid #adb5bd;
+  border: 1px solid var(--oq-border, #e2e5ea);
   border-radius: var(--oq-radius, 6px);
   background: var(--oq-surface, #fff);
   color: var(--oq-text, #1a1d23);
+  width: 100%;
+  transition: border-color 150ms, box-shadow 150ms;
 }
 
-.add-group-modal .form-control:focus,
-.add-group-modal .form-select:focus {
+.add-group-modal .add-form-grid .form-control:focus,
+.add-group-modal .add-form-grid .form-select:focus {
   border-color: var(--oq-border-focus, #6366f1);
   box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.12);
+  outline: none;
 }
 
-/* Variables section */
-#add-group-vars-container {
+/* Weight field — formula input styling */
+.add-group-modal .add-group-weight-field .formula-input {
+  min-height: 32px;
+}
+
+/* ── Variables section ── */
+.add-group-modal .add-modal-divider {
+  height: 1px;
+  background: var(--oq-border-light, #edf0f3);
+  margin: 20px 0;
+}
+
+.add-group-modal .add-vars-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
+.add-group-modal .add-vars-title {
+  font-size: var(--oq-text-sm, 0.8125rem);
+  font-weight: 600;
+  color: var(--oq-text, #1a1d23);
+}
+
+.add-group-modal .add-vars-badge {
+  font-size: 10px;
+  font-weight: 600;
+  padding: 1px 7px;
+  border-radius: 99px;
+  background: var(--oq-primary-light, #eef2ff);
+  color: var(--oq-primary, #6366f1);
+}
+
+.add-group-modal .add-vars-desc {
+  font-size: var(--oq-text-xs, 0.75rem);
+  color: var(--oq-text-tertiary, #9ca3af);
+  margin-bottom: 12px;
+  margin-top: 0;
+}
+
+/* Modal-specific grid overrides */
+.add-group-modal .oq-grid-themed {
   width: 100%;
   margin-bottom: 0.25rem;
-  overflow-x: auto;
-  border-top: 1px solid var(--oq-border, #dee2e6);
-  padding-top: 1rem;
 }
 
-/* Variables section title */
-.add-group-modal .variables-section-title {
-  font-size: 0.875rem;
-  font-weight: 600;
+/* ── Footer ── */
+.add-group-modal .modal-footer {
+  background: var(--oq-surface-sunken, #f0f2f5);
+  border-top: 1px solid var(--oq-border-light, #edf0f3);
+  padding: 14px 24px;
 }
 
-/* Match variables table row/cell sizing */
-#add-group-vars-container .tabulator-cell {
-  font-size: 0.85rem;
-  padding: 10px 6px;
-}
-
-#add-group-vars-container .tabulator-col-title {
-  font-size: 0.85rem;
-}
-
-/* Footer buttons */
 .add-group-modal .modal-footer .btn {
+  font-family: var(--oq-font, inherit);
   font-size: var(--oq-text-sm, 0.8125rem);
+  font-weight: 500;
   padding: 7px 16px;
   border-radius: var(--oq-radius, 6px);
 }
@@ -79,12 +127,23 @@
   border-color: var(--oq-primary-hover, #4f46e5);
 }
 
-/* Ensure formula overlay renders above Bootstrap modal (z-index ~1055) */
+/* ── Modal header ── */
+.add-group-modal .modal-header {
+  padding: 16px 24px;
+  border-bottom: 1px solid var(--oq-border-light, #edf0f3);
+}
+
+.add-group-modal .modal-title {
+  font-size: var(--oq-text-md, 1rem);
+  font-weight: 600;
+  color: var(--oq-text, #1a1d23);
+}
+
+/* ── Z-index management ── */
 .add-group-formula-overlay {
   z-index: 10600 !important;
 }
 
-/* Ensure Ace autocomplete popup renders above modal and formula overlay */
 .ace_autocomplete {
   z-index: 10700 !important;
 }

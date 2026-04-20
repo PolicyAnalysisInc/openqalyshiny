@@ -5,6 +5,7 @@
   OQGrid.registerSpec("transitions", function() {
     return {
       name: "transitions",
+      nonClearableFields: ["from_state", "to_state", "state", "endpoint", "time_unit", "formula"],
       containerSelector: ".transitions-table-container",
       dispatchMode: "event",
 
@@ -41,20 +42,24 @@
             editor: "list", editorParams: { values: stateValues },
             formatter: OQGrid.fmt.emdash });
           cols.push({ title: "Formula", field: "formula", widthGrow: 2, minWidth: 450,
+            titleFormatter: OQGrid.utils.infoTitle("Transition probability formula. Can reference variables, time variables (cycle, day, month, year), and state time (state_cycle, state_day, etc.)."),
             editor: fEditor, formatter: OQGrid.fmt.formula(data.terms) });
         } else if (data.modelType === "psm") {
           cols.push({ title: "Endpoint", field: "endpoint", widthGrow: 1, minWidth: 140,
-            editor: "input", formatter: OQGrid.fmt.emdash });
+            formatter: OQGrid.fmt.emdash });
           cols.push({ title: "Time Unit", field: "time_unit", minWidth: 120,
+            titleFormatter: OQGrid.utils.infoTitle("Time unit for the survival function's time variable."),
             editor: "list", editorParams: { values: timeUnitValues },
             formatter: OQGrid.fmt.displayMap(timeUnitMap) });
           cols.push({ title: "Formula", field: "formula", widthGrow: 2, minWidth: 450,
+            titleFormatter: OQGrid.utils.infoTitle("Survival function formula. Should evaluate to a survival distribution object whose S(t) returns survival probability."),
             editor: fEditor, formatter: OQGrid.fmt.formula(data.terms) });
         } else if (data.modelType === "custom_psm") {
           cols.push({ title: "State", field: "state", minWidth: 140,
             editor: "list", editorParams: { values: stateValues },
             formatter: OQGrid.fmt.emdash });
           cols.push({ title: "Formula", field: "formula", widthGrow: 2, minWidth: 450,
+            titleFormatter: OQGrid.utils.infoTitle("Formula for state membership at each cycle. Can reference variables and time variables (cycle, state_cycle, etc.)."),
             editor: fEditor, formatter: OQGrid.fmt.formula(data.terms) });
         }
 
@@ -172,6 +177,33 @@
             if (field === "state") payload.state = oldValue || "";
           }
           return payload;
+        }
+      },
+
+      // Disable add/remove for PSM — its 2 transitions (PFS, OS) are seeded
+      // at model creation and are a fixed positional contract of the engine.
+      onInit: function(controller) {
+        if (controller.data.modelType === "psm") {
+          controller.spec.addRow = null;
+          controller.spec.actions.remove = null;
+          // _setupAddButton already ran before onInit; remove the button element.
+          var parent = controller.containerDiv.parentNode;
+          if (parent) {
+            var existing = parent.querySelectorAll('.oq-btn');
+            for (var i = 0; i < existing.length; i++) existing[i].remove();
+          }
+          // Remove the delete column after the table finishes building
+          // (columns are added asynchronously by Tabulator).
+          var removeDelete = function() {
+            if (controller.table.getColumn("_delete")) {
+              controller.table.deleteColumn("_delete");
+            }
+          };
+          if (controller.table.initialized) {
+            removeDelete();
+          } else {
+            controller.table.on("tableBuilt", removeDelete);
+          }
         }
       }
     };

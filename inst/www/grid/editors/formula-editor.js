@@ -20,6 +20,7 @@
       var committed = false;
       var overlay = null;
       var aceEditor = null;
+      var highlighter = null;
       var onDocMouseDown = null;
       var cellFocusRedirect = null;
       var editCellEl = null;
@@ -47,6 +48,10 @@
         if (cellFocusRedirect && editCellEl) {
           editCellEl.removeEventListener("focus", cellFocusRedirect, true);
           cellFocusRedirect = null;
+        }
+        if (highlighter) {
+          try { highlighter.destroy(); } catch (e) {}
+          highlighter = null;
         }
         if (aceEditor) {
           try { aceEditor.destroy(); } catch (e) {}
@@ -147,8 +152,8 @@
         try {
           if (terms && typeof FormulaInputMode !== "undefined") {
             FormulaInputMode.injectDefaultStyles();
-            var hl = new FormulaInputMode.FormulaHighlighter(aceEditor);
-            hl.setTerms(terms);
+            highlighter = new FormulaInputMode.FormulaHighlighter(aceEditor);
+            highlighter.setTerms(terms);
           }
           if (suggestions && typeof FormulaInputAutocomplete !== "undefined") {
             var cmp = new FormulaInputAutocomplete.FormulaCompleter(aceEditor, suggestions);

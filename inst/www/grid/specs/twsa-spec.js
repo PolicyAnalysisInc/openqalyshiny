@@ -162,8 +162,14 @@
   }
 
   // =========================================================================
-  // Analysis list rendering
+  // Analysis list rendering (uses unified oq-sidebar markup)
   // =========================================================================
+  function makeFAIcon(cls) {
+    var i = document.createElement("i");
+    i.className = "fas " + cls;
+    return i;
+  }
+
   function renderAnalysisList(listContainer, table, inputId) {
     while (listContainer.firstChild) {
       listContainer.removeChild(listContainer.firstChild);
@@ -171,20 +177,62 @@
 
     _state.analyses.forEach(function(a) {
       var item = document.createElement("div");
-      item.className = "twsa-list-item" + (a.id === _state.selectedId ? " twsa-list-item--active" : "");
+      item.className = "oq-sidebar-item" + (a.id === _state.selectedId ? " active" : "");
       item.setAttribute("data-id", a.id);
 
+      var content = document.createElement("div");
+      content.className = "oq-sidebar-item-content";
+
       var nameSpan = document.createElement("div");
-      nameSpan.className = "twsa-list-item-name";
+      nameSpan.className = "oq-sidebar-item-name";
       nameSpan.textContent = a.name;
-      item.appendChild(nameSpan);
+      content.appendChild(nameSpan);
 
       if (a.description) {
         var descSpan = document.createElement("div");
-        descSpan.className = "twsa-list-item-desc";
+        descSpan.className = "oq-sidebar-item-desc";
         descSpan.textContent = a.description;
-        item.appendChild(descSpan);
+        content.appendChild(descSpan);
       }
+
+      item.appendChild(content);
+
+      // Actions: edit + delete
+      var actions = document.createElement("div");
+      actions.className = "oq-sidebar-item-actions";
+
+      var editBtn = document.createElement("button");
+      editBtn.type = "button";
+      editBtn.className = "btn";
+      editBtn.title = "Edit";
+      editBtn.appendChild(makeFAIcon("fa-pencil-alt"));
+      editBtn.addEventListener("click", function(e) {
+        e.stopPropagation();
+        saveGridToState(table);
+        OQGrid.shiny.dispatch("show_edit_twsa_modal", {
+          nonce: Date.now(),
+          id: a.id,
+          name: a.name,
+          description: a.description || ""
+        });
+      });
+      actions.appendChild(editBtn);
+
+      var deleteBtn = document.createElement("button");
+      deleteBtn.type = "button";
+      deleteBtn.className = "btn";
+      deleteBtn.title = "Delete";
+      deleteBtn.appendChild(makeFAIcon("fa-times"));
+      deleteBtn.addEventListener("click", function(e) {
+        e.stopPropagation();
+        OQGrid.shiny.dispatch("remove_twsa_action", {
+          nonce: Date.now(),
+          name: a.name
+        });
+      });
+      actions.appendChild(deleteBtn);
+
+      item.appendChild(actions);
 
       item.addEventListener("click", function() {
         if (a.id === _state.selectedId) return;
@@ -197,17 +245,6 @@
         syncAllToShiny(table, inputId, true);
       });
 
-      item.addEventListener("dblclick", function(e) {
-        e.stopPropagation();
-        saveGridToState(table);
-        OQGrid.shiny.dispatch("show_edit_twsa_modal", {
-          nonce: Date.now(),
-          id: a.id,
-          name: a.name,
-          description: a.description || ""
-        });
-      });
-
       listContainer.appendChild(item);
     });
   }
@@ -218,6 +255,7 @@
   OQGrid.registerSpec("twsa", function() {
     return {
       name: "twsa",
+      nonClearableFields: ["name", "strategy", "group", "type"],
       containerSelector: ".twsa-params-container",
       wrapperSelector: ".twsa-params-wrapper",
       dispatchMode: "sync",
@@ -261,6 +299,7 @@
           {
             title: "Axis",
             field: "axis",
+            titleFormatter: OQGrid.utils.infoTitle("Which axis this parameter varies along in the two-way sensitivity plot."),
             width: 60,
             hozAlign: "center",
             headerSort: false,
@@ -455,6 +494,7 @@
           {
             title: "Base Case",
             field: "_baseCase",
+            titleFormatter: OQGrid.utils.infoTitle("Current value from the model definition."),
             widthGrow: 1,
             minWidth: 100,
             editor: false,
@@ -475,6 +515,7 @@
           {
             title: "Method",
             field: "type",
+            titleFormatter: OQGrid.utils.infoTitle("Range: specify low/high bounds. Radius: base value +/- an absolute amount. Custom: explicit list of values."),
             width: 100,
             editor: "list",
             editorParams: {
@@ -497,6 +538,7 @@
           {
             title: "Values",
             field: "data",
+            titleFormatter: OQGrid.utils.infoTitle("The set of values to evaluate. Configure by clicking this cell."),
             minWidth: 265,
             widthGrow: 2,
             editor: false,
@@ -879,20 +921,7 @@
           });
         }
 
-        // Remove TWSA button
-        var removeTwsaBtn = wrapperDiv.querySelector(".twsa-remove-btn");
-        if (removeTwsaBtn) {
-          var newRemBtn = removeTwsaBtn.cloneNode(true);
-          removeTwsaBtn.parentNode.replaceChild(newRemBtn, removeTwsaBtn);
-          newRemBtn.addEventListener("click", function() {
-            var sel = getSelectedAnalysis();
-            if (!sel) return;
-            OQGrid.shiny.dispatch("remove_twsa_action", {
-              nonce: Date.now(),
-              name: sel.name
-            });
-          });
-        }
+        // (Remove button replaced by per-item delete actions in the sidebar list)
 
         // ---------------------------------------------------------------
         // Clipboard paste handler

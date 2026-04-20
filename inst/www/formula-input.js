@@ -428,9 +428,6 @@
       }
     });
 
-    // Also rebind so Shiny knows about the values
-    Shiny.bindAll(document.body);
-
     console.log("formulaInput binding registered successfully (Ace Editor)");
   }).catch(function(error) {
     console.error("Failed to initialize formulaInput:", error);

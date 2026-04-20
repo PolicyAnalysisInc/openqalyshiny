@@ -391,6 +391,12 @@ results_fill_plot_output <- function(output_id) {
   )
 }
 
+plot_scale_input <- function(ns) {
+  shiny::sliderInput(ns("plot_scale"), "Plot Scale",
+    value = 1, min = 0.5, max = 3, step = 0.25)
+}
+
+
 .merge_editor_selectize_options <- function(config) {
   config <- config %||% list()
 
@@ -494,6 +500,23 @@ get_dsa_setting_choices <- function() {
   )
 }
 
+#' Info Hover Dependency
+#'
+#' Returns the HTML dependency for the info hover popover CSS and JS.
+#'
+#' @return An htmltools htmlDependency object.
+#' @keywords internal
+info_hover_dependency <- function() {
+  htmltools::htmlDependency(
+    name = "oq-info-hover",
+    version = "1.0.0",
+    src = c(file = system.file("www", package = "openqalyshiny")),
+    script = "info-hover.js",
+    stylesheet = "info-hover.css",
+    all_files = FALSE
+  )
+}
+
 #' DSA Params Table Dependency
 #'
 #' Returns the HTML dependency for the DSA parameter table JS and CSS assets.
@@ -511,7 +534,7 @@ get_dsa_setting_choices <- function() {
 grid_core_dependency <- function() {
   htmltools::htmlDependency(
     name = "oq-grid-core",
-    version = "1.0.7",
+    version = "1.0.8",
     src = c(file = system.file("www/grid", package = "openqalyshiny")),
     script = c(
       # Core infrastructure (order matters)
@@ -542,6 +565,7 @@ grid_core_dependency <- function() {
       "columns/delete-column.js",
       # Controller & factory (must be after editors/helpers)
       "core/grid-controller.js",
+      "core/keyboard-handler.js",
       "core/grid-factory.js"
     ),
     stylesheet = "grid.css",
@@ -559,7 +583,7 @@ grid_core_dependency <- function() {
 grid_spec_dependency <- function(spec_name) {
   htmltools::htmlDependency(
     name = paste0("oq-grid-", spec_name),
-    version = "1.0.1",
+    version = "1.0.6",
     src = c(file = system.file("www/grid/specs", package = "openqalyshiny")),
     script = paste0(spec_name, ".js"),
     all_files = FALSE

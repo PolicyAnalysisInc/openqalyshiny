@@ -8,6 +8,7 @@
 
     return {
       name: "values",
+      nonClearableFields: ["name", "state", "destination", "type", "formula", "display_name"],
       containerSelector: ".values-table-container",
       dispatchMode: "event",
 
@@ -61,6 +62,7 @@
           { title: "Description", field: "description", widthGrow: 1, minWidth: 120,
             editor: "input", formatter: OQGrid.fmt.emdash },
           { title: "Type", field: "type", minWidth: 100,
+            titleFormatter: OQGrid.utils.infoTitle("Outcome values contribute to health outcomes (e.g. QALYs). Cost values contribute to total costs."),
             editor: "list", editorParams: { values: typeValues },
             formatter: OQGrid.fmt.capitalize }
         ];
@@ -69,6 +71,7 @@
         if (data.modelType !== "decision_tree") {
           cols.push({
             title: "State", field: "state", minWidth: 140,
+            titleFormatter: OQGrid.utils.infoTitle("'All' applies to every state. 'All Other' applies to states without a specific value defined."),
             editor: "list", editorParams: { values: stateDropdownValues },
             formatter: OQGrid.fmt.emdash
           });
@@ -78,6 +81,7 @@
         if (data.modelType === "markov") {
           cols.push({
             title: "Destination", field: "destination", minWidth: 140,
+            titleFormatter: OQGrid.utils.infoTitle("Specifies the destination state for transition values. Combined with State, creates a from/to transition pair. Leave empty for residency values."),
             editor: "list", editorParams: { values: destDropdownValues },
             formatter: OQGrid.fmt.emdash
           });
@@ -86,6 +90,7 @@
         cols.push({ title: "Formula", field: "formula", widthGrow: 2, minWidth: 450,
           editor: fEditor, formatter: OQGrid.fmt.formula(data.terms) });
         cols.push({ title: "Discounting Override", field: "discounting_override",
+          titleFormatter: OQGrid.utils.infoTitle("Formula returning a custom discount multiplier. Can reference discount_rate, discount_factors, and time variables. Replaces standard discounting for this value."),
           widthGrow: 1, minWidth: 120,
           editor: "input", formatter: OQGrid.fmt.emdash });
 

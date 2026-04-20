@@ -100,11 +100,14 @@ decisionTreeResultsServer <- function(id, results, metadata) {
             choices = tree_choices,
             selected = tree_choices[1]
           )
-        }
+        },
+        plot_scale_input(ns)
       ))
     })
 
-    output$result_plot <- shiny::renderPlot({
+    shiny::observe({
+      scale <- input$plot_scale %||% 1
+      output$result_plot <- shiny::renderPlot({
       res <- results()
       shiny::req(res)
 
@@ -137,6 +140,7 @@ decisionTreeResultsServer <- function(id, results, metadata) {
         error_msg(conditionMessage(e))
         NULL
       })
+    }, res = 72 * scale)
     })
 
     output$error_display <- shiny::renderUI({
@@ -234,11 +238,14 @@ transitionHeatmapServer <- function(id, results, metadata) {
         ),
         shiny::numericInput(ns("decimals"), "Decimals",
           value = 2, min = 0, max = 6, step = 1
-        )
+        ),
+        plot_scale_input(ns)
       ))
     })
 
-    output$result_plot <- shiny::renderPlot({
+    shiny::observe({
+      scale <- input$plot_scale %||% 1
+      output$result_plot <- shiny::renderPlot({
       res <- results()
       meta <- metadata()
       shiny::req(res, meta)
@@ -277,6 +284,7 @@ transitionHeatmapServer <- function(id, results, metadata) {
         error_msg(conditionMessage(e))
         NULL
       })
+    }, res = 72 * scale)
     })
 
     output$error_display <- shiny::renderUI({

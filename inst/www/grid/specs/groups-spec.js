@@ -5,6 +5,7 @@
   OQGrid.registerSpec("groups", function() {
     return {
       name: "groups",
+      nonClearableFields: ["name", "enabled", "display_name"],
       containerSelector: ".groups-table-container",
       dispatchMode: "event",
 
@@ -26,8 +27,10 @@
           { title: "Description", field: "description", widthGrow: 1, minWidth: 120,
             editor: "input", formatter: OQGrid.fmt.emdash },
           { title: "Weight", field: "weight", minWidth: 80,
+            titleFormatter: OQGrid.utils.infoTitle("Relative weight of this group in the total population. Used for weighted averages across groups."),
             editor: "input", formatter: OQGrid.fmt.emdash },
           { title: "Enabled", field: "enabled", minWidth: 120,
+            titleFormatter: OQGrid.utils.infoTitle("Disabled groups are excluded from model runs but preserved in the model definition."),
             editor: "list",
             editorParams: { values: [{ label: "Yes", value: 1 }, { label: "No", value: 0 }] },
             formatter: OQGrid.fmt.yesNo }

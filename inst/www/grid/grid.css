@@ -8,20 +8,7 @@
    1. GRID CONTAINERS
    ========================================================================= */
 
-.variables-table-container,
-.states-table-container,
-.strategies-table-container,
-.transitions-table-container,
-.groups-table-container,
-.summaries-table-container,
-.values-table-container,
-.trees-table-container,
-.dsa-params-container,
-.scenario-params-container,
-.psa-params-container,
-.psa-multivariate-container,
-.threshold-params-container,
-.twsa-params-container {
+.oq-grid-themed {
   width: fit-content;
   max-width: 100%;
   flex: 1 1 auto;
@@ -38,59 +25,20 @@
    ========================================================================= */
 
 /* --- Header --- */
-.variables-table-container .tabulator-header,
-.states-table-container .tabulator-header,
-.strategies-table-container .tabulator-header,
-.transitions-table-container .tabulator-header,
-.groups-table-container .tabulator-header,
-.summaries-table-container .tabulator-header,
-.values-table-container .tabulator-header,
-.trees-table-container .tabulator-header,
-.dsa-params-container .tabulator-header,
-.scenario-params-container .tabulator-header,
-.psa-params-container .tabulator-header,
-.psa-multivariate-container .tabulator-header,
-.threshold-params-container .tabulator-header,
-.twsa-params-container .tabulator-header {
+.oq-grid-themed .tabulator-header {
   background: var(--oq-surface-sunken, #f0f2f5) !important;
   border-top: none !important;
   border-bottom: 1px solid var(--oq-border, #e2e5ea) !important;
 }
 
 /* --- Header column cells --- */
-.variables-table-container .tabulator-col,
-.states-table-container .tabulator-col,
-.strategies-table-container .tabulator-col,
-.transitions-table-container .tabulator-col,
-.groups-table-container .tabulator-col,
-.summaries-table-container .tabulator-col,
-.values-table-container .tabulator-col,
-.trees-table-container .tabulator-col,
-.dsa-params-container .tabulator-col,
-.scenario-params-container .tabulator-col,
-.psa-params-container .tabulator-col,
-.psa-multivariate-container .tabulator-col,
-.threshold-params-container .tabulator-col,
-.twsa-params-container .tabulator-col {
+.oq-grid-themed .tabulator-col {
   background: transparent !important;
   border-right: 1px solid var(--oq-border-light, #edf0f3) !important;
 }
 
 /* --- Header column titles --- */
-.variables-table-container .tabulator-col-title,
-.states-table-container .tabulator-col-title,
-.strategies-table-container .tabulator-col-title,
-.transitions-table-container .tabulator-col-title,
-.groups-table-container .tabulator-col-title,
-.summaries-table-container .tabulator-col-title,
-.values-table-container .tabulator-col-title,
-.trees-table-container .tabulator-col-title,
-.dsa-params-container .tabulator-col-title,
-.scenario-params-container .tabulator-col-title,
-.psa-params-container .tabulator-col-title,
-.psa-multivariate-container .tabulator-col-title,
-.threshold-params-container .tabulator-col-title,
-.twsa-params-container .tabulator-col-title {
+.oq-grid-themed .tabulator-col-title {
   text-transform: uppercase;
   font-size: var(--oq-text-xs, 0.75rem) !important;
   font-weight: 600;
@@ -99,38 +47,12 @@
 }
 
 /* --- Hide sort arrows --- */
-.variables-table-container .tabulator-col-sorter,
-.states-table-container .tabulator-col-sorter,
-.strategies-table-container .tabulator-col-sorter,
-.transitions-table-container .tabulator-col-sorter,
-.groups-table-container .tabulator-col-sorter,
-.summaries-table-container .tabulator-col-sorter,
-.values-table-container .tabulator-col-sorter,
-.trees-table-container .tabulator-col-sorter,
-.dsa-params-container .tabulator-col-sorter,
-.scenario-params-container .tabulator-col-sorter,
-.psa-params-container .tabulator-col-sorter,
-.psa-multivariate-container .tabulator-col-sorter,
-.threshold-params-container .tabulator-col-sorter,
-.twsa-params-container .tabulator-col-sorter {
+.oq-grid-themed .tabulator-col-sorter {
   display: none !important;
 }
 
 /* --- Rows --- */
-.variables-table-container .tabulator-row,
-.states-table-container .tabulator-row,
-.strategies-table-container .tabulator-row,
-.transitions-table-container .tabulator-row,
-.groups-table-container .tabulator-row,
-.summaries-table-container .tabulator-row,
-.values-table-container .tabulator-row,
-.trees-table-container .tabulator-row,
-.dsa-params-container .tabulator-row,
-.scenario-params-container .tabulator-row,
-.psa-params-container .tabulator-row,
-.psa-multivariate-container .tabulator-row,
-.threshold-params-container .tabulator-row,
-.twsa-params-container .tabulator-row {
+.oq-grid-themed .tabulator-row {
   min-height: 36px;
   background: transparent !important;
   border-bottom: 1px solid var(--oq-border-light, #edf0f3) !important;
@@ -138,56 +60,17 @@
 }
 
 /* --- Remove zebra striping --- */
-.variables-table-container .tabulator-row-even,
-.states-table-container .tabulator-row-even,
-.strategies-table-container .tabulator-row-even,
-.transitions-table-container .tabulator-row-even,
-.groups-table-container .tabulator-row-even,
-.summaries-table-container .tabulator-row-even,
-.values-table-container .tabulator-row-even,
-.trees-table-container .tabulator-row-even,
-.dsa-params-container .tabulator-row-even,
-.scenario-params-container .tabulator-row-even,
-.psa-params-container .tabulator-row-even,
-.psa-multivariate-container .tabulator-row-even,
-.threshold-params-container .tabulator-row-even,
-.twsa-params-container .tabulator-row-even {
+.oq-grid-themed .tabulator-row-even {
   background: transparent !important;
 }
 
 /* --- Row hover --- */
-.variables-table-container .tabulator-row:hover,
-.states-table-container .tabulator-row:hover,
-.strategies-table-container .tabulator-row:hover,
-.transitions-table-container .tabulator-row:hover,
-.groups-table-container .tabulator-row:hover,
-.summaries-table-container .tabulator-row:hover,
-.values-table-container .tabulator-row:hover,
-.trees-table-container .tabulator-row:hover,
-.dsa-params-container .tabulator-row:hover,
-.scenario-params-container .tabulator-row:hover,
-.psa-params-container .tabulator-row:hover,
-.psa-multivariate-container .tabulator-row:hover,
-.threshold-params-container .tabulator-row:hover,
-.twsa-params-container .tabulator-row:hover {
+.oq-grid-themed .tabulator-row:hover {
   background: var(--oq-surface-hover, #f4f6f9) !important;
 }
 
 /* --- Cells --- */
-.variables-table-container .tabulator-cell,
-.states-table-container .tabulator-cell,
-.strategies-table-container .tabulator-cell,
-.transitions-table-container .tabulator-cell,
-.groups-table-container .tabulator-cell,
-.summaries-table-container .tabulator-cell,
-.values-table-container .tabulator-cell,
-.trees-table-container .tabulator-cell,
-.dsa-params-container .tabulator-cell,
-.scenario-params-container .tabulator-cell,
-.psa-params-container .tabulator-cell,
-.psa-multivariate-container .tabulator-cell,
-.threshold-params-container .tabulator-cell,
-.twsa-params-container .tabulator-cell {
+.oq-grid-themed .tabulator-cell {
   font-size: var(--oq-text-sm, 0.8125rem);
   padding: 0 12px !important;
   background: transparent !important;
@@ -512,81 +395,6 @@
   border: 1px solid var(--oq-border, #e2e5ea);
   border-radius: var(--oq-radius-md, 8px);
   overflow: hidden;
-}
-
-/* Left panel: item list */
-.scenario-list-panel,
-.twsa-list-panel {
-  width: 200px;
-  min-width: 200px;
-  border-right: 1px solid var(--oq-border, #e2e5ea);
-  display: flex;
-  flex-direction: column;
-  background: var(--oq-surface-sunken, #f0f2f5);
-}
-
-.scenario-list-toolbar,
-.twsa-list-toolbar {
-  display: flex;
-  gap: 4px;
-  padding: 8px;
-  border-bottom: 1px solid var(--oq-border, #e2e5ea);
-}
-
-.scenario-list-toolbar .btn,
-.twsa-list-toolbar .btn {
-  font-size: 0.75rem;
-  padding: 2px 8px;
-}
-
-.scenario-list,
-.twsa-list {
-  flex: 1 1 auto;
-  overflow-y: auto;
-  padding: 0;
-}
-
-.scenario-list-item,
-.twsa-list-item {
-  padding: 6px 10px;
-  cursor: pointer;
-  font-size: 0.85rem;
-  border-radius: 6px;
-  margin-bottom: 1px;
-  user-select: none;
-}
-
-.scenario-list-item:hover,
-.twsa-list-item:hover {
-  background: #e9ecef;
-}
-
-.scenario-list-item-name,
-.twsa-list-item-name {
-  font-weight: 500;
-}
-
-.scenario-list-item-desc,
-.twsa-list-item-desc {
-  font-size: 0.75rem;
-  color: var(--oq-text-tertiary, #9ca3af);
-  margin-top: 1px;
-}
-
-.scenario-list-item--active,
-.twsa-list-item--active {
-  background: var(--oq-primary-light, #eef2ff);
-}
-
-.scenario-list-item--active .scenario-list-item-name,
-.twsa-list-item--active .twsa-list-item-name {
-  color: var(--oq-primary, #6366f1);
-  font-weight: 600;
-}
-
-.scenario-list-item--active:hover,
-.twsa-list-item--active:hover {
-  background: var(--oq-primary-light, #eef2ff);
 }
 
 .scenario-rename-input {

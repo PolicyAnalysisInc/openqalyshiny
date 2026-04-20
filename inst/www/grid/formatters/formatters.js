@@ -72,25 +72,49 @@
     return null;
   }
 
-  // Shared tokenizer cache keyed by serialized terms
-  var _formulaCache = { terms: null, tokenizer: null };
+  // Clean base R-mode rules, captured once before any mutation
+  var _baseRules = null;
 
-  function getFormulaTokenizer(terms) {
-    // Return cached tokenizer if terms haven't changed
-    if (_formulaCache.terms === terms && _formulaCache.tokenizer) {
-      return _formulaCache.tokenizer;
-    }
-
-    // Need Ace to be loaded
+  function getBaseRRules() {
+    if (_baseRules) return _baseRules;
     if (typeof ace === "undefined") return null;
-
     var EditSession = ace.require("ace/edit_session").EditSession;
     var session = new EditSession("", "ace/mode/r");
     var mode = session.$mode;
     if (!mode || !mode.$highlightRules) return null;
     var rules = mode.$highlightRules.getRules();
+    // Deep-clone so we have an immutable snapshot of the pristine rules
+    _baseRules = {};
+    for (var state in rules) {
+      if (rules.hasOwnProperty(state)) {
+        _baseRules[state] = rules[state].slice();
+      }
+    }
+    return _baseRules;
+  }
 
-    // Inject term rules using the same algorithm as FormulaHighlighter
+  // Shared tokenizer cache keyed by serialized terms
+  var _formulaCache = { termsKey: null, tokenizer: null };
+
+  function getFormulaTokenizer(terms) {
+    // Return cached tokenizer if terms haven't changed (content-based comparison)
+    var key = terms ? JSON.stringify(terms) : null;
+    if (_formulaCache.termsKey === key && _formulaCache.tokenizer) {
+      return _formulaCache.tokenizer;
+    }
+
+    var baseRules = getBaseRRules();
+    if (!baseRules) return null;
+
+    // Build a clean copy of rules — never mutate the shared Ace mode
+    var rules = {};
+    for (var state in baseRules) {
+      if (baseRules.hasOwnProperty(state)) {
+        rules[state] = baseRules[state].slice();
+      }
+    }
+
+    // Inject term rules into our isolated copy
     if (terms) {
       var tokenTypes = Object.keys(terms);
       for (var i = tokenTypes.length - 1; i >= 0; i--) {
@@ -108,12 +132,12 @@
           rules.start.unshift(rule);
         }
       }
-      // Rebuild tokenizer
-      mode.$tokenizer = null;
     }
 
-    var tokenizer = mode.getTokenizer();
-    _formulaCache = { terms: terms, tokenizer: tokenizer };
+    // Create tokenizer directly — no shared mode mutation
+    var Tokenizer = ace.require("ace/tokenizer").Tokenizer;
+    var tokenizer = new Tokenizer(rules);
+    _formulaCache = { termsKey: key, tokenizer: tokenizer };
     return tokenizer;
   }
 

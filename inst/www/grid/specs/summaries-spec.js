@@ -5,6 +5,7 @@
   OQGrid.registerSpec("summaries", function() {
     return {
       name: "summaries",
+      nonClearableFields: ["name", "type", "display_name"],
       containerSelector: ".summaries-table-container",
       dispatchMode: "event",
 
@@ -25,6 +26,7 @@
           { title: "Description", field: "description", widthGrow: 1, minWidth: 120,
             editor: "input", formatter: OQGrid.fmt.emdash },
           { title: "Type", field: "type", minWidth: 100,
+            titleFormatter: OQGrid.utils.infoTitle("Outcome summaries aggregate health outcomes. Cost summaries aggregate costs."),
             editor: "list",
             editorParams: {
               values: [
@@ -34,8 +36,10 @@
             },
             formatter: OQGrid.fmt.capitalize },
           { title: "WTP", field: "wtp", minWidth: 80,
+            titleFormatter: OQGrid.utils.infoTitle("Willingness-to-pay threshold (per unit of outcome) used for net monetary benefit calculations."),
             editor: "input", formatter: OQGrid.fmt.emdash },
           { title: "Values", field: "values", widthGrow: 2, minWidth: 300,
+            titleFormatter: OQGrid.utils.infoTitle("Select which outcome or cost values to include in this summary."),
             editor: OQGrid.editors.multiTag(function(rowData) {
               var rowType = rowData.type || "outcome";
               return rowType === "cost" ? data.costValues : data.outcomeValues;

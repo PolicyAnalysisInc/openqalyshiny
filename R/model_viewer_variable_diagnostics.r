@@ -9,7 +9,8 @@ variableDiagnosticsSidebarUI <- function(id) {
   ns <- shiny::NS(id)
   shiny::tagList(
     shiny::uiOutput(ns("controls")),
-    shiny::uiOutput(ns("output_selector"))
+    shiny::uiOutput(ns("output_selector")),
+    plot_scale_input(ns)
   )
 }
 
@@ -147,10 +148,13 @@ variableDiagnosticsServer <- function(id, results, metadata) {
       )
     })
 
-    output$selected_plot <- shiny::renderPlot({
+    shiny::observe({
+      scale <- input$plot_scale %||% 1
+      output$selected_plot <- shiny::renderPlot({
       sel <- selected_output()
       shiny::req(sel, sel$type == "plot")
       sel$content
+    }, res = 72 * scale)
     })
 
     output$error_display <- shiny::renderUI({

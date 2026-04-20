@@ -5,6 +5,7 @@
   OQGrid.registerSpec("strategies", function() {
     return {
       name: "strategies",
+      nonClearableFields: ["name", "enabled", "display_name"],
       containerSelector: ".strategies-table-container",
       dispatchMode: "event",
 
@@ -26,6 +27,7 @@
           { title: "Description", field: "description", widthGrow: 1, minWidth: 120,
             editor: "input", formatter: OQGrid.fmt.emdash },
           { title: "Enabled", field: "enabled", minWidth: 120,
+            titleFormatter: OQGrid.utils.infoTitle("Disabled strategies are excluded from model runs but preserved in the model definition."),
             editor: "list",
             editorParams: { values: [{ label: "Yes", value: 1 }, { label: "No", value: 0 }] },
             formatter: OQGrid.fmt.yesNo }

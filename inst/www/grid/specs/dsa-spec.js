@@ -9,6 +9,7 @@
   OQGrid.registerSpec("dsa", function() {
     return {
       name: "dsa",
+      nonClearableFields: ["name", "low", "high"],
       containerSelector: ".dsa-params-container",
       dispatchMode: "sync",
 
@@ -201,6 +202,7 @@
           {
             title: "Base Case",
             field: "_baseCase",
+            titleFormatter: OQGrid.utils.infoTitle("Current value from the model definition."),
             widthGrow: 1,
             minWidth: 120,
             editor: false,
@@ -216,6 +218,7 @@
           {
             title: "Low",
             field: "low",
+            titleFormatter: OQGrid.utils.infoTitle("Lower bound value for the one-way sensitivity range."),
             widthGrow: 1,
             minWidth: 450,
             editor: OQGrid.editors.formula(choices.terms, choices.suggestions),
@@ -226,6 +229,7 @@
           {
             title: "High",
             field: "high",
+            titleFormatter: OQGrid.utils.infoTitle("Upper bound value for the one-way sensitivity range."),
             widthGrow: 1,
             minWidth: 450,
             editor: OQGrid.editors.formula(choices.terms, choices.suggestions),

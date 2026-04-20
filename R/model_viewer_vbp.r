@@ -20,10 +20,10 @@ vbpResultsSidebarUI <- function(id) {
 #' @keywords internal
 vbpResultsUI <- function(id) {
   ns <- shiny::NS(id)
-  shiny::tagList(
+  results_fill_panel(
     shiny::conditionalPanel(
       condition = sprintf("input['%s'] != 'table'", ns("viz_type")),
-      shiny::plotOutput(ns("result_plot"))
+      results_fill_plot_output(ns("result_plot"))
     ),
     shiny::conditionalPanel(
       condition = sprintf("input['%s'] == 'table'", ns("viz_type")),
@@ -115,10 +115,12 @@ vbpResultsServer <- function(id, vbp_results, metadata) {
 
       inputs <- Filter(Negate(is.null), inputs)
 
-      build_results_sidebar_controls(inputs)
+      build_results_sidebar_controls(c(inputs, list(plot_scale_input(ns))))
     })
 
-    output$result_plot <- shiny::renderPlot({
+    shiny::observe({
+      scale <- input$plot_scale %||% 1
+      output$result_plot <- shiny::renderPlot({
       res <- vbp_results()
       shiny::req(res, input$viz_type, input$viz_type != "table")
       args <- list(res)
@@ -137,6 +139,7 @@ vbpResultsServer <- function(id, vbp_results, metadata) {
         error_msg(conditionMessage(e))
         NULL
       })
+    }, res = 72 * scale)
     })
 
     output$result_table <- shiny::renderUI({

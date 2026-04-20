@@ -5,6 +5,7 @@
   OQGrid.registerSpec("variables", function() {
     return {
       name: "variables",
+      nonClearableFields: ["name", "formula", "display_name"],
       containerSelector: ".variables-table-container",
       dispatchMode: "event",
 
@@ -27,11 +28,13 @@
             editor: "input", formatter: OQGrid.fmt.emdash },
 
           { title: "Strategy", field: "strategy", minWidth: 120,
+            titleFormatter: OQGrid.utils.infoTitle("Scope this variable to a specific strategy. Leave empty for a global variable."),
             editor: "list",
             editorParams: { values: OQGrid.utils.toListValues(data.strategies, { emptyLabel: "\u2014 (None)" }) },
             formatter: OQGrid.fmt.displayMap(stratDisplay) },
 
           { title: "Group", field: "group", minWidth: 120,
+            titleFormatter: OQGrid.utils.infoTitle("Scope this variable to a specific group. Leave empty for a global variable."),
             editor: "list",
             editorParams: { values: OQGrid.utils.toListValues(data.groups, { emptyLabel: "\u2014 (None)" }) },
             formatter: OQGrid.fmt.displayMap(groupDisplay) },
@@ -43,6 +46,7 @@
             editor: "input", formatter: OQGrid.fmt.emdash },
 
           { title: "Formula", field: "formula", widthGrow: 2, minWidth: 450,
+            titleFormatter: OQGrid.utils.infoTitle("Expression using numbers, operators, other variables, time variables (cycle, day, month, year and state_ variants), and functions like trace()."),
             editor: OQGrid.editors.formula(data.terms, data.suggestions),
             formatter: OQGrid.fmt.formula(data.terms) }
         ];
