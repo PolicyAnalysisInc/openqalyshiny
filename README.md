@@ -1,0 +1,44 @@
+
+<!-- README.md is generated from README.Rmd. Please edit that file -->
+
+# openqalyshiny
+
+<!-- badges: start -->
+
+[![CircleCI](https://dl.circleci.com/status-badge/img/gh/PolicyAnalysisInc/openqalyshiny/tree/main.svg?style=svg)](https://dl.circleci.com/status-badge/redirect/gh/PolicyAnalysisInc/openqalyshiny/tree/main)
+[![Codecov test
+coverage](https://codecov.io/gh/PolicyAnalysisInc/openqalyshiny/graph/badge.svg)](https://app.codecov.io/gh/PolicyAnalysisInc/openqalyshiny)
+<!-- badges: end -->
+
+openqalyshiny provides a Shiny interface for building and running
+[openqaly](https://github.com/PolicyAnalysisInc/openqaly) models.
+
+## Model editor
+
+`run_model_editor()` launches a Shiny app where you can build an
+openqaly model and run analyses against it.
+
+**Build**: define states, strategies, transitions, variables, groups,
+and settings.
+
+**Results**: view trace outputs, outcomes, costs, and net monetary
+benefit. Run probabilistic sensitivity analysis (PSA), deterministic
+sensitivity analysis (DSA), scenario analysis, two-way sensitivity
+analysis, threshold analysis, and cost-effectiveness analysis.
+
+## Installation
+
+You can install the development version of openqalyshiny from
+[GitHub](https://github.com/) with:
+
+``` r
+# install.packages("pak")
+pak::pak("PolicyAnalysisInc/openqalyshiny")
+```
+
+## Example
+
+``` r
+library(openqalyshiny)
+run_model_editor()
+```
