@@ -11,3 +11,5 @@
 ^package\.json$
 ^package-lock\.json$
 ^src-js$
+^vitest\.config\.js$
+^tests/js$

@@ -58,9 +58,29 @@ jobs:
           command: |
             Rscript -e 'covr::codecov(quiet = FALSE)'
 
+  js_tests:
+    docker:
+      - image: node:20
+    steps:
+      - checkout
+      - restore_cache:
+          keys:
+            - npm-cache-{{ checksum "package-lock.json" }}
+      - run:
+          name: Install JS dependencies
+          command: npm ci
+      - save_cache:
+          key: npm-cache-{{ checksum "package-lock.json" }}
+          paths:
+            - node_modules
+      - run:
+          name: Run JavaScript tests
+          command: npm test
+
 workflows:
   version: 2
   build:
     jobs:
       - build_and_test
       - build_and_coverage
+      - js_tests
