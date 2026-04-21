@@ -1,11 +1,13 @@
 Package: openqalyshiny
 Title: Shiny Components for the Openqalyverse
 Version: 1.0.0
-Authors@R:
-    person("Jordan", "Amdahl", , "jamdahl@pai2.com", role = c("aut", "cre"))
+Authors@R: c(
+    person("Jordan", "Amdahl", , "jamdahl@pai2.com", role = c("aut", "cre")),
+    person("Avalere Health", role = "cph")
+  )
 Maintainer: Jordan Amdahl <jamdahl@pai2.com>
 Description: Provides Shiny UI components for building openqalyverse applications, including formula input editors and override input controls.
-License: MIT + file LICENSE
+License: GPL-3
 Encoding: UTF-8
 Roxygen: list(markdown = TRUE, roclets = c("namespace", "rd", "roxytest::testthat_roclet"))
 RoxygenNote: 7.3.3

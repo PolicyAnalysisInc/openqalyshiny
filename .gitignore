@@ -50,6 +50,7 @@ rsconnect/
 
 # Hidden folders
 .*/
+!.circleci/
 
 # Scratch folder
 .scratch/
