@@ -27,5 +27,7 @@ Suggests:
     covr,
     testthat (>= 3.0.0)
 Config/testthat/edition: 3
+URL: https://github.com/PolicyAnalysisInc/openqalyshiny
+BugReports: https://github.com/PolicyAnalysisInc/openqalyshiny/issues
 Remotes:
     PolicyAnalysisInc/openqaly
