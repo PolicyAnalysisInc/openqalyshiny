@@ -1,0 +1,945 @@
+/* =========================================================================
+   OQGrid — Unified Styles
+   Matches design spec at .scratch/design/03-grids.html
+   Uses !important where needed to override tabulator_bootstrap5.min.css
+   ========================================================================= */
+
+/* =========================================================================
+   1. GRID CONTAINERS
+   ========================================================================= */
+
+.oq-grid-themed {
+  width: fit-content;
+  max-width: 100%;
+  flex: 1 1 auto;
+  min-height: 0;
+  border: 1px solid var(--oq-border, #e2e5ea) !important;
+  border-radius: var(--oq-radius-md, 8px) !important;
+  overflow: hidden !important;
+  font-size: var(--oq-text-sm, 0.8125rem);
+  background: var(--oq-surface, #fff) !important;
+}
+
+/* =========================================================================
+   2. TABULATOR THEME OVERRIDES (beat Bootstrap5 theme)
+   ========================================================================= */
+
+/* --- Header --- */
+.oq-grid-themed .tabulator-header {
+  background: var(--oq-surface-sunken, #f0f2f5) !important;
+  border-top: none !important;
+  border-bottom: 1px solid var(--oq-border, #e2e5ea) !important;
+}
+
+/* --- Header column cells --- */
+.oq-grid-themed .tabulator-col {
+  background: transparent !important;
+  border-right: 1px solid var(--oq-border-light, #edf0f3) !important;
+}
+
+/* --- Header column titles --- */
+.oq-grid-themed .tabulator-col-title {
+  text-transform: uppercase;
+  font-size: var(--oq-text-xs, 0.75rem) !important;
+  font-weight: 600;
+  color: var(--oq-text-secondary, #6b7280) !important;
+  letter-spacing: 0.3px;
+}
+
+/* --- Hide sort arrows --- */
+.oq-grid-themed .tabulator-col-sorter {
+  display: none !important;
+}
+
+/* --- Rows --- */
+.oq-grid-themed .tabulator-row {
+  min-height: 36px;
+  background: transparent !important;
+  border-bottom: 1px solid var(--oq-border-light, #edf0f3) !important;
+  transition: background var(--oq-transition, 150ms);
+}
+
+/* --- Remove zebra striping --- */
+.oq-grid-themed .tabulator-row-even {
+  background: transparent !important;
+}
+
+/* --- Row hover --- */
+.oq-grid-themed .tabulator-row:hover {
+  background: var(--oq-surface-hover, #f4f6f9) !important;
+}
+
+/* --- Cells --- */
+.oq-grid-themed .tabulator-cell {
+  font-size: var(--oq-text-sm, 0.8125rem);
+  padding: 0 12px !important;
+  background: transparent !important;
+  border-right: 1px solid var(--oq-border-light, #edf0f3) !important;
+  overflow: hidden;
+  line-height: 36px !important;
+  height: 36px !important;
+  vertical-align: middle !important;
+}
+
+/* =========================================================================
+   3. FORMULA CELL DISPLAY + SYNTAX TOKENS
+   ========================================================================= */
+
+.cell-formula {
+  font-family: var(--oq-font-mono, 'JetBrains Mono', 'SF Mono', 'Fira Code', Consolas, monospace);
+  font-size: var(--oq-text-xs, 0.75rem);
+}
+
+.tok-keyword       { color: #d73a49; font-weight: 600; }
+.tok-variable      { color: #6f42c1; }
+.tok-table         { color: #005cc5; font-style: italic; }
+.tok-value         { color: #22863a; }
+.tok-script        { color: #e36209; }
+.tok-tree          { color: #b08800; font-weight: 600; }
+.tok-number        { color: #005cc5; }
+.tok-string        { color: #22863a; }
+.tok-fn            { color: #6f42c1; }
+
+/* =========================================================================
+   4. BUTTONS — Delete, Confirm, Cancel
+   (Add button uses .oq-btn .oq-btn-sm from design-tokens.css)
+   ========================================================================= */
+
+/* Delete button (x) */
+.oq-grid-delete-btn {
+  border: none;
+  background: none;
+  color: var(--oq-text-tertiary, #9ca3af);
+  font-size: 1.1rem;
+  line-height: 1;
+  padding: 0.15rem 0.4rem;
+  cursor: pointer;
+  opacity: 0.5;
+  transition: all var(--oq-transition, 150ms);
+}
+
+.tabulator-row:hover .oq-grid-delete-btn {
+  opacity: 0.7;
+}
+
+.oq-grid-delete-btn:hover {
+  opacity: 1;
+  color: var(--oq-danger, #ef4444);
+}
+
+/* Confirm button (check) for new rows */
+.oq-grid-confirm-btn {
+  border: none;
+  background: none;
+  color: var(--oq-success, #10b981);
+  font-size: 1.1rem;
+  line-height: 1;
+  padding: 0.15rem 0.25rem;
+  cursor: pointer;
+  opacity: 0.7;
+}
+
+.oq-grid-confirm-btn:hover {
+  opacity: 1;
+}
+
+/* Cancel button (x) for new rows */
+.oq-grid-cancel-btn {
+  border: none;
+  background: none;
+  color: var(--oq-danger, #ef4444);
+  font-size: 1.1rem;
+  line-height: 1;
+  padding: 0.15rem 0.25rem;
+  cursor: pointer;
+  opacity: 0.7;
+}
+
+.oq-grid-cancel-btn:hover {
+  opacity: 1;
+}
+
+/* =========================================================================
+   4. INLINE TEXT INPUT EDITOR
+   ========================================================================= */
+
+.oq-grid-input-editor {
+  width: 100%;
+  height: 100%;
+  border: none;
+  font-size: 0.85rem;
+  padding: 0 6px;
+  outline: none;
+}
+
+/* =========================================================================
+   5. FORMULA EDITOR (Ace overlay)
+   ========================================================================= */
+
+.oq-grid-formula-placeholder {
+  width: 100%;
+  height: 100%;
+}
+
+.oq-grid-formula-overlay {
+  background: #fff;
+  border: 2px solid var(--oq-primary, #6366f1);
+  border-radius: 6px;
+  box-sizing: border-box;
+  overflow: visible;
+  box-shadow: var(--oq-shadow-md, 0 4px 12px rgba(0, 0, 0, 0.12));
+}
+
+.oq-grid-formula-overlay .ace_editor {
+  font-size: 0.85rem !important;
+}
+
+.oq-grid-formula-overlay .ace_scroller {
+  padding: 0 4px;
+}
+
+.oq-grid-ace-container {
+  overflow: visible;
+}
+
+.oq-grid-formula-overlay .ace_content {
+  padding: 0;
+}
+
+.oq-grid-formula-overlay .ace_scrollbar {
+  display: none !important;
+}
+
+/* Autocomplete popup offset for single-line cell editors */
+.ace_autocomplete {
+  margin-top: 32px;
+}
+
+/* =========================================================================
+   6. TYPEAHEAD EDITOR
+   ========================================================================= */
+
+.oq-grid-typeahead-wrapper {
+  position: relative;
+}
+
+.oq-grid-typeahead-dropdown {
+  display: none;
+  position: fixed;
+  max-height: 180px;
+  overflow-y: auto;
+  background: var(--bs-body-bg, #fff);
+  border: 1px solid var(--oq-border, #e2e5ea);
+  border-radius: 8px;
+  box-shadow: var(--oq-shadow-md, 0 4px 12px rgba(0, 0, 0, 0.12));
+  z-index: 10001;
+}
+
+.oq-grid-typeahead-item {
+  padding: 7px 12px;
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: all var(--oq-transition, 150ms);
+}
+
+.oq-grid-typeahead-item:hover,
+.oq-grid-typeahead-item-active {
+  background: var(--oq-primary-light, #eef2ff);
+  color: var(--oq-primary, #6366f1);
+}
+
+/* =========================================================================
+   7. MULTI-TAG EDITOR
+   ========================================================================= */
+
+/* Tag pills (display formatter) */
+.oq-grid-tags-display {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3px;
+  align-items: center;
+  padding: 0;
+  line-height: normal;
+  height: 100%;
+}
+
+.oq-grid-tag {
+  display: inline-block;
+  background: var(--oq-primary-light, #eef2ff);
+  color: var(--oq-primary, #6366f1);
+  font-size: 0.75rem;
+  font-weight: 500;
+  padding: 1px 8px;
+  border-radius: 99px;
+  line-height: 1.4;
+  white-space: nowrap;
+}
+
+/* Suppress cell editing border when multi-tag overlay is active */
+.tabulator-cell.tabulator-editing:has(.oq-grid-multitag-placeholder) {
+  outline: none !important;
+  border-color: transparent !important;
+  box-shadow: none !important;
+}
+
+/* Multi-tag editor overlay */
+.oq-grid-multitag-placeholder {
+  visibility: hidden;
+}
+
+.oq-grid-multitag-overlay {
+  position: fixed;
+  z-index: 10000;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 6px;
+  background: var(--bs-body-bg, #fff);
+  border: 2px solid var(--oq-primary, #6366f1);
+  border-radius: 6px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  min-width: 240px;
+  max-width: 400px;
+}
+
+.oq-grid-tag-editable {
+  display: inline-flex;
+  align-items: center;
+  background: var(--oq-primary-light, #eef2ff);
+  color: var(--oq-primary, #6366f1);
+  font-size: 11px;
+  font-weight: 500;
+  padding: 2px 6px 2px 8px;
+  border-radius: 99px;
+  line-height: 1.4;
+  white-space: nowrap;
+  gap: 3px;
+}
+
+.oq-grid-tag-remove {
+  cursor: pointer;
+  font-size: 10px;
+  line-height: 1;
+  color: var(--oq-primary, #6366f1);
+  padding: 0 2px;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: all var(--oq-transition, 150ms);
+}
+
+.oq-grid-tag-remove:hover {
+  background: var(--oq-primary, #6366f1);
+  color: #fff;
+}
+
+.oq-grid-multitag-input {
+  border: none;
+  outline: none;
+  background: transparent;
+  font-size: 0.8125rem;
+  flex: 1 1 60px;
+  min-width: 60px;
+  padding: 2px 0;
+}
+
+/* Multi-tag dropdown */
+.oq-grid-multitag-dropdown {
+  position: fixed;
+  z-index: 10001;
+  display: none;
+  background: var(--bs-body-bg, #fff);
+  border: 1px solid var(--bs-border-color, #dee2e6);
+  border-radius: 4px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  max-height: 180px;
+  overflow-y: auto;
+}
+
+.oq-grid-multitag-item {
+  padding: 4px 8px;
+  font-size: 0.8rem;
+  cursor: pointer;
+}
+
+.oq-grid-multitag-item:hover,
+.oq-grid-multitag-item-active {
+  background: var(--oq-primary, #6366f1);
+  color: #fff;
+}
+
+/* =========================================================================
+   8. DISABLED CELL STYLING (analysis param grids)
+   ========================================================================= */
+
+.tabulator-cell.cell-disabled {
+  color: var(--oq-text-tertiary, #9ca3af);
+  font-style: italic;
+  background: var(--oq-surface-sunken, #f0f2f5);
+}
+
+/* =========================================================================
+   9. SCENARIO / TWSA SPLIT LAYOUT
+   ========================================================================= */
+
+.scenario-params-wrapper,
+.twsa-params-wrapper {
+  display: flex;
+  flex-direction: row;
+  min-height: 300px;
+  height: 100%;
+  border: 1px solid var(--oq-border, #e2e5ea);
+  border-radius: var(--oq-radius-md, 8px);
+  overflow: hidden;
+}
+
+.scenario-rename-input {
+  border: 1px solid #86b7fe;
+  border-radius: 2px;
+  font-size: 0.85rem;
+  padding: 1px 4px;
+  width: 100%;
+  outline: none;
+}
+
+/* Right panel: grid */
+.scenario-grid-panel,
+.twsa-grid-panel {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  padding: 8px;
+}
+
+.scenario-add-row-btn {
+  align-self: flex-start;
+  margin-bottom: 6px;
+  font-size: 0.8rem;
+  padding: 2px 10px;
+}
+
+/* Empty state message */
+.scenario-empty-state,
+.twsa-empty-state {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  color: #6c757d;
+  font-size: 0.9rem;
+}
+
+/* =========================================================================
+   10. PSA-SPECIFIC STYLES
+   ========================================================================= */
+
+/* Settings wrapper */
+.psa-settings {
+  background: var(--oq-surface, #fff);
+  border: 1px solid var(--oq-border, #e2e5ea);
+  border-radius: var(--oq-radius-md, 8px);
+  padding: 20px;
+  max-width: 700px;
+}
+
+/* Section header */
+.psa-section-header {
+  font-weight: 600;
+  font-size: var(--oq-text-sm, 0.8125rem);
+  margin: 20px 0 10px 0;
+  padding-bottom: 6px;
+  border-bottom: 1px solid var(--oq-border-light, #edf0f3);
+}
+
+.psa-section-header:first-child {
+  margin-top: 0;
+}
+
+.psa-settings-row {
+  display: flex;
+  gap: 1rem;
+  align-items: flex-end;
+  margin-bottom: 0.75rem;
+}
+
+.psa-settings-row .form-group {
+  margin-bottom: 0;
+}
+
+.psa-settings-row label {
+  font-size: 0.85rem;
+  margin-bottom: 0.15rem;
+}
+
+.psa-settings-row input {
+  width: 140px;
+  font-size: 0.85rem;
+  padding: 7px 10px;
+  border: 1px solid var(--oq-border, #e2e5ea);
+  border-radius: var(--oq-radius, 6px);
+}
+
+.psa-settings-row input:focus {
+  outline: none;
+  border-color: var(--oq-primary, #6366f1);
+  box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.12);
+}
+
+/* Distribution editor overlay */
+.psa-distribution-overlay {
+  background: #fff;
+  border: 2px solid var(--oq-primary, #6366f1);
+  border-radius: 8px;
+  box-sizing: border-box;
+  overflow: visible;
+  box-shadow: var(--oq-shadow-md, 0 4px 12px rgba(0, 0, 0, 0.12));
+  z-index: 10000;
+  padding: 12px 14px;
+  min-width: 320px;
+  max-width: 400px;
+}
+
+.psa-distribution-overlay select,
+.psa-distribution-overlay input[type="number"],
+.psa-distribution-overlay input[type="text"] {
+  font-size: 0.85rem;
+}
+
+.psa-dist-dropdown-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.psa-dist-dropdown-row label {
+  font-size: 0.8rem;
+  font-weight: 600;
+  white-space: nowrap;
+  margin-bottom: 0;
+}
+
+.psa-dist-dropdown-row select {
+  flex: 1;
+  min-width: 0;
+}
+
+.psa-parameterization-toggle {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 8px;
+  font-size: 0.8rem;
+}
+
+.psa-parameterization-toggle label {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  cursor: pointer;
+  margin-bottom: 0;
+}
+
+.psa-parameterization-toggle input[type="radio"] {
+  margin: 0;
+}
+
+.psa-param-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.psa-param-row label {
+  font-size: 0.8rem;
+  font-weight: 500;
+  min-width: 72px;
+  text-align: right;
+  margin-bottom: 0;
+  white-space: nowrap;
+}
+
+/* Mini Ace editor */
+.psa-mini-ace {
+  flex: 1;
+  height: 28px;
+  min-width: 0;
+  border: 1px solid var(--oq-border, #e2e5ea);
+  border-radius: 4px;
+  overflow: hidden;
+  position: relative;
+}
+
+.psa-mini-ace .ace_editor {
+  font-size: 0.85rem !important;
+}
+
+.psa-mini-ace .ace_scroller {
+  padding: 0 4px;
+}
+
+.psa-mini-ace .ace_content {
+  padding: 0;
+}
+
+.psa-mini-ace .ace_scrollbar {
+  display: none !important;
+}
+
+.psa-mini-ace.focused {
+  border-color: var(--oq-primary, #6366f1);
+  box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.12);
+}
+
+/* Vector editor */
+.psa-vector-editor {
+  margin-bottom: 8px;
+}
+
+.psa-vector-editor table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.psa-vector-editor th {
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 2px 6px;
+  text-align: left;
+  border-bottom: 1px solid var(--bs-border-color, #dee2e6);
+}
+
+.psa-vector-editor td {
+  padding: 2px 4px;
+}
+
+.psa-vector-editor td:first-child {
+  font-size: 0.8rem;
+  white-space: nowrap;
+  padding-right: 8px;
+}
+
+/* Matrix editor (Handsontable container) */
+.psa-matrix-editor {
+  margin-bottom: 8px;
+}
+
+.psa-matrix-editor .psa-matrix-label {
+  font-size: 0.8rem;
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+
+.psa-matrix-editor .handsontable {
+  font-size: 0.8rem !important;
+}
+
+.psa-matrix-editor .handsontable td {
+  padding: 2px 4px;
+}
+
+/* Tag input overlay (variables column) */
+.psa-tag-overlay {
+  background: #fff;
+  border: 1px solid var(--bs-border-color, #dee2e6);
+  border-radius: 4px;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.12);
+  z-index: 10001;
+  padding: 6px;
+  min-width: 250px;
+}
+
+.psa-tag-container {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  align-items: center;
+  padding: 2px;
+  border: 1px solid var(--bs-border-color, #dee2e6);
+  border-radius: 3px;
+  background: #fff;
+  min-height: 30px;
+}
+
+.psa-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  background: var(--bs-light, #e9ecef);
+  border-radius: 3px;
+  padding: 1px 6px;
+  font-size: 0.78rem;
+  white-space: nowrap;
+}
+
+.psa-tag-remove {
+  cursor: pointer;
+  font-weight: bold;
+  opacity: 0.6;
+  margin-left: 2px;
+}
+
+.psa-tag-remove:hover {
+  opacity: 1;
+}
+
+.psa-tag-input {
+  border: none;
+  outline: none;
+  flex: 1;
+  min-width: 80px;
+  font-size: 0.8rem;
+  padding: 2px 4px;
+}
+
+.psa-tag-suggestions {
+  max-height: 150px;
+  overflow-y: auto;
+  margin-top: 4px;
+}
+
+.psa-tag-suggestion {
+  padding: 3px 8px;
+  font-size: 0.8rem;
+  cursor: pointer;
+  border-radius: 2px;
+}
+
+.psa-tag-suggestion:hover {
+  background: var(--bs-light, #f8f9fa);
+}
+
+/* Sampling display */
+.psa-sampling-display {
+  font-family: var(--bs-font-monospace, SFMono-Regular, Menlo, Monaco, monospace);
+  font-size: 0.8rem;
+}
+
+.psa-sampling-display .psa-dist-name {
+  font-weight: 600;
+  color: var(--bs-primary, #0d6efd);
+}
+
+.psa-sampling-empty {
+  color: var(--bs-secondary, #6c757d);
+  font-style: italic;
+  font-size: 0.8rem;
+}
+
+.psa-run-btn {
+  margin-top: 0.5rem;
+}
+
+/* =========================================================================
+   11. THRESHOLD CONDITION EDITOR
+   ========================================================================= */
+
+.threshold-condition-cell {
+  cursor: pointer;
+  color: var(--bs-primary, #0d6efd);
+}
+
+.threshold-condition-cell:hover {
+  text-decoration: underline;
+}
+
+.tc-editor-overlay {
+  position: fixed;
+  z-index: 10500;
+  background: var(--bs-body-bg, #fff);
+  border: 1px solid var(--oq-border, #e2e5ea);
+  border-radius: 8px;
+  box-shadow: var(--oq-shadow-md, 0 4px 12px rgba(0, 0, 0, 0.12));
+  min-width: 320px;
+  max-width: 400px;
+  padding: 0;
+}
+
+.tc-editor-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--oq-border-light, #edf0f3);
+  font-weight: 600;
+  font-size: 0.85rem;
+}
+
+.tc-editor-close-btn {
+  border: none;
+  background: none;
+  font-size: 1.1rem;
+  line-height: 1;
+  cursor: pointer;
+  color: var(--oq-text-tertiary, #9ca3af);
+  padding: 0 4px;
+}
+
+.tc-editor-close-btn:hover {
+  color: var(--bs-body-color, #212529);
+}
+
+.tc-editor-body {
+  padding: 12px 14px;
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+.tc-field-row {
+  margin-bottom: 8px;
+}
+
+.tc-field-row.tc-hidden {
+  display: none;
+}
+
+.tc-field-row label {
+  display: block;
+  font-size: 11px;
+  font-weight: 500;
+  margin-bottom: 2px;
+  color: var(--oq-text-secondary, #6b7280);
+}
+
+.tc-field-select,
+.tc-field-input {
+  width: 100%;
+  padding: 5px 8px;
+  font-size: 0.8125rem;
+  border: 1px solid var(--oq-border, #e2e5ea);
+  border-radius: 6px;
+  background: var(--bs-body-bg, #fff);
+  color: var(--bs-body-color, #212529);
+}
+
+.tc-field-select:focus,
+.tc-field-input:focus {
+  outline: none;
+  border-color: var(--oq-primary, #6366f1);
+  box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.12);
+}
+
+.tc-editor-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 6px;
+  padding: 10px 14px;
+  border-top: 1px solid var(--oq-border-light, #edf0f3);
+}
+
+.tc-editor-save-btn {
+  background: var(--oq-primary, #6366f1);
+  color: #fff;
+  border: none;
+  border-radius: 4px;
+  padding: 4px 16px;
+  font-size: 0.8rem;
+  cursor: pointer;
+}
+
+.tc-editor-save-btn:hover {
+  filter: brightness(0.9);
+}
+
+.tc-editor-save-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.tc-editor-cancel-btn {
+  background: none;
+  border: 1px solid var(--oq-border, #e2e5ea);
+  border-radius: 4px;
+  padding: 4px 12px;
+  font-size: 0.8rem;
+  cursor: pointer;
+  color: var(--bs-body-color, #212529);
+}
+
+.tc-editor-cancel-btn:hover {
+  background: var(--bs-tertiary-bg, #f8f9fa);
+}
+
+/* =========================================================================
+   12. TWSA VALUES POPUP EDITOR
+   ========================================================================= */
+
+.twsa-values-popup {
+  position: fixed;
+  z-index: 10000;
+  background: #fff;
+  border: 2px solid var(--oq-primary, #6366f1);
+  border-radius: 6px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  padding: 10px 12px;
+  min-width: 320px;
+}
+
+.twsa-values-popup .field-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.twsa-values-popup .field-row:last-child {
+  margin-bottom: 0;
+}
+
+.twsa-values-popup .field-label {
+  width: 50px;
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: var(--oq-text-secondary, #6b7280);
+  flex-shrink: 0;
+}
+
+.twsa-values-popup .field-editor {
+  flex: 1;
+  min-width: 0;
+}
+
+.twsa-values-popup .field-editor input {
+  width: 100%;
+  border: 1px solid var(--oq-border, #e2e5ea);
+  border-radius: 6px;
+  padding: 4px 8px;
+  font-size: 0.85rem;
+}
+
+.twsa-values-popup .field-editor input:focus {
+  border-color: var(--oq-primary, #6366f1);
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.12);
+}
+
+.twsa-values-popup .popup-ace-wrap {
+  border: 1px solid var(--oq-border, #e2e5ea);
+  border-radius: 6px;
+  min-height: 26px;
+  overflow: visible;
+}
+
+.twsa-values-popup .popup-ace-wrap:focus-within {
+  border-color: var(--oq-primary, #6366f1);
+  box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.12);
+}
+
+.twsa-values-popup .popup-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 6px;
+  margin-top: 8px;
+  padding-top: 6px;
+  border-top: 1px solid var(--oq-border-light, #edf0f3);
+}
+
+.twsa-values-popup .popup-actions .btn {
+  font-size: 0.75rem;
+  padding: 2px 10px;
+}

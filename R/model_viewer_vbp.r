@@ -5,16 +5,25 @@
 #' VBP Results UI
 #' @param id Module namespace ID.
 #' @keywords internal
-vbpResultsUI <- function(id) {
+vbpResultsSidebarUI <- function(id) {
   ns <- shiny::NS(id)
   shiny::tagList(
     shiny::selectInput(ns("viz_type"), "Visualization",
       choices = c("Line Chart" = "line", "Table" = "table")
     ),
-    shiny::uiOutput(ns("controls")),
+    shiny::uiOutput(ns("controls"))
+  )
+}
+
+#' VBP Results UI
+#' @param id Module namespace ID.
+#' @keywords internal
+vbpResultsUI <- function(id) {
+  ns <- shiny::NS(id)
+  results_fill_panel(
     shiny::conditionalPanel(
       condition = sprintf("input['%s'] != 'table'", ns("viz_type")),
-      shiny::plotOutput(ns("result_plot"))
+      results_fill_plot_output(ns("result_plot"))
     ),
     shiny::conditionalPanel(
       condition = sprintf("input['%s'] == 'table'", ns("viz_type")),
@@ -106,13 +115,12 @@ vbpResultsServer <- function(id, vbp_results, metadata) {
 
       inputs <- Filter(Negate(is.null), inputs)
 
-      do.call(bslib::layout_columns, c(
-        list(col_widths = bslib::breakpoints(sm = 12, md = 6)),
-        inputs
-      ))
+      build_results_sidebar_controls(c(inputs, list(plot_scale_input(ns))))
     })
 
-    output$result_plot <- shiny::renderPlot({
+    shiny::observe({
+      scale <- input$plot_scale %||% 1
+      output$result_plot <- shiny::renderPlot({
       res <- vbp_results()
       shiny::req(res, input$viz_type, input$viz_type != "table")
       args <- list(res)
@@ -131,6 +139,7 @@ vbpResultsServer <- function(id, vbp_results, metadata) {
         error_msg(conditionMessage(e))
         NULL
       })
+    }, res = 72 * scale)
     })
 
     output$result_table <- shiny::renderUI({

@@ -10,12 +10,14 @@ get_variable_choices(model)
 \item{model}{An openqaly model object.}
 }
 \value{
-A character vector of variable names.
+A named character vector of variable choices.
 }
 \description{
-Extract unique variable names from a model object, filtered to only include
-global (unsegmented) variables — those not defined for a specific strategy
-or group. This is used for VBP price variable selection, which requires
-variables that apply across all strategies and groups.
+Build selectable VBP price-variable choices from model variables.
+}
+\details{
+Returns one entry per row in \code{model$variables}, using display names as
+labels and unique encoded row selections as values. Duplicate labels are
+disambiguated with strategy/group qualifiers when available.
 }
 \keyword{internal}

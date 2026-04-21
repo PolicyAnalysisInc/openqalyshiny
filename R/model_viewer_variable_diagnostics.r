@@ -5,15 +5,23 @@
 #' Variable Diagnostics UI
 #' @param id Module namespace ID.
 #' @keywords internal
-variableDiagnosticsUI <- function(id) {
+variableDiagnosticsSidebarUI <- function(id) {
   ns <- shiny::NS(id)
   shiny::tagList(
     shiny::uiOutput(ns("controls")),
     shiny::uiOutput(ns("output_selector")),
+    plot_scale_input(ns)
+  )
+}
+
+#' Variable Diagnostics UI
+#' @param id Module namespace ID.
+#' @keywords internal
+variableDiagnosticsUI <- function(id) {
+  ns <- shiny::NS(id)
+  results_fill_panel(
     shiny::uiOutput(ns("header_info")),
-    shiny::uiOutput(ns("selected_text")),
-    shiny::uiOutput(ns("selected_table")),
-    shiny::plotOutput(ns("selected_plot"), height = "800px"),
+    shiny::uiOutput(ns("selected_content"), class = "results-content-output"),
     shiny::uiOutput(ns("error_display"))
   )
 }
@@ -128,22 +136,25 @@ variableDiagnosticsServer <- function(id, results, metadata) {
       shiny::tags$div(class = "mb-3 p-2 bg-light rounded", info_items)
     })
 
-    output$selected_text <- shiny::renderUI({
+    output$selected_content <- shiny::renderUI({
       sel <- selected_output()
-      if (is.null(sel) || sel$type != "text") return(NULL)
-      shiny::tags$pre(style = "white-space: pre-wrap;", sel$content)
+      if (is.null(sel)) return(NULL)
+
+      switch(sel$type,
+        "text" = shiny::tags$pre(style = "white-space: pre-wrap;", sel$content),
+        "table" = render_flextable_html(sel$content),
+        "plot" = results_fill_plot_output(ns("selected_plot")),
+        NULL
+      )
     })
 
-    output$selected_table <- shiny::renderUI({
-      sel <- selected_output()
-      if (is.null(sel) || sel$type != "table") return(NULL)
-      render_flextable_html(sel$content)
-    })
-
-    output$selected_plot <- shiny::renderPlot({
+    shiny::observe({
+      scale <- input$plot_scale %||% 1
+      output$selected_plot <- shiny::renderPlot({
       sel <- selected_output()
       shiny::req(sel, sel$type == "plot")
       sel$content
+    }, res = 72 * scale)
     })
 
     output$error_display <- shiny::renderUI({

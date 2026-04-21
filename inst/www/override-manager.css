@@ -13,10 +13,10 @@
 /* Category column */
 .override-manager-column {
   min-width: 280px;
-  max-width: 350px;
+  max-width: 340px;
   flex-shrink: 0;
-  background-color: #f1f3f5;
-  border-radius: 8px;
+  background-color: var(--oq-surface-sunken, #f1f3f5);
+  border-radius: var(--oq-radius-md, 8px);
   padding: 12px;
   display: flex;
   flex-direction: column;
@@ -29,13 +29,13 @@
   justify-content: space-between;
   align-items: center;
   padding: 4px 4px 8px 4px;
-  border-bottom: 1px solid #dee2e6;
+  border-bottom: 1px solid var(--oq-border, #dee2e6);
   margin-bottom: 4px;
 }
 
 .override-manager-column-title {
   font-weight: 600;
-  font-size: 15px;
+  font-size: var(--oq-text-base, 15px);
   cursor: text;
 }
 
@@ -55,12 +55,12 @@
   cursor: pointer;
   padding: 2px 6px;
   font-size: 14px;
-  color: #6c757d;
+  color: var(--oq-text-tertiary, #9ca3af);
   border-radius: 4px;
 }
 
 .override-manager-column-actions button:hover {
-  background-color: #dee2e6;
+  background-color: var(--oq-surface-hover, #e9ecef);
   color: #212529;
 }
 
@@ -75,16 +75,17 @@
 /* Override card */
 .override-manager-card {
   background-color: #fff;
-  border: 1px solid #dee2e6;
-  border-radius: 6px;
+  border: 1px solid var(--oq-border, #dee2e6);
+  border-radius: var(--oq-radius, 6px);
   padding: 10px 12px;
   cursor: grab;
   position: relative;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
 
 .override-manager-card:hover {
-  border-color: #adb5bd;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+  border-color: #c7c9ce;
+  box-shadow: var(--oq-shadow-sm, 0 1px 3px rgba(0, 0, 0, 0.08));
 }
 
 .override-manager-card-top {
@@ -100,7 +101,7 @@
 
 .override-manager-card-name {
   font-weight: 600;
-  font-size: 13px;
+  font-size: var(--oq-text-sm, 0.8125rem);
   word-break: break-word;
 }
 
@@ -196,7 +197,7 @@
 /* Card in edit mode */
 .override-manager-card.editing {
   cursor: default;
-  border-color: #339af0;
+  border-color: var(--oq-border-focus, #6366f1);
   border-width: 2px;
   padding: 9px 11px;
 }
@@ -236,8 +237,8 @@
 .override-manager-edit-form select:focus,
 .override-manager-edit-form textarea:focus {
   outline: none;
-  border-color: #339af0;
-  box-shadow: 0 0 0 2px rgba(51, 154, 240, 0.2);
+  border-color: var(--oq-border-focus, #6366f1);
+  box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.2);
 }
 
 /* Config fields section */
@@ -277,7 +278,7 @@
 
 .override-manager-add-option-btn {
   background: none;
-  border: 1px dashed #ced4da;
+  border: 1px dashed var(--oq-border, #dee2e6);
   border-radius: 4px;
   padding: 4px 8px;
   font-size: 12px;
@@ -288,8 +289,8 @@
 }
 
 .override-manager-add-option-btn:hover {
-  border-color: #339af0;
-  color: #339af0;
+  border-color: var(--oq-primary, #6366f1);
+  color: var(--oq-primary, #6366f1);
 }
 
 /* Timeframe units checkboxes */
@@ -345,7 +346,7 @@
 /* Add override button at bottom of column */
 .override-manager-add-btn {
   background: none;
-  border: 2px dashed #ced4da;
+  border: 2px dashed var(--oq-border, #dee2e6);
   border-radius: 6px;
   padding: 8px;
   font-size: 13px;
@@ -357,8 +358,8 @@
 }
 
 .override-manager-add-btn:hover {
-  border-color: #339af0;
-  color: #339af0;
+  border-color: var(--oq-primary, #6366f1);
+  color: var(--oq-primary, #6366f1);
 }
 
 /* Add category column */
@@ -372,7 +373,7 @@
 
 .override-manager-add-column-btn {
   background: none;
-  border: 2px dashed #ced4da;
+  border: 2px dashed var(--oq-border, #dee2e6);
   border-radius: 8px;
   padding: 16px;
   font-size: 13px;
@@ -384,8 +385,8 @@
 }
 
 .override-manager-add-column-btn:hover {
-  border-color: #339af0;
-  color: #339af0;
+  border-color: var(--oq-primary, #6366f1);
+  color: var(--oq-primary, #6366f1);
 }
 
 /* Category rename input */
@@ -393,7 +394,7 @@
   font-size: 15px;
   font-weight: 600;
   padding: 2px 6px;
-  border: 1px solid #339af0;
+  border: 1px solid var(--oq-border-focus, #6366f1);
   border-radius: 4px;
   width: 100%;
   box-sizing: border-box;
@@ -424,13 +425,13 @@
 }
 
 .override-manager-badge-variable {
-  background-color: #e7f5ff;
-  color: #1971c2;
+  background-color: var(--oq-accent-light, #e7f5ff);
+  color: #0369a1;
 }
 
 .override-manager-badge-setting {
-  background-color: #fff3bf;
-  color: #e67700;
+  background-color: var(--oq-warning-light, #fff3bf);
+  color: #b45309;
 }
 
 .override-manager-badge-target {

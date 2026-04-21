@@ -62,6 +62,30 @@
     return val;
   }
 
+  function infoTitle(description) {
+    return function(cell) {
+      var title = cell.getValue();
+      var wrapper = document.createElement("span");
+      wrapper.style.display = "inline-flex";
+      wrapper.style.alignItems = "center";
+      wrapper.style.gap = "4px";
+      var text = document.createElement("span");
+      text.textContent = title;
+      wrapper.appendChild(text);
+      var btn = document.createElement("button");
+      btn.className = "info-trigger";
+      var icon = document.createElement("i");
+      icon.className = "fa-solid fa-circle-info";
+      btn.appendChild(icon);
+      var popover = document.createElement("span");
+      popover.className = "info-popover";
+      popover.textContent = description;
+      btn.appendChild(popover);
+      wrapper.appendChild(btn);
+      return wrapper;
+    };
+  }
+
   // =========================================================================
   // Custom formula editor (duplicated from variables-table.js)
   // =========================================================================
@@ -388,6 +412,7 @@
             {
               title: "Formula",
               field: "formula",
+              titleFormatter: infoTitle("Group-specific formula override for this variable."),
               widthGrow: 2,
               minWidth: 450,
               editor: formulaEditor(terms, suggestions),

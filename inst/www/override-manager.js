@@ -731,7 +731,9 @@
       var dvInput = document.createElement("input");
       dvInput.type = "text";
       dvInput.name = "default_value";
-      dvInput.value = override.default_value != null ? String(override.default_value) : "";
+      var storedValue = override.overridden_expression != null ?
+        override.overridden_expression : override.default_value;
+      dvInput.value = storedValue != null ? String(storedValue) : "";
       dvInput.placeholder = "Default value or expression";
       dvGroup.appendChild(dvInput);
       form.appendChild(dvGroup);
@@ -1010,11 +1012,21 @@
       var claimed = this._getClaimedOverrides(excludeId);
 
       if (type === "setting") {
+        var SETTING_EXCLUSIONS = {
+          "discount_rate": ["discount_cost", "discount_outcomes"],
+          "discount_cost": ["discount_rate"],
+          "discount_outcomes": ["discount_rate"]
+        };
+        var claimedSettingNames = claimed
+          .filter(function(c) { return c.type === "setting"; })
+          .map(function(c) { return c.name; });
+        var excluded = new Set(claimedSettingNames);
+        claimedSettingNames.forEach(function(name) {
+          var excl = SETTING_EXCLUSIONS[name];
+          if (excl) excl.forEach(function(e) { excluded.add(e); });
+        });
         return meta.settings.filter(function(s) {
-          for (var i = 0; i < claimed.length; i++) {
-            if (claimed[i].type === "setting" && claimed[i].name === s) return false;
-          }
-          return true;
+          return !excluded.has(s);
         });
       }
 

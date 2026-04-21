@@ -1,0 +1,240 @@
+/* ==========================================================================
+   OpenQaly Design System — Tokens & Shared Styles
+   A clean, modern redesign for the model editor application.
+   ========================================================================== */
+
+:root {
+  /* ── Color Palette ── */
+  --oq-bg:             #f7f8fa;
+  --oq-surface:        #ffffff;
+  --oq-surface-raised: #ffffff;
+  --oq-surface-sunken: #f0f2f5;
+  --oq-surface-hover:  #f4f6f9;
+  --oq-surface-active: #edf0f5;
+
+  --oq-border:         #e2e5ea;
+  --oq-border-light:   #edf0f3;
+  --oq-border-focus:   #6366f1;
+
+  --oq-text:           #1a1d23;
+  --oq-text-secondary: #6b7280;
+  --oq-text-tertiary:  #9ca3af;
+  --oq-text-inverse:   #ffffff;
+
+  --oq-primary:        #6366f1;
+  --oq-primary-hover:  #4f46e5;
+  --oq-primary-light:  #eef2ff;
+  --oq-primary-bg:     #f5f3ff;
+
+  --oq-accent:         #0ea5e9;
+  --oq-accent-light:   #e0f2fe;
+
+  --oq-success:        #10b981;
+  --oq-success-light:  #ecfdf5;
+  --oq-warning:        #f59e0b;
+  --oq-warning-light:  #fffbeb;
+  --oq-danger:         #ef4444;
+  --oq-danger-light:   #fef2f2;
+
+  /* ── Typography ── */
+  --oq-font:           'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --oq-font-mono:      'JetBrains Mono', 'SF Mono', 'Fira Code', 'Cascadia Code', Consolas, monospace;
+  --oq-text-xs:        0.75rem;
+  --oq-text-sm:        0.8125rem;
+  --oq-text-base:      0.875rem;
+  --oq-text-md:        1rem;
+  --oq-text-lg:        1.125rem;
+  --oq-text-xl:        1.25rem;
+
+  /* ── Spacing ── */
+  --oq-sp-1:  4px;
+  --oq-sp-2:  8px;
+  --oq-sp-3:  12px;
+  --oq-sp-4:  16px;
+  --oq-sp-5:  20px;
+  --oq-sp-6:  24px;
+  --oq-sp-8:  32px;
+
+  /* ── Radii ── */
+  --oq-radius-sm:  4px;
+  --oq-radius:     6px;
+  --oq-radius-md:  8px;
+  --oq-radius-lg:  12px;
+
+  /* ── Shadows ── */
+  --oq-shadow-xs:  0 1px 2px rgba(0,0,0,0.04);
+  --oq-shadow-sm:  0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);
+  --oq-shadow:     0 4px 6px -1px rgba(0,0,0,0.07), 0 2px 4px -1px rgba(0,0,0,0.04);
+  --oq-shadow-md:  0 10px 15px -3px rgba(0,0,0,0.08), 0 4px 6px -2px rgba(0,0,0,0.04);
+  --oq-shadow-lg:  0 20px 25px -5px rgba(0,0,0,0.08), 0 10px 10px -5px rgba(0,0,0,0.03);
+
+  /* ── Transitions ── */
+  --oq-transition: 150ms cubic-bezier(0.4, 0, 0.2, 1);
+
+  /* ── Layout ── */
+  --oq-topbar-h:   52px;
+  --oq-sidebar-w:  240px;
+}
+
+/* ── Reset & Base ── */
+*, *::before, *::after { box-sizing: border-box; }
+
+body {
+  font-family: var(--oq-font);
+  font-size: var(--oq-text-base);
+  color: var(--oq-text);
+  background: var(--oq-bg);
+  margin: 0;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* ── Utility Classes ── */
+.oq-mono    { font-family: var(--oq-font-mono); }
+.oq-muted   { color: var(--oq-text-secondary); }
+.oq-tiny    { font-size: var(--oq-text-xs); }
+.oq-small   { font-size: var(--oq-text-sm); }
+
+.oq-truncate {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ── Common Button ── */
+.oq-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  font-family: var(--oq-font);
+  font-size: var(--oq-text-sm);
+  font-weight: 500;
+  line-height: 1;
+  padding: 7px 14px;
+  border-radius: var(--oq-radius);
+  border: 1px solid var(--oq-border);
+  background: var(--oq-surface);
+  color: var(--oq-text);
+  cursor: pointer;
+  transition: all var(--oq-transition);
+  white-space: nowrap;
+}
+.oq-btn:hover {
+  background: var(--oq-surface-hover);
+  border-color: #d1d5db;
+}
+
+.oq-btn-primary {
+  background: var(--oq-primary);
+  border-color: var(--oq-primary);
+  color: var(--oq-text-inverse);
+}
+.oq-btn-primary:hover {
+  background: var(--oq-primary-hover);
+  border-color: var(--oq-primary-hover);
+}
+
+.oq-btn-ghost {
+  background: transparent;
+  border-color: transparent;
+  color: var(--oq-text-secondary);
+}
+.oq-btn-ghost:hover {
+  background: var(--oq-surface-hover);
+  color: var(--oq-text);
+}
+
+.oq-btn-danger {
+  background: transparent;
+  border-color: transparent;
+  color: var(--oq-danger);
+}
+.oq-btn-danger:hover {
+  background: var(--oq-danger-light);
+}
+
+.oq-btn-sm {
+  font-size: var(--oq-text-xs);
+  padding: 4px 10px;
+}
+
+.oq-btn-icon {
+  padding: 6px;
+  border: none;
+  background: transparent;
+  color: var(--oq-text-secondary);
+  cursor: pointer;
+  border-radius: var(--oq-radius-sm);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: all var(--oq-transition);
+}
+.oq-btn-icon:hover {
+  background: var(--oq-surface-hover);
+  color: var(--oq-text);
+}
+
+/* ── Card / Panel ── */
+.oq-card {
+  background: var(--oq-surface);
+  border: 1px solid var(--oq-border);
+  border-radius: var(--oq-radius-md);
+  box-shadow: var(--oq-shadow-xs);
+}
+
+/* ── Badge ── */
+.oq-badge {
+  display: inline-flex;
+  align-items: center;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 99px;
+  line-height: 1.4;
+}
+.oq-badge-primary  { background: var(--oq-primary-light); color: var(--oq-primary); }
+.oq-badge-accent   { background: var(--oq-accent-light);  color: #0369a1; }
+.oq-badge-success  { background: var(--oq-success-light); color: #047857; }
+.oq-badge-warning  { background: var(--oq-warning-light); color: #b45309; }
+.oq-badge-danger   { background: var(--oq-danger-light);  color: #b91c1c; }
+
+/* ── Form Inputs ── */
+.oq-input {
+  width: 100%;
+  font-family: var(--oq-font);
+  font-size: var(--oq-text-sm);
+  padding: 7px 10px;
+  border: 1px solid var(--oq-border);
+  border-radius: var(--oq-radius);
+  background: var(--oq-surface);
+  color: var(--oq-text);
+  transition: border-color var(--oq-transition), box-shadow var(--oq-transition);
+  outline: none;
+}
+.oq-input:focus {
+  border-color: var(--oq-border-focus);
+  box-shadow: 0 0 0 3px rgba(99,102,241,0.12);
+}
+.oq-input::placeholder {
+  color: var(--oq-text-tertiary);
+}
+
+.oq-label {
+  display: block;
+  font-size: var(--oq-text-xs);
+  font-weight: 600;
+  color: var(--oq-text-secondary);
+  margin-bottom: 4px;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+}
+
+.oq-select {
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%236b7280' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+  padding-right: 30px;
+}

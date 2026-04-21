@@ -62,13 +62,29 @@ overrideInput <- function(inputId, model, width = NULL) {
     deps <- c(deps, formula_input_dependency())
   }
 
-  # Build gear icon button for management screen
-  gear_btn <- htmltools::tags$button(
-    type = "button",
-    class = "override-manage-btn",
-    `data-input-id` = inputId,
-    title = "Manage overrides",
-    "\u2699"
+  # Build manage bar with inline button below tabs
+  manage_bar <- htmltools::tags$div(
+    class = "override-manage-bar",
+    htmltools::tags$button(
+      type = "button",
+      class = "override-manage-btn",
+      `data-input-id` = inputId,
+      title = "Manage overrides",
+      htmltools::tags$svg(
+        xmlns = "http://www.w3.org/2000/svg",
+        width = "12",
+        height = "12",
+        viewBox = "0 0 16 16",
+        fill = "currentColor",
+        htmltools::tags$path(
+          d = "M8 4.754a3.246 3.246 0 1 0 0 6.492 3.246 3.246 0 0 0 0-6.492zM5.754 8a2.246 2.246 0 1 1 4.492 0 2.246 2.246 0 0 1-4.492 0z"
+        ),
+        htmltools::tags$path(
+          d = "M9.796 1.343c-.527-1.79-3.065-1.79-3.592 0l-.094.319a.873.873 0 0 1-1.255.52l-.292-.16c-1.64-.892-3.433.902-2.54 2.541l.159.292a.873.873 0 0 1-.52 1.255l-.319.094c-1.79.527-1.79 3.065 0 3.592l.319.094a.873.873 0 0 1 .52 1.255l-.16.292c-.892 1.64.901 3.434 2.541 2.54l.292-.159a.873.873 0 0 1 1.255.52l.094.319c.527 1.79 3.065 1.79 3.592 0l.094-.319a.873.873 0 0 1 1.255-.52l.292.16c1.64.893 3.434-.902 2.54-2.541l-.159-.292a.873.873 0 0 1 .52-1.255l.319-.094c1.79-.527 1.79-3.065 0-3.592l-.319-.094a.873.873 0 0 1-.52-1.255l.16-.292c.893-1.64-.902-3.433-2.541-2.54l-.292.159a.873.873 0 0 1-1.255-.52l-.094-.319zm-2.633.283c.246-.835 1.428-.835 1.674 0l.094.319a1.873 1.873 0 0 0 2.693 1.115l.291-.16c.764-.415 1.6.42 1.184 1.185l-.159.292a1.873 1.873 0 0 0 1.116 2.692l.318.094c.835.246.835 1.428 0 1.674l-.319.094a1.873 1.873 0 0 0-1.115 2.693l.16.291c.415.764-.42 1.6-1.185 1.184l-.291-.159a1.873 1.873 0 0 0-2.693 1.116l-.094.318c-.246.835-1.428.835-1.674 0l-.094-.319a1.873 1.873 0 0 0-2.692-1.115l-.292.16c-.764.415-1.6-.42-1.184-1.185l.159-.291A1.873 1.873 0 0 0 1.945 8.93l-.319-.094c-.835-.246-.835-1.428 0-1.674l.319-.094A1.873 1.873 0 0 0 3.06 4.377l-.16-.292c-.415-.764.42-1.6 1.185-1.184l.292.159a1.873 1.873 0 0 0 2.692-1.116l.094-.318z"
+        )
+      ),
+      " Manage"
+    )
   )
 
   # Wrap in container div
@@ -76,8 +92,8 @@ overrideInput <- function(inputId, model, width = NULL) {
     id = paste0(inputId, "-container"),
     class = "override-input-container",
     style = style,
-    gear_btn,
-    tabset
+    tabset,
+    manage_bar
   )
 
   htmltools::tagList(deps, container)
@@ -214,11 +230,14 @@ updateOverrideInput <- function(session, inputId, override_name, value,
 #' @param override A list describing the override.
 #' @param model The model object.
 #'
+#' @param current_value Optional current value to render instead of the model's
+#'   persisted override/default value.
+#'
 #' @return A Shiny input element.
 #' @keywords internal
-.build_override_input <- function(override_id, override, model) {
+.build_override_input <- function(override_id, override, model, current_value = NULL) {
   config <- override$input_config %||% list()
-  default_val <- override$overridden_expression %||% override$default_value
+  default_val <- current_value %||% override$overridden_expression %||% override$default_value
 
   switch(override$input_type,
     "numeric" = {
@@ -228,11 +247,12 @@ updateOverrideInput <- function(session, inputId, override_name, value,
         value = default_val,
         min = config$min,
         max = config$max,
-        step = config$step %||% config$step_size %||% NA
+        step = config$step %||% config$step_size %||% NA,
+        updateOn = "blur"
       )
     },
     "slider" = {
-      shiny::sliderInput(
+      slider_tag <- shiny::sliderInput(
         inputId = override_id,
         label = NULL,
         value = as.numeric(default_val %||% config$min %||% 0),
@@ -240,10 +260,22 @@ updateOverrideInput <- function(session, inputId, override_name, value,
         max = config$max %||% 1,
         step = config$step_size %||% config$step %||% 0.01
       )
+
+      htmltools::tagQuery(slider_tag)$
+        find("input.js-range-slider")$
+        removeClass("js-range-slider")$
+        addClass("override-slider-input")$
+        addAttrs(`data-commit-mode` = "finish")$
+        allTags()
     },
     "dropdown" = {
       choices <- config$options %||% list()
-      shiny::selectInput(
+      if (length(choices) > 0 && is.list(choices[[1]])) {
+        values <- vapply(choices, function(x) as.character(x$value), character(1))
+        labels <- vapply(choices, function(x) x$label %||% as.character(x$value), character(1))
+        choices <- stats::setNames(values, labels)
+      }
+      .editor_select_input(
         inputId = override_id,
         label = NULL,
         choices = choices,
@@ -256,7 +288,8 @@ updateOverrideInput <- function(session, inputId, override_name, value,
         inputId = override_id,
         value = default_val %||% "",
         model = if (is_oq_model) model else NULL,
-        context = if (is_oq_model) "override" else NULL
+        context = if (is_oq_model) "override" else NULL,
+        updateOn = "blur"
       )
     },
     "timeframe" = {
@@ -312,7 +345,7 @@ updateOverrideInput <- function(session, inputId, override_name, value,
   if (length(parts) == 2) {
     list(number = parts[1], unit = parts[2])
   } else {
-    list(number = "1", unit = "year")
+    list(number = parts[1], unit = "year")
   }
 }
 
@@ -332,4 +365,3 @@ override_input_dependency <- function() {
     all_files = FALSE
   )
 }
-

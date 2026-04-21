@@ -9,7 +9,7 @@ dsaResultTabServer(id, analysis_type, dsa_results, metadata)
 \arguments{
 \item{id}{Module namespace ID.}
 
-\item{analysis_type}{Fixed string: "outcomes", "nmb", "ce", or "vbp".}
+\item{analysis_type}{Fixed string: "outcomes", "costs", "nmb", "ce", or "vbp".}
 
 \item{dsa_results}{Reactive containing DSA results.}
 

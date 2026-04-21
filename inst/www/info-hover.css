@@ -1,0 +1,55 @@
+.label-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-bottom: 4px;
+}
+.label-row label,
+.label-row .control-label {
+  margin-bottom: 0;
+}
+.info-trigger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 15px;
+  height: 15px;
+  border-radius: 50%;
+  border: none;
+  background: transparent;
+  color: var(--oq-text-tertiary);
+  font-size: 11px;
+  cursor: help;
+  padding: 0;
+  transition: color var(--oq-transition);
+  flex-shrink: 0;
+}
+.info-trigger:hover {
+  color: var(--oq-primary);
+}
+.info-popover {
+  display: none;
+}
+.info-popover-floating {
+  position: fixed;
+  z-index: 10000;
+  width: 240px;
+  padding: 10px 12px;
+  background: var(--oq-text);
+  color: var(--oq-text-inverse);
+  font-size: var(--oq-text-xs);
+  font-weight: 400;
+  text-transform: none;
+  letter-spacing: 0;
+  line-height: 1.5;
+  border-radius: var(--oq-radius);
+  box-shadow: var(--oq-shadow-md);
+  pointer-events: none;
+}
+.info-popover-floating .arrow {
+  position: absolute;
+  width: 10px;
+  height: 10px;
+  background: var(--oq-text);
+  transform: rotate(45deg);
+}

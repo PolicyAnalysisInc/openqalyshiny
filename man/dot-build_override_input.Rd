@@ -4,7 +4,7 @@
 \alias{.build_override_input}
 \title{Build Override Input Widget}
 \usage{
-.build_override_input(override_id, override, model)
+.build_override_input(override_id, override, model, current_value = NULL)
 }
 \arguments{
 \item{override_id}{The full input ID for this override.}
@@ -12,6 +12,9 @@
 \item{override}{A list describing the override.}
 
 \item{model}{The model object.}
+
+\item{current_value}{Optional current value to render instead of the model's
+persisted override/default value.}
 }
 \value{
 A Shiny input element.

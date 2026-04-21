@@ -18,6 +18,123 @@
   }
 
   waitForShiny().then(function() {
+    function formatNumber(num, thousandSep, decimalSep) {
+      var parts = num.toString().split(".");
+      parts[0] = parts[0].replace(
+        /(\d{1,3}(?=(?:\d\d\d)+(?!\d)))/g,
+        "$1" + thousandSep
+      );
+
+      if (parts.length === 1) return parts[0];
+      if (parts.length === 2) return parts[0] + decimalSep + parts[1];
+
+      return "";
+    }
+
+    function getSliderPrettifyer(dataType, timeFormat, timezone) {
+      var timeFormatter;
+
+      if (dataType === "date") {
+        timeFormatter = window.strftime.utc();
+        return function(num) {
+          return timeFormatter(timeFormat, new Date(num));
+        };
+      }
+
+      if (dataType === "datetime") {
+        timeFormatter = timezone ? window.strftime.timezone(timezone) : window.strftime;
+        return function(num) {
+          return timeFormatter(timeFormat, new Date(num));
+        };
+      }
+
+      return function(num) {
+        return formatNumber(num, this.prettify_separator, ".");
+      };
+    }
+
+    function getOverrideSliderNumValues(el) {
+      var slider = $(el).data("ionRangeSlider");
+      if (!slider) return 1;
+      return slider.options.type === "double" ? 2 : 1;
+    }
+
+    function setOverrideSliderValue(el, value) {
+      var $el = $(el);
+      var slider = $el.data("ionRangeSlider");
+
+      if (!slider) return;
+
+      $el.data("overrideSliderSilent", true);
+      try {
+        if (getOverrideSliderNumValues(el) === 2 && Array.isArray(value)) {
+          slider.update({ from: value[0], to: value[1] });
+        } else {
+          slider.update({ from: value });
+        }
+      } finally {
+        $el.data("overrideSliderSilent", false);
+      }
+    }
+
+    function commitOverrideSliderValue(el) {
+      if (!el) return;
+      $(el).trigger("override-slider:commit");
+    }
+
+    function setTimeframeValue(el, value) {
+      if (!value) return;
+
+      var $el = $(el);
+      var parts = String(value).split("|");
+
+      $el.data("timeframeSilent", true);
+      try {
+        if (parts.length === 2) {
+          $el.find(".timeframe-number").val(parts[0]);
+          $el.find(".timeframe-unit").val(parts[1]);
+        }
+      } finally {
+        el._timeframeDirty = false;
+        $el.data("timeframeSilent", false);
+      }
+    }
+
+    function commitTimeframeValue(el) {
+      if (!el) return;
+      el._timeframeDirty = false;
+      $(el).trigger("timeframe-input:commit");
+    }
+
+    function setFormulaValue(el, value) {
+      if (!el) return;
+
+      if (typeof el._formulaSetValue === "function") {
+        el._formulaSetValue(value);
+        return;
+      }
+
+      if (el._formulaEditor) {
+        el._formulaSuppressChange = true;
+        try {
+          el._formulaEditor.setValue(value != null ? String(value) : "", -1);
+        } finally {
+          el._formulaDirty = false;
+          el._formulaSuppressChange = false;
+        }
+      }
+    }
+
+    function commitFormulaValue(el) {
+      if (!el) return;
+      var updateOn = el.getAttribute("data-update-on") || "change";
+      if (updateOn === "blur") {
+        el._formulaDirty = false;
+        $(el).trigger("formula-input:commit");
+      } else {
+        $(el).trigger("formula-input:change");
+      }
+    }
 
     // =========================================================================
     // TimeframeInputBinding - combines numeric + unit select into "number|unit"
@@ -36,21 +153,42 @@
       },
 
       setValue: function(el, value) {
-        if (!value) return;
-        var parts = String(value).split("|");
-        if (parts.length === 2) {
-          $(el).find(".timeframe-number").val(parts[0]);
-          $(el).find(".timeframe-unit").val(parts[1]);
-        }
+        setTimeframeValue(el, value);
       },
 
       subscribe: function(el, callback) {
-        $(el).on("change.timeframeInputBinding input.timeframeInputBinding",
+        el._timeframeDirty = false;
+
+        $(el).on("input.timeframeInputBinding change.timeframeInputBinding",
           ".timeframe-number, .timeframe-unit",
           function() {
-            callback(false);
+            if ($(el).data("timeframeSilent")) {
+              return;
+            }
+
+            el._timeframeDirty = true;
           }
         );
+
+        $(el).on("timeframe-input:commit.timeframeInputBinding", function() {
+          el._timeframeDirty = false;
+          callback(false);
+        });
+
+        $(el).on("keydown.timeframeInputBinding", ".timeframe-number", function(event) {
+          if (event.key !== "Enter") return;
+          commitTimeframeValue(el);
+        });
+
+        $(el).on("focusout.timeframeInputBinding", function() {
+          setTimeout(function() {
+            if (el.contains(document.activeElement) || !el._timeframeDirty) {
+              return;
+            }
+
+            commitTimeframeValue(el);
+          }, 0);
+        });
       },
 
       unsubscribe: function(el) {
@@ -61,11 +199,6 @@
         if (data.hasOwnProperty("value")) {
           this.setValue(el, data.value);
         }
-        $(el).trigger("change");
-      },
-
-      getRatePolicy: function() {
-        return { policy: "debounce", delay: 250 };
       }
     });
 
@@ -74,10 +207,123 @@
       "openqalyshiny.timeframeInput"
     );
 
-    // Initialize any existing timeframe inputs
-    $(".timeframe-input").each(function() {
-      // Trigger initial binding
-      $(this).trigger("change");
+    // =========================================================================
+    // OverrideSliderInputBinding - commits only when slider interaction finishes
+    // =========================================================================
+    var OverrideSliderInputBinding = new Shiny.InputBinding();
+
+    $.extend(OverrideSliderInputBinding, {
+      find: function(scope) {
+        return $(scope).find("input.override-slider-input");
+      },
+
+      getType: function(el) {
+        var dataType = $(el).data("data-type");
+        if (dataType === "date") return "shiny.date";
+        if (dataType === "datetime") return "shiny.datetime";
+        return null;
+      },
+
+      getValue: function(el) {
+        var slider = $(el).data("ionRangeSlider");
+        var dataType = $(el).data("data-type");
+        var result = slider ? slider.result : null;
+
+        function convert(val) {
+          if (dataType === "date") {
+            return window.strftime.utc("%F", new Date(Number(val)));
+          }
+          if (dataType === "datetime") {
+            return Number(val) / 1000;
+          }
+          return Number(val);
+        }
+
+        if (!result) {
+          return Number($(el).attr("data-from"));
+        }
+
+        if (getOverrideSliderNumValues(el) === 2) {
+          return [convert(result.from), convert(result.to)];
+        }
+
+        return convert(result.from);
+      },
+
+      setValue: function(el, value) {
+        setOverrideSliderValue(el, value);
+      },
+
+      subscribe: function(el, callback) {
+        $(el).on("override-slider:commit.overrideSliderInputBinding", function() {
+          callback(false);
+        });
+      },
+
+      unsubscribe: function(el) {
+        $(el).off(".overrideSliderInputBinding");
+      },
+
+      receiveMessage: function(el, data) {
+        var $el = $(el);
+        var slider = $el.data("ionRangeSlider");
+        var msg = {};
+        var features = ["min", "max", "step"];
+        var i;
+
+        if (!slider) return;
+
+        if (data.hasOwnProperty("value")) {
+          if (getOverrideSliderNumValues(el) === 2 && Array.isArray(data.value)) {
+            msg.from = data.value[0];
+            msg.to = data.value[1];
+          } else {
+            msg.from = data.value;
+          }
+        }
+
+        for (i = 0; i < features.length; i++) {
+          if (data.hasOwnProperty(features[i])) {
+            msg[features[i]] = data[features[i]];
+          }
+        }
+
+        $el.data("overrideSliderSilent", true);
+        try {
+          slider.update(msg);
+        } finally {
+          $el.data("overrideSliderSilent", false);
+        }
+      },
+
+      initialize: function(el) {
+        var $el = $(el);
+        var dataType = $el.data("data-type");
+        var timeFormat = $el.data("time-format");
+        var timezone = $el.data("timezone");
+
+        if ($el.data("ionRangeSlider")) return;
+
+        $el.ionRangeSlider({
+          prettify: getSliderPrettifyer(dataType, timeFormat, timezone),
+          onFinish: function() {
+            if ($el.data("overrideSliderSilent")) {
+              return;
+            }
+
+            commitOverrideSliderValue(el);
+          }
+        });
+      }
+    });
+
+    Shiny.inputBindings.register(
+      OverrideSliderInputBinding,
+      "openqalyshiny.overrideSliderInput"
+    );
+
+    $(document).on("mousedown", ".override-reset-btn", function(event) {
+      event.preventDefault();
     });
 
     // =========================================================================
@@ -95,16 +341,17 @@
         case "numeric":
           var numInput = $("#" + CSS.escape(overrideId));
           numInput.val(defaultValue);
-          numInput.trigger("change");
+          if (document.activeElement === numInput[0]) {
+            numInput.trigger("blur");
+          } else {
+            numInput.trigger("change");
+          }
           break;
 
         case "slider":
           var sliderEl = $("#" + CSS.escape(overrideId));
-          // Shiny slider uses ionRangeSlider
-          var slider = sliderEl.data("ionRangeSlider");
-          if (slider) {
-            slider.update({ from: parseFloat(defaultValue) });
-          }
+          setOverrideSliderValue(sliderEl[0], parseFloat(defaultValue));
+          commitOverrideSliderValue(sliderEl[0]);
           break;
 
         case "dropdown":
@@ -114,25 +361,15 @@
           break;
 
         case "formula":
-          // Formula inputs use Ace editor - find the container and set value
           var formulaEl = document.getElementById(overrideId);
-          if (formulaEl && formulaEl._formulaEditor) {
-            formulaEl._formulaEditor.setValue(
-              defaultValue != null ? String(defaultValue) : "",
-              -1
-            );
-            $(formulaEl).trigger("formula-input:change");
-          }
+          setFormulaValue(formulaEl, defaultValue);
+          commitFormulaValue(formulaEl);
           break;
 
         case "timeframe":
           var tfEl = $("#" + CSS.escape(overrideId));
-          var parts = String(defaultValue || "1|year").split("|");
-          if (parts.length === 2) {
-            tfEl.find(".timeframe-number").val(parts[0]);
-            tfEl.find(".timeframe-unit").val(parts[1]);
-          }
-          tfEl.find(".timeframe-number").trigger("change");
+          setTimeframeValue(tfEl[0], defaultValue || "1|year");
+          commitTimeframeValue(tfEl[0]);
           break;
       }
     });
@@ -149,27 +386,15 @@
 
       // Detect input type from element
       if ($(el).hasClass("timeframe-input")) {
-        var parts = String(value).split("|");
-        if (parts.length === 2) {
-          $(el).find(".timeframe-number").val(parts[0]);
-          $(el).find(".timeframe-unit").val(parts[1]);
-        }
-        $(el).find(".timeframe-number").trigger("change");
+        setTimeframeValue(el, value);
       } else if ($(el).hasClass("formula-input")) {
-        if (el._formulaEditor) {
-          el._formulaEditor.setValue(value != null ? String(value) : "", -1);
-          $(el).trigger("formula-input:change");
-        }
+        setFormulaValue(el, value);
       } else if (el.tagName === "SELECT") {
-        $(el).val(value).trigger("change");
-      } else if ($(el).hasClass("js-range-slider")) {
-        var slider = $(el).data("ionRangeSlider");
-        if (slider) {
-          slider.update({ from: parseFloat(value) });
-        }
+        $(el).val(value);
+      } else if ($(el).hasClass("override-slider-input")) {
+        setOverrideSliderValue(el, parseFloat(value));
       } else {
-        // Numeric or other standard input
-        $(el).val(value).trigger("change");
+        $(el).val(value);
       }
     });
 
@@ -210,9 +435,6 @@
       if (!inputId) return;
       Shiny.setInputValue(inputId + "-manage_click", Date.now(), {priority: "event"});
     });
-
-    // Rebind to pick up any existing elements
-    Shiny.bindAll(document.body);
 
     console.log("overrideInput binding registered successfully");
   }).catch(function(error) {

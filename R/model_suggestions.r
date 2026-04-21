@@ -284,9 +284,6 @@ get_model_suggestions <- function(model, context, include_r_functions = TRUE,
 
   # Add R function suggestions if requested
   if (include_r_functions) {
-    if (is.null(r_packages)) {
-      r_packages <- c("base", "stats")
-    }
     r_funcs <- get_r_function_suggestions(r_packages)
     if (nrow(r_funcs) > 0) {
       suggestions$r_function <- r_funcs

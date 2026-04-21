@@ -4,29 +4,29 @@
 .formula-input {
   display: block;
   width: 100%;
-  min-height: 38px;
+  min-height: 36px;
   margin-bottom: 10px;
   position: relative;
 }
 
 /* Ace Editor container styling */
 .formula-input.ace_editor {
-  height: 38px !important;
-  min-height: 38px;
-  max-height: 38px;
+  height: 36px !important;
+  min-height: 36px;
+  max-height: 36px;
   background-color: #ffffff !important;
-  border: 1px solid #ced4da !important;
-  border-radius: 4px;
-  font-size: 14px;
-  font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, Courier, monospace;
+  border: 1px solid var(--oq-border) !important;
+  border-radius: var(--oq-radius);
+  font-size: var(--oq-text-sm);
+  font-family: var(--oq-font-mono);
   line-height: 1.5;
 }
 
 /* Focus state */
 .formula-input.ace_editor.ace_focus {
   outline: none !important;
-  border-color: #80bdff !important;
-  box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25) !important;
+  border-color: var(--oq-border-focus) !important;
+  box-shadow: 0 0 0 3px rgba(99,102,241,0.12) !important;
 }
 
 /* Content area padding */
@@ -55,9 +55,9 @@
 
 /* Placeholder styling */
 .formula-input .ace_placeholder {
-  color: #6c757d !important;
+  color: var(--oq-text-tertiary) !important;
   font-style: italic;
-  font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, Courier, monospace;
+  font-family: var(--oq-font-mono);
   padding: 6px 12px;
 }
 
@@ -178,34 +178,44 @@
    ============================================ */
 
 /* Autocomplete popup dimensions */
-.formula-input .ace_autocomplete {
+.formula-input .ace_autocomplete,
+.formula-input-autocomplete-popup.ace_autocomplete {
   width: 300px;
   max-height: 250px;
-  border: 1px solid #ced4da;
-  border-radius: 4px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  border: 1px solid #e2e5ea;
+  border-radius: 8px;
+  box-shadow: var(--oq-shadow-md);
+  z-index: 11000 !important;
 }
 
 /* Autocomplete row styling */
-.formula-input .ace_autocomplete .ace_line {
-  padding: 4px 8px;
+.formula-input .ace_autocomplete .ace_line,
+.formula-input-autocomplete-popup.ace_autocomplete .ace_line {
+  padding: 5px 10px;
 }
 
 /* Selected item */
-.formula-input .ace_autocomplete .ace_marker-layer .ace_active-line {
-  background-color: #e8f0fe !important;
+.formula-input .ace_autocomplete .ace_marker-layer .ace_active-line,
+.formula-input-autocomplete-popup.ace_autocomplete .ace_marker-layer .ace_active-line {
+  background-color: #eef2ff !important;
 }
 
 /* Completion text */
-.formula-input .ace_autocomplete .ace_completion-highlight {
+.formula-input .ace_autocomplete .ace_completion-highlight,
+.formula-input-autocomplete-popup.ace_autocomplete .ace_completion-highlight {
   font-weight: bold;
 }
 
 /* Meta text (category) - uniform style, no colors */
-.formula-input .ace_autocomplete .ace_meta {
-  color: #959da5;
+.formula-input .ace_autocomplete .ace_meta,
+.formula-input-autocomplete-popup.ace_autocomplete .ace_meta {
+  color: #9ca3af;
   font-size: 11px;
   font-style: italic;
+}
+
+.ace_tooltip.formula-input-autocomplete-tooltip {
+  z-index: 11001 !important;
 }
 
 /* ============================================
@@ -225,9 +235,9 @@
 .formula-autocomplete-signature {
   font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
   font-size: 12px;
-  background-color: #f6f8fa;
+  background-color: #f0f2f5;
   padding: 6px 8px;
-  border-radius: 3px;
+  border-radius: 4px;
   margin-bottom: 8px;
   white-space: pre-wrap;
   word-break: break-word;
@@ -235,16 +245,16 @@
 
 /* Description text */
 .formula-autocomplete-description {
-  color: #586069;
+  color: #6b7280;
   margin-bottom: 6px;
   white-space: pre-wrap;
 }
 
 /* Source/package info */
 .formula-autocomplete-source {
-  color: #959da5;
+  color: #9ca3af;
   font-size: 11px;
-  border-top: 1px solid #e1e4e8;
+  border-top: 1px solid #edf0f3;
   padding-top: 6px;
   margin-top: 4px;
 }

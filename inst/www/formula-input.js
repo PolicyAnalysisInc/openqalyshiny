@@ -4,6 +4,8 @@
 (function() {
   "use strict";
 
+  let formulaInstanceCounter = 0;
+
   // Wait for Shiny, Ace, and our custom modules to be available
   function waitForDependencies() {
     return new Promise((resolve) => {
@@ -77,6 +79,53 @@
     return stack.length === 0;
   }
 
+  function getUpdateOn(el) {
+    return el.getAttribute("data-update-on") || "change";
+  }
+
+  function getAutocompleteParent(el) {
+    return el.getAttribute("data-autocomplete-parent") || "";
+  }
+
+  function ensureAutocompleteLayer(editor, el) {
+    if (!editor || getAutocompleteParent(el) !== "body") {
+      return;
+    }
+
+    const completer = editor.completer;
+    const popup = completer && completer.popup;
+    const container = popup && popup.container;
+
+    if (!container) {
+      return;
+    }
+
+    container.classList.add("formula-input-autocomplete-popup");
+    if (container.parentNode !== document.body) {
+      document.body.appendChild(container);
+    }
+
+    const tooltip = document.querySelector(".ace_tooltip");
+    if (tooltip) {
+      tooltip.classList.add("formula-input-autocomplete-tooltip");
+      if (tooltip.parentNode !== document.body) {
+        document.body.appendChild(tooltip);
+      }
+    }
+  }
+
+  function setFormulaEditorValue(el, editor, value) {
+    const stringValue = (value == null) ? "" : String(value);
+
+    el._formulaSuppressChange = true;
+    try {
+      editor.setValue(stringValue, -1);
+    } finally {
+      el._formulaDirty = false;
+      el._formulaSuppressChange = false;
+    }
+  }
+
   // Initialize when dependencies are ready
   waitForDependencies().then(() => {
     // Inject default styles for custom token types
@@ -91,10 +140,15 @@
       },
 
       initialize: function(el) {
-        const initialValue = $(el).data("value") || "";
+        // Read the raw attribute so numeric-looking formulas like "0.03"
+        // are not coerced to numbers by jQuery's data parser.
+        const initialValueAttr = el.getAttribute("data-value");
+        const initialValue = initialValueAttr != null ? initialValueAttr : "";
         const placeholderText = $(el).data("placeholder") || "";
         const termsData = $(el).data("terms");
         const suggestionsData = $(el).data("suggestions");
+        const updateOn = getUpdateOn(el);
+        const visibilityNs = ".formulaInputVisibility" + (++formulaInstanceCounter);
 
         // Parse terms if provided
         let initialTerms = null;
@@ -150,7 +204,7 @@
         }
 
         // Set initial value
-        editor.setValue(initialValue, -1);
+        editor.setValue(String(initialValue), -1);
 
         // Initialize custom highlighter for term highlighting
         const highlighter = new FormulaInputMode.FormulaHighlighter(editor);
@@ -165,6 +219,7 @@
 
         // Set our completer as the only completer (disable built-in completers)
         editor.completers = [completer];
+        ensureAutocompleteLayer(editor, el);
 
         // Intercept Enter key - trigger Shiny update instead of newline
         // Do not accept autocomplete on Enter - that's for Tab
@@ -177,7 +232,12 @@
                 editor.completer.popup.isOpen) {
               editor.completer.detach();
             }
-            $(el).trigger("formula-input:enter");
+            if (updateOn === "blur") {
+              el._formulaDirty = false;
+              $(el).trigger("formula-input:commit");
+            } else {
+              $(el).trigger("formula-input:enter");
+            }
           }
         });
 
@@ -190,7 +250,12 @@
                 editor.completer.popup.isOpen) {
               editor.completer.detach();
             }
-            $(el).trigger("formula-input:enter");
+            if (updateOn === "blur") {
+              el._formulaDirty = false;
+              $(el).trigger("formula-input:commit");
+            } else {
+              $(el).trigger("formula-input:enter");
+            }
           }
         });
 
@@ -221,11 +286,67 @@
 
         // Trigger change event on input
         editor.on("change", function() {
+          ensureAutocompleteLayer(editor, el);
+          if (el._formulaSuppressChange) {
+            return;
+          }
+
+          if (updateOn === "blur") {
+            el._formulaDirty = true;
+            return;
+          }
+
           $(el).trigger("formula-input:change");
+        });
+
+        editor.on("blur", function() {
+          if (updateOn !== "blur" || el._formulaSuppressChange || !el._formulaDirty) {
+            return;
+          }
+
+          el._formulaDirty = false;
+          $(el).trigger("formula-input:commit");
+        });
+
+        editor.commands.on("afterExec", function() {
+          ensureAutocompleteLayer(editor, el);
+        });
+
+        editor.on("focus", function() {
+          ensureAutocompleteLayer(editor, el);
         });
 
         // Store editor reference
         el._formulaEditor = editor;
+        el._formulaDirty = false;
+        el._formulaSetValue = function(value) {
+          setFormulaEditorValue(el, editor, value);
+        };
+
+        // Ace needs an explicit resize when initialized in hidden panels/pages.
+        const resizeEditor = function() {
+          if (!el._formulaEditor) return;
+          requestAnimationFrame(function() {
+            if (!el._formulaEditor) return;
+            el._formulaEditor.resize(true);
+            el._formulaEditor.renderer.updateFull();
+            ensureAutocompleteLayer(el._formulaEditor, el);
+          });
+        };
+
+        el._formulaResizeHandler = resizeEditor;
+        el._formulaVisibilityNs = visibilityNs;
+
+        $(document).on("shown" + visibilityNs, function(evt) {
+          const target = evt.target;
+          if (!target) return;
+          if (target === el || $.contains(target, el)) {
+            resizeEditor();
+          }
+        });
+
+        $(window).on("resize" + visibilityNs, resizeEditor);
+        resizeEditor();
       },
 
       getValue: function(el) {
@@ -242,11 +363,19 @@
         const editor = el._formulaEditor;
         if (!editor) return;
 
-        const stringValue = (value == null) ? "" : String(value);
-        editor.setValue(stringValue, -1);
+        setFormulaEditorValue(el, editor, value);
       },
 
       subscribe: function(el, callback) {
+        const updateOn = getUpdateOn(el);
+
+        if (updateOn === "blur") {
+          $(el).on("formula-input:commit.formulaInputBinding", function() {
+            callback(false);
+          });
+          return;
+        }
+
         $(el).on("formula-input:change.formulaInputBinding", function() {
           callback(false);
         });
@@ -257,6 +386,13 @@
 
       unsubscribe: function(el) {
         $(el).off(".formulaInputBinding");
+        if (el._formulaVisibilityNs) {
+          $(document).off(el._formulaVisibilityNs);
+          $(window).off(el._formulaVisibilityNs);
+          delete el._formulaVisibilityNs;
+          delete el._formulaResizeHandler;
+        }
+        delete el._formulaSetValue;
       },
 
       receiveMessage: function(el, data) {
@@ -275,7 +411,6 @@
             completer.setSuggestions(data.suggestions);
           }
         }
-        $(el).trigger("formula-input:change");
       },
 
       getRatePolicy: function() {
@@ -292,9 +427,6 @@
         FormulaInputBinding.initialize(this);
       }
     });
-
-    // Also rebind so Shiny knows about the values
-    Shiny.bindAll(document.body);
 
     console.log("formulaInput binding registered successfully (Ace Editor)");
   }).catch(function(error) {

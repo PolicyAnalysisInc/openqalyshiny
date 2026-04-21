@@ -4,12 +4,14 @@
 \alias{run_model_editor}
 \title{Launch the model editor Shiny app}
 \usage{
-run_model_editor(path = NULL)
+run_model_editor(path = NULL, options = list())
 }
 \arguments{
 \item{path}{Optional path to a model file (.json, .yml, .yaml) to load on
 startup. If \code{NULL} (default), no model is loaded until the user
 opens one via the UI.}
+
+\item{options}{A list of options passed to shiny::shinyApp().}
 }
 \value{
 A Shiny app object
