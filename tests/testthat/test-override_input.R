@@ -1,9 +1,6 @@
 test_that("formulaInput exposes commit timing via data-update-on", {
-  env <- new.env(parent = globalenv())
-  sys.source(test_path("../../R/formula_input.r"), envir = env)
-
-  default_html <- as.character(env$formulaInput("formula_default"))
-  blur_html <- as.character(env$formulaInput("formula_blur", updateOn = "blur"))
+  default_html <- as.character(formulaInput("formula_default"))
+  blur_html    <- as.character(formulaInput("formula_blur", updateOn = "blur"))
 
   expect_match(default_html, 'data-update-on="change"', fixed = TRUE)
   expect_match(blur_html, 'data-update-on="blur"', fixed = TRUE)

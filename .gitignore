@@ -55,6 +55,5 @@ rsconnect/
 # Scratch folder
 .scratch/
 
-# Node.js (JS build tooling only)
+# Node.js
 node_modules/
-package-lock.json
