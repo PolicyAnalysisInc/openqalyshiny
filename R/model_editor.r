@@ -295,8 +295,30 @@ dispatch_model_action <- function(model, action) {
         if (action$field == "formula") {
           if (!nzchar(action$value %||% "")) return(model)
           args$formula <- rlang::parse_expr(action$value)
+          rlang::inject(openqaly::edit_transition(!!!args))
+        } else if (action$field %in% c("from_state", "to_state")) {
+          match_idx <- which(
+            model$transitions$from_state == action$from_state &
+              model$transitions$to_state == action$to_state
+          )
+          if (length(match_idx) == 0) stop("Markov transition not found")
+          trans_formula <- rlang::parse_expr(as.character(model$transitions$formula[[match_idx[1]]]))
+          new_from <- if (action$field == "from_state") action$value else action$from_state
+          new_to <- if (action$field == "to_state") action$value else action$to_state
+          model <- openqaly::remove_transition(
+            model,
+            from_state = action$from_state,
+            to_state = action$to_state
+          )
+          rlang::inject(openqaly::add_transition(
+            model,
+            from_state = new_from,
+            to_state = new_to,
+            formula = !!trans_formula
+          ))
+        } else {
+          rlang::inject(openqaly::edit_transition(!!!args))
         }
-        rlang::inject(openqaly::edit_transition(!!!args))
       } else if (model_type == "psm") {
         args <- list(model = model, endpoint = action$endpoint)
         if (action$field == "formula") {
@@ -311,8 +333,20 @@ dispatch_model_action <- function(model, action) {
         if (action$field == "formula") {
           if (!nzchar(action$value %||% "")) return(model)
           args$formula <- rlang::parse_expr(action$value)
+          rlang::inject(openqaly::edit_transition(!!!args))
+        } else if (action$field == "state") {
+          match_idx <- which(model$transitions$state == action$state)
+          if (length(match_idx) == 0) stop("Custom PSM transition not found")
+          trans_formula <- rlang::parse_expr(as.character(model$transitions$formula[[match_idx[1]]]))
+          model <- openqaly::remove_transition(model, state = action$state)
+          rlang::inject(openqaly::add_transition(
+            model,
+            state = action$value,
+            formula = !!trans_formula
+          ))
+        } else {
+          rlang::inject(openqaly::edit_transition(!!!args))
         }
-        rlang::inject(openqaly::edit_transition(!!!args))
       }
     },
     "remove_transition" = {

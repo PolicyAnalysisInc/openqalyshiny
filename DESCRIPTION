@@ -2,10 +2,10 @@ Package: openqalyshiny
 Title: Shiny Components for the Openqalyverse
 Version: 1.0.0
 Authors@R: c(
-    person("Jordan", "Amdahl", , "jamdahl@pai2.com", role = c("aut", "cre")),
+    person("Jordan", "Amdahl", , "jordan.amdahl@avalerehealth.com", role = c("aut", "cre")),
     person("Avalere Health", role = "cph")
   )
-Maintainer: Jordan Amdahl <jamdahl@pai2.com>
+Maintainer: Jordan Amdahl <jordan.amdahl@avalerehealth.com>
 Description: Provides Shiny UI components for building openqalyverse applications, including formula input editors and override input controls.
 License: GPL-3
 Encoding: UTF-8
