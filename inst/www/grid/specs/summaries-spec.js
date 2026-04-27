@@ -54,12 +54,23 @@
           name: "", values: "", type: "outcome",
           display_name: "", description: "", wtp: ""
         },
-        generateDefaults: function(row, tableData) {
+        canAdd: function(tableData, data) {
+          return (data.outcomeValues && data.outcomeValues.length > 0) ||
+                 (data.costValues && data.costValues.length > 0);
+        },
+        generateDefaults: function(row, tableData, data) {
           var existing = {};
           for (var i = 0; i < tableData.length; i++) existing[tableData[i].name] = true;
           var n = 1;
           while (existing["new_summary_" + n]) n++;
           row.name = "new_summary_" + n;
+          if (data.outcomeValues.length > 0) {
+            row.type = "outcome";
+            row.values = data.outcomeValues[0];
+          } else {
+            row.type = "cost";
+            row.values = data.costValues[0];
+          }
         }
       },
 

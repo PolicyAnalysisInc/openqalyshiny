@@ -3869,9 +3869,11 @@ run_model_editor <- function(path = NULL, options = list()) {
           escaped_state <- gsub("'", "\\\\'", action$state %||% "")
           escaped_dest <- gsub("'", "\\\\'", action$destination %||% "")
           shiny::showModal(shiny::modalDialog(
-            title = "Value has dependencies",
-            shiny::tags$p(conditionMessage(e)),
-            shiny::tags$p("Do you want to force remove this value and all its dependencies?"),
+            title = paste0('Remove "', action$name, '"?'),
+            shiny::tags$p(paste0(
+              'The value "', action$name, '" is referenced by other items that will also be deleted:'
+            )),
+            shiny::tags$ul(shiny::HTML(dep_items)),
             footer = shiny::tagList(
               shiny::modalButton("Cancel"),
               shiny::actionButton("confirm_force_remove_value", "Remove Anyway",
@@ -4020,9 +4022,11 @@ run_model_editor <- function(path = NULL, options = list()) {
         }, summary_has_dependencies = function(e) {
           escaped_name <- gsub("'", "\\\\'", action$name)
           shiny::showModal(shiny::modalDialog(
-            title = "Summary has dependencies",
-            shiny::tags$p(conditionMessage(e)),
-            shiny::tags$p("Do you want to force remove this summary and all its dependencies?"),
+            title = paste0('Remove "', action$name, '"?'),
+            shiny::tags$p(paste0(
+              'The summary "', action$name, '" has dependent items that will also be deleted.'
+            )),
+            shiny::tags$p("Remove this summary and all dependent items?"),
             footer = shiny::tagList(
               shiny::modalButton("Cancel"),
               shiny::actionButton("confirm_force_remove_summary", "Remove Anyway",
@@ -4055,12 +4059,15 @@ run_model_editor <- function(path = NULL, options = list()) {
           msg <- conditionMessage(e)
           if (grepl("dependenc", msg, ignore.case = TRUE)) {
             shiny::showModal(shiny::modalDialog(
-              title = "State has dependencies",
-              shiny::tags$p(msg),
-              shiny::tags$p("Do you want to force remove this state and all its dependencies?"),
+              title = paste0('Remove "', action$name, '"?'),
+              shiny::tags$p(paste0(
+                'The state "', action$name, '" has dependent items (such as transitions and values) ',
+                'that will also be deleted.'
+              )),
+              shiny::tags$p("Remove this state and all dependent items?"),
               footer = shiny::tagList(
                 shiny::modalButton("Cancel"),
-                shiny::actionButton("confirm_force_remove_state", "Force Remove",
+                shiny::actionButton("confirm_force_remove_state", "Remove Anyway",
                                     class = "btn-danger",
                                     onclick = paste0(
                                       "Shiny.setInputValue('model_action', ",
