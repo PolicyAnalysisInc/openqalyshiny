@@ -1,6 +1,6 @@
 Package: openqalyshiny
 Title: Shiny Components for the Openqalyverse
-Version: 1.0.0
+Version: 1.0.1
 Authors@R: c(
     person("Jordan", "Amdahl", , "jordan.amdahl@avalerehealth.com", role = c("aut", "cre")),
     person("Avalere Health", role = "cph")

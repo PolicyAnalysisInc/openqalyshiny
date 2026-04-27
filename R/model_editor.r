@@ -49,6 +49,13 @@
 
 dispatch_model_action <- function(model, action) {
   switch(action$type,
+    "replace_model" = {
+      replacement <- action$model
+      if (!inherits(replacement, "oq_model")) {
+        stop("Replacement model must be an oq_model object.", call. = FALSE)
+      }
+      replacement
+    },
     "edit_variable" = {
       if (action$field %in% c("strategy", "group")) {
         # Cannot change targeting via edit_variable — must remove + re-add
@@ -2381,7 +2388,7 @@ run_model_editor <- function(path = NULL, options = list()) {
           `aria-expanded` = "false",
           shiny::icon("bars")
         ),
-        tags$ul(
+        rlang::inject(tags$ul(
           class = "dropdown-menu",
           tags$li(
             tags$button(
@@ -2454,8 +2461,16 @@ run_model_editor <- function(path = NULL, options = list()) {
               onclick = "switchAppPage('psa')",
               shiny::icon("chart-area"), "PSA"
             )
-          )
-        )
+          ),
+          !!!unname(lapply(.get_editor_extensions(), function(ext) {
+            tags$li(tags$button(
+              class = "dropdown-item app-page-link",
+              `data-page` = ext$tab_id,
+              onclick = sprintf("switchAppPage('%s')", ext$tab_id),
+              ext$label
+            ))
+          }))
+        ))
       ),
       tags$div(class = "app-bar-logo", "Q"),
       tags$span(class = "app-bar-title", shiny::textOutput("editor_title", inline = TRUE)),
@@ -2552,7 +2567,7 @@ run_model_editor <- function(path = NULL, options = list()) {
       condition = "!output.model_loaded",
       tags$div(class = "no-model-message", "No model loaded")
     ),
-    shiny::conditionalPanel(
+    rlang::inject(shiny::conditionalPanel(
       condition = "output.model_loaded",
       # Documentation page
       tags$div(
@@ -2566,6 +2581,7 @@ run_model_editor <- function(path = NULL, options = list()) {
         id = "page_editor",
         class = "app-page model-content",
         bslib::navset_underline(
+          id = "model_inputs_tabs",
           bslib::nav_panel("Tables",
             tags$div(
               class = "tables-tab-container",
@@ -2980,8 +2996,15 @@ run_model_editor <- function(path = NULL, options = list()) {
             bslib::nav_panel("Parameters", value = "parameters", psaResultTabUI("editor_psa_parameters"))
           )
         )
-      )
-    ),
+      ),
+      !!!unname(lapply(.get_editor_extensions(), function(ext) {
+        tags$div(
+          id = paste0("page_", ext$tab_id),
+          class = "app-page",
+          ext$ui_fn(ext$tab_id)
+        )
+      }))
+    )),
     # Progress snackbar
     tags$div(
       id = "editor_progress_snackbar",
@@ -3342,6 +3365,22 @@ run_model_editor <- function(path = NULL, options = list()) {
 
     apply_action <- function(action) {
       old <- model()
+
+      if (identical(action$type, "replace_model")) {
+        new <- action$model
+        if (!inherits(new, "oq_model")) {
+          stop("Replacement model must be an oq_model object.", call. = FALSE)
+        }
+        if (identical(old, new)) {
+          return(list(status = "noop", model = new))
+        }
+        history$push(old)
+        model(new)
+        file_load_counter(file_load_counter() + 1L)
+        table_render_trigger(table_render_trigger() + 1L)
+        return(list(status = "ok", model = new))
+      }
+
       new <- dispatch_model_action(old, action)
       if (identical(old, new)) {
         return(list(status = "noop", model = new))
@@ -3349,6 +3388,24 @@ run_model_editor <- function(path = NULL, options = list()) {
       history$push(old)
       model(new)
       list(status = "ok", model = new)
+    }
+
+    for (ext in .get_editor_extensions()) {
+      tryCatch(
+        ext$server_fn(
+          model = model,
+          apply_action = apply_action,
+          input = input,
+          output = output,
+          session = session
+        ),
+        error = function(e) {
+          shiny::showNotification(
+            paste0("Extension '", ext$tab_id, "' failed to initialize: ", conditionMessage(e)),
+            type = "error"
+          )
+        }
+      )
     }
 
     apply_batch_edit <- function(action) {
