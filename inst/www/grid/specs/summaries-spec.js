@@ -64,9 +64,12 @@
           var n = 1;
           while (existing["new_summary_" + n]) n++;
           row.name = "new_summary_" + n;
-          var availableVals = (row.type === "cost") ? data.costValues : data.outcomeValues;
-          if (availableVals && availableVals.length > 0) {
-            row.values = availableVals.join(",");
+          if (data.outcomeValues.length > 0) {
+            row.type = "outcome";
+            row.values = data.outcomeValues[0];
+          } else {
+            row.type = "cost";
+            row.values = data.costValues[0];
           }
         }
       },

@@ -18,7 +18,7 @@
         };
       },
 
-      getColumnDefs: function(data) {
+      getColumnDefs: function(data, controller) {
         var cols = [
           { title: "Name", field: "name", widthGrow: 1, minWidth: 120,
             editor: "input", formatter: OQGrid.fmt.emdash },
@@ -27,6 +27,13 @@
           { title: "Description", field: "description", widthGrow: 1, minWidth: 120,
             editor: "input", formatter: OQGrid.fmt.emdash }
         ];
+
+        if (data.modelType === "markov" || data.modelType === "custom_psm") {
+          // Enable row removal for model types that allow user-defined states
+          controller.spec.actions.remove = function(row) {
+            return { type: "remove_state", name: row.name };
+          };
+        }
 
         if (data.modelType === "markov") {
           cols.push({
@@ -78,8 +85,8 @@
         return cols;
       },
 
-      // Add/delete only for markov — null addRow and no remove action for other types
-      addRow: null, // set dynamically below
+      // Add/delete only for markov/custom_psm — addRow set dynamically in onInit
+      addRow: null,
 
       actions: {
         add: function(row) {
@@ -99,7 +106,6 @@
           }
           return payload;
         },
-        remove: null, // set dynamically below
         edit: function(row, field, value, oldValue) {
           var name = row.name;
           if (field === "name") name = oldValue || "";
@@ -138,11 +144,6 @@
             }
           };
           controller._setupAddButton();
-
-          // Enable remove
-          controller.spec.actions.remove = function(row) {
-            return { type: "remove_state", name: row.name };
-          };
         }
       }
     };
