@@ -18,13 +18,16 @@
           modelType: el.dataset.modelType || "markov",
           stateNames: OQGrid.utils.parseDataAttr(el, "stateNames", []),
           terms: OQGrid.utils.parseDataAttr(el, "terms", null),
-          suggestions: OQGrid.utils.parseDataAttr(el, "suggestions", null)
+          suggestions: OQGrid.utils.parseDataAttr(el, "suggestions", null),
+          overrideTerms: OQGrid.utils.parseDataAttr(el, "overrideTerms", null),
+          overrideSuggestions: OQGrid.utils.parseDataAttr(el, "overrideSuggestions", null)
         };
       },
 
       getColumnDefs: function(data, controller) {
         _table = controller.table;
         var fEditor = OQGrid.editors.formula(data.terms, data.suggestions);
+        var overrideEditor = OQGrid.editors.formula(data.overrideTerms, data.overrideSuggestions);
 
         // Typeahead for name — suggests existing value names from table data
         var nameEditor = OQGrid.editors.typeahead(function() {
@@ -54,6 +57,15 @@
           { label: "Cost", value: "cost" }
         ];
 
+        // Per-value half-cycle method (blank = model setting)
+        var halfCycleValues = [
+          { label: "\u2014 (Model setting)", value: "" },
+          { label: "Start", value: "start" },
+          { label: "End", value: "end" },
+          { label: "Life-Table", value: "life-table" }
+        ];
+        var halfCycleLabels = { "start": "Start", "end": "End", "life-table": "Life-Table" };
+
         var cols = [
           { title: "Name", field: "name", widthGrow: 1, minWidth: 120,
             editor: nameEditor, formatter: OQGrid.fmt.emdash },
@@ -77,7 +89,7 @@
           });
         }
 
-        // Destination column (markov only)
+        // Destination column (markov and psm)
         if (data.modelType === "markov") {
           cols.push({
             title: "Destination", field: "destination", minWidth: 140,
@@ -85,14 +97,44 @@
             editor: "list", editorParams: { values: destDropdownValues },
             formatter: OQGrid.fmt.emdash
           });
+        } else if (data.modelType === "psm") {
+          // A PSM only has two transitions: state 1 -> 2 (PFS events) and 2 -> 3 (deaths)
+          var s1 = data.stateNames[0] || "", s2 = data.stateNames[1] || "", s3 = data.stateNames[2] || "";
+          var psmDestinations = function(cell) {
+            var from = cell.getRow().getData().state;
+            var opts = [{ label: "\u2014 (None)", value: "" }];
+            if (from === s1) opts.push({ label: s2, value: s2 });
+            if (from === s2) opts.push({ label: s3, value: s3 });
+            return { values: opts };
+          };
+          cols.push({
+            title: "Destination", field: "destination", minWidth: 140,
+            titleFormatter: OQGrid.utils.infoTitle("For transition values: " + s1 + " \u2192 " + s2 + " is charged on PFS events and " + s2 + " \u2192 " + s3 + " on deaths. Leave empty for residency values."),
+            editor: "list", editorParams: psmDestinations,
+            formatter: OQGrid.fmt.emdash
+          });
         }
 
         cols.push({ title: "Formula", field: "formula", widthGrow: 2, minWidth: 450,
+          titleFormatter: OQGrid.utils.infoTitle("Evaluated once per cycle: cycle_lag, year_lag, ... are the start of the cycle and cycle, year, ... its end. Each cycle's value prices the time point at its end (cycle 1's also prices the start of the model), and the half-cycle method assigns those amounts to cycles."),
           editor: fEditor, formatter: OQGrid.fmt.formula(data.terms) });
+        // Half-cycle method column (not for decision_tree)
+        if (data.modelType !== "decision_tree") {
+          cols.push({
+            title: "Half-Cycle Method", field: "half_cycle_method", minWidth: 130,
+            titleFormatter: OQGrid.utils.infoTitle("Overrides the model's half-cycle method for this value. Leave empty to use the model setting. All rows of a value must use the same setting."),
+            editor: "list", editorParams: { values: halfCycleValues },
+            formatter: function(cell) {
+              var v = cell.getValue();
+              return halfCycleLabels[v] || "\u2014";
+            }
+          });
+        }
+
         cols.push({ title: "Discounting Override", field: "discounting_override",
-          titleFormatter: OQGrid.utils.infoTitle("Formula returning a custom discount multiplier. Can reference discount_rate, discount_factors, and time variables. Replaces standard discounting for this value."),
-          widthGrow: 1, minWidth: 120,
-          editor: "input", formatter: OQGrid.fmt.emdash });
+          titleFormatter: OQGrid.utils.infoTitle("Formula replacing this value's discount factors. Return one number to multiply the value's undiscounted cycle totals, or one discount factor per time point, from the start of the model to the end of the last cycle (e.g. 1.015^-discount_time). Can reference discount_rate, and per time point discount_factors, discount_time and trace('state'), the person-time in a state. For example, sum(discount_factors * trace('progressed')) / sum(trace('progressed')) is the average discount factor of time in progressed."),
+          widthGrow: 1, minWidth: 160,
+          editor: overrideEditor, formatter: OQGrid.fmt.formula(data.overrideTerms) });
 
         return cols;
       },
@@ -102,10 +144,11 @@
         emptyRow: function(data) {
           var row = {
             name: "", formula: "0", type: "cost",
-            display_name: "", description: "", discounting_override: ""
+            display_name: "", description: "", discounting_override: "",
+            half_cycle_method: ""
           };
           if (data.modelType !== "decision_tree") row.state = "All";
-          if (data.modelType === "markov") row.destination = "";
+          if (data.modelType === "markov" || data.modelType === "psm") row.destination = "";
           return row;
         },
         generateDefaults: function(row, tableData) {
@@ -154,7 +197,8 @@
             value_type: (row.type || "cost").trim(),
             display_name: (row.display_name || "").trim(),
             description: (row.description || "").trim(),
-            discounting_override: (row.discounting_override || "").trim()
+            discounting_override: (row.discounting_override || "").trim(),
+            half_cycle_method: (row.half_cycle_method || "").trim()
           };
         },
         remove: function(row) {

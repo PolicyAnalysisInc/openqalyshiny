@@ -29,6 +29,9 @@ NULL
 # Segment keywords (always available)
 .segment_keywords <- c("group", "strategy")
 
+# Discounting override keywords (only inside discounting_override formulas)
+.override_keywords <- c("discount_rate", "discount_factors", "discount_time", "trace")
+
 # State time keywords (Markov models only)
 .state_time_keywords <- c(
   "state_cycle", "state_day", "state_week", "state_month", "state_year",
@@ -43,7 +46,7 @@ NULL
 
 # Keyword descriptions for suggestions
 .keyword_descriptions <- list(
-  cycle = "Current cycle number (0-indexed)",
+  cycle = "Cycle number (the first cycle is 1); time at end of cycle in cycles",
   day = "Time at end of cycle in days",
   week = "Time at end of cycle in weeks",
 
@@ -54,6 +57,10 @@ NULL
   week_lag = "Time at start of cycle in weeks",
   month_lag = "Time at start of cycle in months",
   year_lag = "Time at start of cycle in years",
+  discount_rate = "Discount rate of this value (percentage)",
+  discount_factors = "Discount factor at each time point (start of cycle 1 to end of the last cycle)",
+  discount_time = "Time in years of each time point, including any decision tree phase",
+  trace = "trace(\"state\"): person-time in a state at each time point",
   state_cycle = "Cycles in current state",
   state_day = "Days in current state (end of cycle)",
   state_week = "Weeks in current state (end of cycle)",
@@ -96,6 +103,10 @@ NULL
   value = list(
     keywords = "oq_all",
     components = c("variables", "tables", "values")
+  ),
+  discounting_override = list(
+    keywords = "oq_override",
+    components = c("variables", "tables")
   ),
   initial_probability = list(
     keywords = "none",
@@ -369,6 +380,11 @@ get_model_suggestions <- function(model, context, include_r_functions = TRUE,
 
   if (keyword_set == "bc_only") {
     return("bc")
+  }
+
+  # Discounting overrides see model time only (no state time) plus their own terms
+  if (keyword_set == "oq_override") {
+    return(c(.base_keywords, .override_keywords))
   }
 
   # oq_vars or oq_all - start with base keywords

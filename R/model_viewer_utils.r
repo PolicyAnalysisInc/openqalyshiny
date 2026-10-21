@@ -495,6 +495,7 @@ get_dsa_setting_choices <- function() {
     "Timeframe Unit" = "timeframe_unit",
     "Cycle Length Unit" = "cycle_length_unit",
     "Half-Cycle Method" = "half_cycle_method",
+    "Discount Method" = "discount_method",
     "Reduce State Cycle" = "reduce_state_cycle",
     "Days Per Year" = "days_per_year"
   )

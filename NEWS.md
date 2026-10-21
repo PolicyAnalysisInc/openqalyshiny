@@ -1,3 +1,23 @@
+# openqalyshiny (development version)
+
+## Values and settings (requires openqaly >= 0.1.3.9000)
+
+* Values grid: new **Half-Cycle Method** column. Leave it empty to use the
+  model setting; all rows of a value share one setting, so editing it on one
+  row updates the others.
+* Values grid: **Discounting Override** now uses the formula editor, with
+  suggestions for `discount_rate`, `discount_factors`, `discount_time` and
+  `trace("state")`.
+* Values grid: PSM models now have a **Destination** column, limited to the
+  two PSM transitions (state 1 -> state 2 and state 2 -> state 3).
+* Settings: new **Discount Method** control (by cycle / by year), also
+  available as a DSA setting. Half-cycle and discounting help text describes
+  time-point discounting.
+* Model run errors with long messages (such as error tables) show a
+  "Show details" link that opens the full message.
+* Opening a model that fails validation at startup, or after saving, shows an
+  error instead of breaking the session.
+
 # openqalyshiny 1.0.2
 
 ## New features

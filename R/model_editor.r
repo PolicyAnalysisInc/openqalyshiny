@@ -379,6 +379,7 @@ dispatch_model_action <- function(model, action) {
       if (nzchar(action$discounting_override %||% "")) {
         args$discounting_override <- rlang::parse_expr(action$discounting_override)
       }
+      if (nzchar(action$half_cycle_method %||% "")) args$half_cycle_method <- action$half_cycle_method
       rlang::inject(openqaly::add_value(!!!args))
     },
     "edit_value" = {
@@ -427,6 +428,9 @@ dispatch_model_action <- function(model, action) {
         if ("discounting_override" %in% names(val_row) && !is.na(val_row$discounting_override) && nzchar(as.character(val_row$discounting_override))) {
           add_args$discounting_override <- rlang::parse_expr(as.character(val_row$discounting_override))
         }
+        if ("half_cycle_method" %in% names(val_row) && !is.na(val_row$half_cycle_method) && nzchar(as.character(val_row$half_cycle_method))) {
+          add_args$half_cycle_method <- as.character(val_row$half_cycle_method)
+        }
         rlang::inject(openqaly::add_value(!!!add_args))
       } else {
         args <- list(
@@ -449,6 +453,8 @@ dispatch_model_action <- function(model, action) {
           } else {
             args$discounting_override <- NA
           }
+        } else if (field == "half_cycle_method") {
+          args$half_cycle_method <- if (nzchar(action$value %||% "")) action$value else NA_character_
         } else {
           args[[field]] <- action$value
         }
@@ -3363,6 +3369,10 @@ run_model_editor <- function(path = NULL, options = list()) {
           row$discounting_override <- as.character(row$discounting_override)
           if (row$discounting_override == "NA") row$discounting_override <- ""
         }
+        if ("half_cycle_method" %in% names(row)) {
+          row$half_cycle_method <- as.character(row$half_cycle_method)
+          if (row$half_cycle_method == "NA") row$half_cycle_method <- ""
+        }
         row[["_id"]] <- paste(row$name, row$state, row$destination, sep = "|")
         row
       })
@@ -3586,7 +3596,13 @@ run_model_editor <- function(path = NULL, options = list()) {
         save_model_to_file(model(), fpath, message = "Auto-save before open")
         saved_model(model())
         shiny::removeModal()
-        do_open_file(pending_fpath)
+        tryCatch(
+          do_open_file(pending_fpath),
+          error = function(e) {
+            shiny::showNotification(paste("Failed to open file:", conditionMessage(e)),
+              type = "error", duration = 5)
+          }
+        )
       }, error = function(e) {
         shiny::showNotification(paste("Save failed:", conditionMessage(e)), type = "error", duration = 5)
       }, finally = {
@@ -3751,7 +3767,13 @@ run_model_editor <- function(path = NULL, options = list()) {
 
     if (!is.null(path)) {
       shiny::observeEvent(TRUE, {
-        do_open_file(path)
+        tryCatch(
+          do_open_file(path),
+          error = function(e) {
+            shiny::showNotification(paste("Failed to open file:", conditionMessage(e)),
+              type = "error", duration = 10)
+          }
+        )
       }, once = TRUE)
     }
 
@@ -4347,8 +4369,21 @@ run_model_editor <- function(path = NULL, options = list()) {
       running = FALSE,
       progress_file = NULL,
       needs_rerun = FALSE,
-      last_error = FALSE
+      last_error = FALSE,
+      last_error_message = NULL
     )
+
+    # Full text of the last run error (multi-line messages such as error tables)
+    shiny::observeEvent(input$show_run_error, {
+      msg <- run_state$last_error_message
+      if (is.null(msg)) return()
+      shiny::showModal(shiny::modalDialog(
+        title = "Model run failed",
+        tags$pre(style = "white-space: pre-wrap; font-size: 12px;", msg),
+        easyClose = TRUE,
+        size = "l"
+      ))
+    })
     rerun_trigger <- shiny::reactiveVal(0L)
     request_editor_rerun <- function() {
       rerun_trigger(shiny::isolate(rerun_trigger()) + 1L)
@@ -4432,10 +4467,25 @@ run_model_editor <- function(path = NULL, options = list()) {
           editor_results_rv$metadata <- NULL
           run_state$last_error <- TRUE
           session$sendCustomMessage("editor_progress", list(state = "error"))
-          shiny::showNotification(
-            paste("Model run failed:", conditionMessage(err)),
-            type = "error", duration = 10
-          )
+          msg <- conditionMessage(err)
+          lines <- strsplit(msg, "\n", fixed = TRUE)[[1]]
+          if (length(lines) > 2) {
+            # Long messages (e.g. error tables) open in a dialog on request
+            run_state$last_error_message <- msg
+            shiny::showNotification(
+              tags$span(
+                paste("Model run failed:", lines[nzchar(trimws(lines))][1]), " ",
+                tags$a(href = "#", onclick = "Shiny.setInputValue('show_run_error', Math.random()); return false;",
+                       "Show details")
+              ),
+              type = "error", duration = 15
+            )
+          } else {
+            shiny::showNotification(
+              paste("Model run failed:", msg),
+              type = "error", duration = 10
+            )
+          }
           run_state$running <- FALSE
           run_state$progress_file <- NULL
           unlink(pf)
@@ -6436,7 +6486,7 @@ run_model_editor <- function(path = NULL, options = list()) {
               tags$div(
                 tags$div(class = "label-row",
                   tags$label(class = "control-label", "Half-Cycle Method"),
-                  info_icon("Half-cycle correction for value calculations. Start uses state occupancy at the beginning of each cycle, End uses occupancy at the end of each cycle, and Life-Table averages the two.")
+                  info_icon("How values are assigned to cycles. Values are calculated (and discounted) at each time point from the start to the end of the model. Start assigns each cycle the amount at its beginning, End the amount at its end, and Life-Table the average of the two. Individual values can override this setting.")
                 ),
                 shiny::selectInput("setting_half_cycle_method", label = NULL,
                                     choices = c("Start" = "start", "End" = "end", "Life-Table" = "life-table"),
@@ -6512,7 +6562,7 @@ run_model_editor <- function(path = NULL, options = list()) {
             tags$div(
               tags$div(class = "label-row",
                 tags$label(class = "control-label", "Costs (%)"),
-                info_icon("Annual discount rate applied to future costs, as a percentage.")
+                info_icon("Annual discount rate applied to future costs, as a percentage. Values are discounted at each time point and then assigned to cycles with the half-cycle method.")
               ),
               shiny::numericInput("setting_discount_cost", label = NULL,
                                   value = s$discount_cost %||% 0, min = 0, max = 100, step = 0.5)
@@ -6520,10 +6570,19 @@ run_model_editor <- function(path = NULL, options = list()) {
             tags$div(
               tags$div(class = "label-row",
                 tags$label(class = "control-label", "Outcomes (%)"),
-                info_icon("Annual discount rate applied to future health outcomes (e.g. QALYs, life years), as a percentage.")
+                info_icon("Annual discount rate applied to future health outcomes (e.g. QALYs, life years), as a percentage. Values are discounted at each time point and then assigned to cycles with the half-cycle method.")
               ),
               shiny::numericInput("setting_discount_outcomes", label = NULL,
                                   value = s$discount_outcomes %||% 0, min = 0, max = 100, step = 0.5)
+            ),
+            tags$div(
+              tags$div(class = "label-row",
+                tags$label(class = "control-label", "Discount Method"),
+                info_icon("By cycle discounts each time point at its exact time. By year rounds each time point down to whole years, so discounting steps once per year.")
+              ),
+              shiny::selectInput("setting_discount_method", label = NULL,
+                                  choices = c("By cycle" = "by_cycle", "By year" = "by_year"),
+                                  selected = s$discount_method %||% "by_cycle")
             )
           ),
 
@@ -6610,6 +6669,7 @@ run_model_editor <- function(path = NULL, options = list()) {
       shiny::freezeReactiveValue(input, "setting_discount_cost")
       shiny::freezeReactiveValue(input, "setting_discount_outcomes")
       shiny::freezeReactiveValue(input, "setting_half_cycle_method")
+      shiny::freezeReactiveValue(input, "setting_discount_method")
       shiny::freezeReactiveValue(input, "setting_days_per_year")
       shiny::freezeReactiveValue(input, "setting_reduce_state_cycle")
       shiny::freezeReactiveValue(input, "setting_country")
@@ -6629,6 +6689,8 @@ run_model_editor <- function(path = NULL, options = list()) {
                                 value = s$discount_outcomes %||% 0)
       shiny::updateSelectInput(session, "setting_half_cycle_method",
                                selected = s$half_cycle_method %||% "start")
+      shiny::updateSelectInput(session, "setting_discount_method",
+                               selected = s$discount_method %||% "by_cycle")
       shiny::updateNumericInput(session, "setting_days_per_year",
                                 value = s$days_per_year %||% 365.25)
       shiny::updateCheckboxInput(session, "setting_reduce_state_cycle",
@@ -6732,6 +6794,17 @@ run_model_editor <- function(path = NULL, options = list()) {
       if (identical(new_val, current)) return()
       tryCatch({
         apply_action(list(type = "set_settings", settings = list(half_cycle_method = new_val)))
+      }, error = function(e) {
+        shiny::showNotification(paste("Failed:", conditionMessage(e)), type = "error")
+      })
+    })
+
+    shiny::observeEvent(input$setting_discount_method, {
+      new_val <- input$setting_discount_method
+      current <- openqaly::get_settings(model())$discount_method %||% "by_cycle"
+      if (identical(new_val, current)) return()
+      tryCatch({
+        apply_action(list(type = "set_settings", settings = list(discount_method = new_val)))
       }, error = function(e) {
         shiny::showNotification(paste("Failed:", conditionMessage(e)), type = "error")
       })
@@ -8128,6 +8201,8 @@ run_model_editor <- function(path = NULL, options = list()) {
       values_df <- openqaly::get_model_values(m)
       terms <- get_model_terms(m, "variable")
       suggestions <- get_model_suggestions(m, "variable")
+      override_terms <- get_model_terms(m, "discounting_override")
+      override_suggestions <- get_model_suggestions(m, "discounting_override")
 
       initial_data <- lapply(seq_len(nrow(values_df)), function(i) {
         row <- as.list(values_df[i, ])
@@ -8140,6 +8215,10 @@ run_model_editor <- function(path = NULL, options = list()) {
         if ("discounting_override" %in% names(row)) {
           row$discounting_override <- as.character(row$discounting_override)
           if (row$discounting_override == "NA") row$discounting_override <- ""
+        }
+        if ("half_cycle_method" %in% names(row)) {
+          row$half_cycle_method <- as.character(row$half_cycle_method)
+          if (row$half_cycle_method == "NA") row$half_cycle_method <- ""
         }
         row[["_id"]] <- paste(row$name, row$state, row$destination, sep = "|")
         row
@@ -8157,7 +8236,9 @@ run_model_editor <- function(path = NULL, options = list()) {
           `data-model-type` = model_type,
           `data-state-names` = jsonlite::toJSON(state_names, auto_unbox = TRUE),
           `data-terms` = jsonlite::toJSON(terms, auto_unbox = FALSE),
-          `data-suggestions` = jsonlite::toJSON(suggestions, auto_unbox = FALSE)
+          `data-suggestions` = jsonlite::toJSON(suggestions, auto_unbox = FALSE),
+          `data-override-terms` = jsonlite::toJSON(override_terms, auto_unbox = FALSE),
+          `data-override-suggestions` = jsonlite::toJSON(override_suggestions, auto_unbox = FALSE)
         )
       )
     })

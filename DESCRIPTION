@@ -19,7 +19,7 @@ Imports:
     ggplot2,
     htmltools,
     jsonlite,
-    openqaly (>= 0.1.3),
+    openqaly (>= 0.1.3.9000),
     promises,
     rhandsontable,
     rlang,

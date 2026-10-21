@@ -86,9 +86,9 @@ test_that("get_dsa_setting_choices: returns named character vector", {
   expect_true(!is.null(names(result)))
 })
 
-test_that("get_dsa_setting_choices: returns exactly 10 items", {
+test_that("get_dsa_setting_choices: returns exactly 11 items", {
   result <- get_dsa_setting_choices()
-  expect_length(result, 10)
+  expect_length(result, 11)
 })
 
 test_that("get_dsa_setting_choices: includes expected setting names", {
