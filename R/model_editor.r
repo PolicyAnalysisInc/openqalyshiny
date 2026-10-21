@@ -2462,12 +2462,12 @@ run_model_editor <- function(path = NULL, options = list()) {
               shiny::icon("chart-area"), "PSA"
             )
           ),
-          !!!unname(lapply(.get_editor_extensions(), function(ext) {
+          !!!unname(lapply(.get_editor_extensions_by_type("page"), function(ext) {
             tags$li(tags$button(
               class = "dropdown-item app-page-link",
               `data-page` = ext$tab_id,
               onclick = sprintf("switchAppPage('%s')", ext$tab_id),
-              ext$label
+              if (!is.null(ext$icon)) ext$icon, ext$label
             ))
           }))
         ))
@@ -2997,10 +2997,19 @@ run_model_editor <- function(path = NULL, options = list()) {
           )
         )
       ),
-      !!!unname(lapply(.get_editor_extensions(), function(ext) {
+      !!!unname(lapply(.get_editor_extensions_by_type("page"), function(ext) {
         tags$div(
           id = paste0("page_", ext$tab_id),
           class = "app-page",
+          ext$ui_fn(ext$tab_id)
+        )
+      })),
+      # Editor extension overlays (floating, always visible while model loaded)
+      !!!unname(lapply(.get_editor_extensions_by_type("overlay"), function(ext) {
+        tags$div(
+          id = paste0("overlay_", ext$tab_id),
+          class = "editor-overlay",
+          `aria-label` = ext$label,
           ext$ui_fn(ext$tab_id)
         )
       }))

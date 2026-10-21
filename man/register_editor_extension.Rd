@@ -2,26 +2,45 @@
 % Please edit documentation in R/extension_registry.R
 \name{register_editor_extension}
 \alias{register_editor_extension}
-\title{Register a tab extension for the model editor}
+\title{Register an extension for the model editor}
 \usage{
-register_editor_extension(tab_id, label, ui_fn, server_fn)
+register_editor_extension(
+  tab_id,
+  label,
+  ui_fn,
+  server_fn,
+  type = c("page", "overlay"),
+  icon = NULL
+)
 }
 \arguments{
-\item{tab_id}{Unique string id for the tab (lowercase with underscores).
-This string is used as the bslib nav_panel value and is readable via
-input$model_inputs_tabs in the extension's server function.}
+\item{tab_id}{Unique string id (lowercase with underscores). For page
+extensions this is used as the bslib nav_panel value, the dropdown
+data-page attribute, and the \verb{page_<tab_id>} DOM id. For overlay
+extensions it is used only as the \verb{overlay_<tab_id>} DOM id and as
+the documented \verb{<tab_id>_overlay_open} Shiny input convention.
+Must not collide with built-in page ids: documentation, editor,
+results, vbp, dsa, scenario, twsa, threshold, psa.}
 
-\item{label}{Display name shown in the tab.}
+\item{label}{Display name. For page extensions, shown in the dropdown
+menu. For overlay extensions, used as \code{aria-label}/\code{title} on the
+overlay container.}
 
-\item{ui_fn}{function(tab_id) returning Shiny UI for the tab content.}
+\item{ui_fn}{function(tab_id) returning Shiny UI. For page extensions
+this is wrapped in a \code{.app-page} div. For overlay extensions it is
+wrapped in a \code{.editor-overlay} div positioned fixed at the viewport
+root.}
 
 \item{server_fn}{function(model, apply_action, input, output, session)
-called during server initialization. model is the reactiveVal;
-apply_action dispatches model actions; input/output/session are the
-outer server objects.}
+called once during server initialization regardless of extension type.}
+
+\item{type}{One of "page" (default) or "overlay".}
+
+\item{icon}{Optional Shiny icon prepended to the dropdown label for
+page extensions. Currently ignored for overlays.}
 }
 \description{
-Called from external packages in their .onLoad() to add a new tab to the
-model editor. Extensions are identified by tab_id and must not conflict
-with existing tab values ("Tables", "Scripts", "Variables", etc.).
+Called from external packages in their .onLoad() to add either a new
+top-level page or a floating overlay (e.g. a support-chat-style widget)
+to the model editor.
 }
