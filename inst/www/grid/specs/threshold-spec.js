@@ -131,7 +131,7 @@
               var t = targeting.getTargeting(choices, rowData.variable);
               return t.strategies !== null;
             },
-            formatter: function(cell) {
+            formatter: OQGrid.utils.textFormatter(function(cell) {
               var rowData = cell.getRow().getData();
               var t = targeting.getTargeting(choices, rowData.variable);
               if (!t.strategies) return "\u2014";
@@ -143,7 +143,7 @@
                 }
               }
               return val;
-            }
+            })
           },
 
           // Group column (variable targeting)
@@ -175,7 +175,7 @@
               var t = targeting.getTargeting(choices, rowData.variable);
               return t.groups !== null;
             },
-            formatter: function(cell) {
+            formatter: OQGrid.utils.textFormatter(function(cell) {
               var rowData = cell.getRow().getData();
               var t = targeting.getTargeting(choices, rowData.variable);
               if (!t.groups) return "\u2014";
@@ -187,7 +187,7 @@
                 }
               }
               return val;
-            }
+            })
           },
 
           // Base Case column (read-only)
@@ -199,11 +199,11 @@
             editor: false,
             headerSort: false,
             clipboard: false,
-            formatter: function(cell) {
+            formatter: OQGrid.utils.textFormatter(function(cell) {
               var rowData = cell.getRow().getData();
               var key = OQGrid.helpers.combo.compositeKey(rowData.variable, rowData.variable_strategy, rowData.variable_group);
               return choices.variableFormulas[key] || "";
-            }
+            })
           },
 
           // Lower bound

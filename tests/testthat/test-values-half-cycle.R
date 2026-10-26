@@ -49,3 +49,11 @@ test_that("discounting_override suggestions include its own terms and no state t
   expect_false("state_cycle" %in% terms$keyword)
   expect_true("rate" %in% terms$variable)
 })
+
+test_that("the half-cycle method shown for a model without one matches openqaly's default", {
+  shown <- getFromNamespace(".default_half_cycle_method", "openqalyshiny")
+  expect_equal(openqaly::define_model("markov")$settings$half_cycle_method, shown)
+  m <- two_state_model()
+  m$settings$half_cycle_method <- NULL
+  expect_equal(openqaly::set_settings(m, n_cycles = 5)$settings$half_cycle_method, shown)
+})

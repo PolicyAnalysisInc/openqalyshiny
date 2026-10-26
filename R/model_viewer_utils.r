@@ -518,12 +518,6 @@ info_hover_dependency <- function() {
   )
 }
 
-#' DSA Params Table Dependency
-#'
-#' Returns the HTML dependency for the DSA parameter table JS and CSS assets.
-#'
-#' @return An htmltools htmlDependency object.
-#' @keywords internal
 #' OQGrid Core Dependency
 #'
 #' Returns the HTML dependency for the shared OQGrid infrastructure.
@@ -535,7 +529,7 @@ info_hover_dependency <- function() {
 grid_core_dependency <- function() {
   htmltools::htmlDependency(
     name = "oq-grid-core",
-    version = "1.0.8",
+    version = "1.0.9",
     src = c(file = system.file("www/grid", package = "openqalyshiny")),
     script = c(
       # Core infrastructure (order matters)
@@ -584,13 +578,19 @@ grid_core_dependency <- function() {
 grid_spec_dependency <- function(spec_name) {
   htmltools::htmlDependency(
     name = paste0("oq-grid-", spec_name),
-    version = "1.0.6",
+    version = "1.0.7",
     src = c(file = system.file("www/grid/specs", package = "openqalyshiny")),
     script = paste0(spec_name, ".js"),
     all_files = FALSE
   )
 }
 
+#' DSA Params Table Dependency
+#'
+#' Returns the HTML dependency for the DSA parameter table JS and CSS assets.
+#'
+#' @return An htmltools htmlDependency object.
+#' @keywords internal
 dsa_params_dependency <- function() {
   list(grid_core_dependency(), grid_spec_dependency("dsa-spec"))
 }
@@ -684,7 +684,7 @@ groups_table_dependency <- function() {
 add_strategy_modal_dependency <- function() {
   htmltools::htmlDependency(
     name = "add-strategy-modal",
-    version = "1.0.0",
+    version = "1.0.1",
     src = c(file = system.file("www", package = "openqalyshiny")),
     script = "add-strategy-modal.js",
     stylesheet = "add-strategy-modal.css",
@@ -701,7 +701,7 @@ add_strategy_modal_dependency <- function() {
 add_group_modal_dependency <- function() {
   htmltools::htmlDependency(
     name = "add-group-modal",
-    version = "1.0.0",
+    version = "1.0.1",
     src = c(file = system.file("www", package = "openqalyshiny")),
     script = "add-group-modal.js",
     stylesheet = "add-group-modal.css",
@@ -728,9 +728,9 @@ trees_table_dependency <- function() {
 documentation_editor_dependency <- function() {
   htmltools::htmlDependency(
     name = "documentation-editor",
-    version = "1.0.0",
+    version = "1.0.1",
     src = c(file = system.file("www", package = "openqalyshiny")),
-    script = c("milkdown-crepe.bundle.js", "documentation-editor.js"),
+    script = c("vendor/purify.min.js", "milkdown-crepe.bundle.js", "documentation-editor.js"),
     stylesheet = c("milkdown-crepe.bundle.css", "documentation-editor.css"),
     all_files = FALSE
   )
@@ -764,4 +764,19 @@ psa_params_dependency <- function() {
 #' @export
 threshold_params_dependency <- function() {
   list(grid_core_dependency(), grid_spec_dependency("threshold-spec"))
+}
+
+#' Handle an Error in a Viewer Calculation
+#'
+#' A `req()` cancellation (class `shiny.silent.error`) is passed on so Shiny
+#' leaves the output pending; any other error is shown through `error_msg`.
+#'
+#' @param e The condition.
+#' @param error_msg A reactive value holding the error message to display.
+#' @return `NULL`, invisibly, for ordinary errors.
+#' @keywords internal
+viewer_error_handler <- function(e, error_msg) {
+  if (inherits(e, "shiny.silent.error")) stop(e)
+  error_msg(conditionMessage(e))
+  invisible(NULL)
 }

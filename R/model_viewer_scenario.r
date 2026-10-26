@@ -346,10 +346,7 @@ scenarioResultTabServer <- function(id, analysis_type, scenario_results, metadat
           if (!is.null(input$groups)) args$groups <- input$groups
           do.call(openqaly::scenario_vbp_plot, args)
         }
-      }, error = function(e) {
-        error_msg(conditionMessage(e))
-        NULL
-      })
+      }, error = function(e) viewer_error_handler(e, error_msg))
     }, res = 72 * scale)
     })
 
@@ -422,10 +419,7 @@ scenarioResultTabServer <- function(id, analysis_type, scenario_results, metadat
         }
 
         render_flextable_html(ft)
-      }, error = function(e) {
-        error_msg(conditionMessage(e))
-        NULL
-      })
+      }, error = function(e) viewer_error_handler(e, error_msg))
     })
 
     # ---- Error display ----

@@ -16,6 +16,7 @@ Character vector of descriptions (NA_character_ where unavailable)
 }
 \description{
 Uses aliases.rds to map function names to help topics, then fetches
-only unique Rd objects via tools:::fetchRdDB for efficiency.
+only the Rd objects of those topics from the package's Rd database
+(\code{tools::Rd_db()}).
 }
 \keyword{internal}

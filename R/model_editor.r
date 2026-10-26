@@ -1,12 +1,71 @@
-#' Dispatch a model action to the appropriate openqaly reducer
-#'
-#' @param model The current model object
-#' @param action A list with \code{type} (string) and action-specific payload fields
-#' @return The updated model
-#' @keywords internal
 # Safely extract a scalar string from action fields.
 # Shiny's JSON parser converts "" to list(), not "".
 .str <- function(x) if (is.character(x) && length(x) == 1) x else ""
+
+# Half-cycle method shown when a model has no setting; must match openqaly's
+# default (define_model() and the fallback for a missing setting).
+.default_half_cycle_method <- "start"
+
+# Values the Settings tab shows for settings the model does not set. Only a
+# change away from these is written to the model, so opening the tab never
+# changes it. days_per_year matches openqaly's default.
+.settings_ui_defaults <- list(
+  timeframe = 10, timeframe_unit = "years",
+  cycle_length = 1, cycle_length_unit = "years",
+  discount_cost = 0, discount_outcomes = 0,
+  half_cycle_method = .default_half_cycle_method,
+  discount_method = "by_cycle",
+  days_per_year = 365,
+  reduce_state_cycle = FALSE,
+  country = "US", number_country = ""
+)
+
+.numeric_settings <- c("timeframe", "cycle_length", "discount_cost",
+                       "discount_outcomes", "days_per_year")
+
+#' Value Shown for a Setting
+#'
+#' @param settings The model's settings list.
+#' @param name Setting name.
+#' @return The stored value, or the Settings tab default when it is missing.
+#' @keywords internal
+setting_display_value <- function(settings, name) {
+  v <- settings[[name]]
+  if (is.null(v) || (length(v) == 1 && is.na(v))) .settings_ui_defaults[[name]] else v
+}
+
+# A setting value in comparable form (numbers as double, flags as logical)
+normalize_setting_value <- function(name, v) {
+  if (is.null(v) || length(v) == 0) return(NULL)
+  if (name %in% .numeric_settings) return(suppressWarnings(as.double(v)))
+  if (name == "reduce_state_cycle") return(isTRUE(as.logical(v)))
+  as.character(v)
+}
+
+#' Has a Settings Input Changed the Setting?
+#'
+#' @param settings The model's settings list.
+#' @param name Setting name.
+#' @param input_value The input's value.
+#' @return `TRUE` if the input differs from the value the tab shows for the
+#'   setting (the stored value, or the default when it is missing).
+#' @keywords internal
+setting_input_changed <- function(settings, name, input_value) {
+  !identical(normalize_setting_value(name, input_value),
+             normalize_setting_value(name, setting_display_value(settings, name)))
+}
+
+#' Decision Tree Values Shown on the Settings Tab
+#' @param dt_config The model's decision tree configuration, or `NULL`.
+#' @return List with `tree_name`, `duration` and `duration_unit` as shown.
+#' @keywords internal
+dt_display_values <- function(dt_config) {
+  list(
+    tree_name = dt_config$tree_name %||% "",
+    duration = as.character(dt_config$duration %||% ""),
+    duration_unit = dt_config$duration_unit %||% "days"
+  )
+}
 
 .resolve_variable_target <- function(model, name, strategy = "", group = "") {
   vars <- openqaly::get_variables(model)
@@ -47,6 +106,14 @@
 }
 
 
+#' Dispatch a model action to the appropriate openqaly reducer
+#'
+#' @param model The current model object
+#' @param action A list with \code{type} (string) and action-specific payload fields
+#' @return The updated model
+#' @importFrom stats setNames
+#' @importFrom utils tail
+#' @keywords internal
 dispatch_model_action <- function(model, action) {
   switch(action$type,
     "replace_model" = {
@@ -58,7 +125,7 @@ dispatch_model_action <- function(model, action) {
     },
     "edit_variable" = {
       if (action$field %in% c("strategy", "group")) {
-        # Cannot change targeting via edit_variable — must remove + re-add
+        # Cannot change targeting via edit_variable - must remove + re-add
         old_strategy <- if (nzchar(.str(action$strategy))) action$strategy else ""
         old_group <- if (nzchar(.str(action$group))) action$group else ""
 
@@ -1108,13 +1175,29 @@ scripts_editor_dependency <- function() {
   )
 }
 
-#' Model Editor UI
+#' Register the Override Rebind Message Once Per Session
 #'
-#' @description A Shiny application for editing openqaly models.
+#' After every flush, the client is asked to rebind the override sidebar. The
+#' callback is registered only once per session, however many times the
+#' sidebar is rendered.
 #'
-#' @param path Optional path to a model file (.json, .yml, .yaml) to load on
-#'   startup. If \code{NULL} (default), no model is loaded until the user
-#'   opens one via the UI.
+#' @param session The Shiny session.
+#' @return `TRUE` if the callback was registered by this call, invisibly.
+#' @keywords internal
+register_override_rebind <- function(session) {
+  if (isTRUE(session$userData$override_rebind_registered)) return(invisible(FALSE))
+  session$userData$override_rebind_registered <- TRUE
+  session$onFlushed(function() {
+    session$sendCustomMessage("override-rebind", list())
+  }, once = FALSE)
+  invisible(TRUE)
+}
+
+#' Undo/Redo History of Model Edits
+#'
+#' @param max_size Number of past models kept for undo.
+#' @return A list of functions: `push`, `undo`, `redo`, `discard_last`,
+#'   `can_undo`, `can_redo` and `clear`.
 #' @keywords internal
 create_history_manager <- function(max_size = 5) {
   rv <- shiny::reactiveValues(past = list(), future = list())
@@ -1139,6 +1222,15 @@ create_history_manager <- function(max_size = 5) {
       rv$future <- rv$future[-n]
       rv$past <- c(rv$past, list(current_model))
       restored
+    },
+    # Drop the most recent push without creating a redo entry (used to roll
+    # back an edit that failed after its history push)
+    discard_last = function() {
+      n <- length(rv$past)
+      if (n == 0) return(NULL)
+      last <- rv$past[[n]]
+      rv$past <- rv$past[-n]
+      last
     },
     can_undo = function() length(rv$past) > 0,
     can_redo = function() length(rv$future) > 0,
@@ -1687,7 +1779,7 @@ run_model_editor <- function(path = NULL, options = list()) {
           border: 1px solid var(--oq-border);
           border-radius: 8px;
         }
-        /* ── Settings page ── */
+        /* -- Settings page -- */
         .settings-scroll {
           flex: 1;
           overflow-y: auto;
@@ -3100,7 +3192,12 @@ run_model_editor <- function(path = NULL, options = list()) {
   )
 
   server <- function(input, output, session) {
-    library(openqalyregimen)
+    # Model formulas may call openqalyregimen functions unqualified, so attach
+    # it when it is installed
+    if (requireNamespace("openqalyregimen", quietly = TRUE) &&
+        !"package:openqalyregimen" %in% search()) {
+      suppressPackageStartupMessages(attachNamespace("openqalyregimen"))
+    }
     # Pre-warm R function suggestions cache at startup
     get_r_function_suggestions(c("base", "stats"))
 
@@ -3151,43 +3248,8 @@ run_model_editor <- function(path = NULL, options = list()) {
 
     escape_regex <- function(x) gsub("([.\\\\|()\\[\\]{}^$+*?])", "\\\\\\1", x, perl = TRUE)
 
-    history_file_path <- function(fpath) {
-      paste0(tools::file_path_sans_ext(fpath), "_history.json")
-    }
-
-    read_history_file <- function(fpath) {
-      hpath <- history_file_path(fpath)
-      if (!file.exists(hpath)) return(list(current_message = "", versions = list()))
-      tryCatch({
-        h <- jsonlite::fromJSON(hpath, simplifyVector = FALSE)
-        if (is.null(h$versions)) h$versions <- list()
-        if (is.null(h$current_message)) h$current_message <- ""
-        h
-      }, error = function(e) list(current_message = "", versions = list()))
-    }
-
-    write_history_file <- function(fpath, history) {
-      hpath <- history_file_path(fpath)
-      writeLines(jsonlite::toJSON(history, auto_unbox = TRUE, pretty = TRUE), hpath)
-    }
-
-    save_model_to_file <- function(m, fpath, message = "", skip_backup = FALSE) {
-      ext <- tolower(tools::file_ext(fpath))
-      format <- if (ext == "json") "json" else "yaml"
-      if (!skip_backup && file.exists(fpath)) {
-        old_content <- paste(readLines(fpath, warn = FALSE), collapse = "\n")
-        history <- read_history_file(fpath)
-        prev_message <- if (nzchar(history$current_message)) history$current_message else "Initial version"
-        new_entry <- list(
-          timestamp = as.character(Sys.time()),
-          message = prev_message,
-          content = old_content
-        )
-        history$versions <- c(list(new_entry), history$versions)
-        history$current_message <- message
-        write_history_file(fpath, history)
-      }
-      openqaly::write_model(m, fpath, format = format)
+    save_model_to_file <- function(m, fpath, message = "") {
+      save_model_with_history(m, fpath, message = message)
     }
 
     do_open_file <- function(fpath) {
@@ -3229,21 +3291,6 @@ run_model_editor <- function(path = NULL, options = list()) {
       }, character(1))
       data.frame(id = ids, timestamp = display_labels,
         relative = relative, message = messages, stringsAsFactors = FALSE)
-    }
-
-    load_version_model <- function(fpath, version_id) {
-      history <- read_history_file(fpath)
-      idx <- as.integer(version_id)
-      if (is.na(idx) || idx < 1 || idx > length(history$versions)) {
-        stop("Invalid version ID: ", version_id)
-      }
-      content <- history$versions[[idx]]$content
-      # Detect JSON vs YAML by checking if content starts with '{'
-      if (grepl("^\\s*\\{", content)) {
-        openqaly::read_model_json(text = content)
-      } else {
-        openqaly::read_model_yaml(text = content)
-      }
     }
 
     show_version_history_modal <- function(selected_version = NULL) {
@@ -3324,23 +3371,21 @@ run_model_editor <- function(path = NULL, options = list()) {
       ))
     }
 
-    do_restore_version <- function(skip_backup = FALSE) {
+    do_restore_version <- function(save_unsaved = FALSE) {
       fpath <- shiny::isolate(current_file_path())
-      version_id <- shiny::isolate(pending_restore_version())
-      if (is.null(fpath) || is.null(version_id)) {
+      selected_ts <- shiny::isolate(pending_restore_version())
+      if (is.null(fpath) || is.null(selected_ts)) {
         shiny::showNotification("Could not restore version.", type = "error", duration = 3)
         return()
       }
       tryCatch({
-        restored <- load_version_model(fpath, version_id)
-        history$push(shiny::isolate(model()))
+        current <- shiny::isolate(model())
+        restored <- restore_history_version(
+          fpath, selected = selected_ts,
+          unsaved = if (save_unsaved) current else NULL
+        )
+        history$push(current)
         model(restored)
-        hist <- read_history_file(fpath)
-        idx <- as.integer(version_id)
-        restore_ts <- hist$versions[[idx]]$timestamp
-        save_model_to_file(restored, fpath,
-          message = paste("Restored version from", restore_ts),
-          skip_backup = skip_backup)
         saved_model(restored)
         file_load_counter(file_load_counter() + 1L)
         table_render_trigger(table_render_trigger() + 1L)
@@ -3725,6 +3770,17 @@ run_model_editor <- function(path = NULL, options = list()) {
       on_run_page(FALSE)
       session$sendCustomMessage("navigate_page", list(page = "documentation"))
       new_m <- openqaly::define_model(type)
+      # Store the timeframe and cycle length the Settings tab shows, so a new
+      # model can run without its settings being edited first
+      if (!identical(type, "decision_tree")) {
+        new_m <- openqaly::set_settings(
+          new_m,
+          timeframe = .settings_ui_defaults$timeframe,
+          timeframe_unit = .settings_ui_defaults$timeframe_unit,
+          cycle_length = .settings_ui_defaults$cycle_length,
+          cycle_length_unit = .settings_ui_defaults$cycle_length_unit
+        )
+      }
       if (identical(type, "psm")) {
         new_m <- new_m |>
           openqaly::add_state(
@@ -3796,8 +3852,8 @@ run_model_editor <- function(path = NULL, options = list()) {
           prev_model <- load_version_model(fpath, prev_id)
           prev_lines <- model_to_yaml_lines(prev_model)
         } else {
-          # Oldest version (initial) — no previous, show no diff
-          return(shiny::tags$div(class = "text-muted p-3", "Initial version — no prior changes."))
+          # Oldest version (initial) - no previous, show no diff
+          return(shiny::tags$div(class = "text-muted p-3", "Initial version \u2014 no prior changes."))
         }
         version_model <- load_version_model(fpath, input$version_select)
         version_lines <- model_to_yaml_lines(version_model)
@@ -3822,7 +3878,12 @@ run_model_editor <- function(path = NULL, options = list()) {
     shiny::observeEvent(input$restore_version, {
       fpath <- current_file_path()
       if (is.null(fpath) || is.null(input$version_select)) return()
-      pending_restore_version(input$version_select)
+      # Identify the version by its timestamp: saving the unsaved model first
+      # adds a version and shifts every position in the list
+      idx <- as.integer(input$version_select)
+      versions <- read_history_file(fpath)$versions
+      if (is.na(idx) || idx < 1 || idx > length(versions)) return()
+      pending_restore_version(as.character(versions[[idx]]$timestamp))
 
       if (is_dirty()) {
         shiny::showModal(shiny::modalDialog(
@@ -3841,30 +3902,27 @@ run_model_editor <- function(path = NULL, options = list()) {
           )
         ))
       } else {
-        do_restore_version(skip_backup = FALSE)
+        do_restore_version(save_unsaved = FALSE)
       }
     })
 
     shiny::observeEvent(input$confirm_restore, {
-      fpath <- current_file_path()
-      if (is.null(fpath)) return()
-      tryCatch({
-        save_model_to_file(model(), fpath, message = "Auto-save before restore")
-        do_restore_version(skip_backup = TRUE)
-      }, error = function(e) {
-        shiny::showNotification(paste("Save failed:", conditionMessage(e)),
-          type = "error", duration = 5)
-      })
+      if (is.null(current_file_path())) return()
+      do_restore_version(save_unsaved = TRUE)
     })
 
     shiny::observeEvent(input$discard_restore, {
-      do_restore_version(skip_backup = FALSE)
+      do_restore_version(save_unsaved = FALSE)
     })
 
     shiny::observeEvent(input$restore_cancel, {
-      selected <- pending_restore_version()
+      selected_ts <- pending_restore_version()
       pending_restore_version(NULL)
-      show_version_history_modal(selected_version = selected)
+      # Reopen the modal on the same version (the modal selects by position)
+      versions <- read_history_file(current_file_path())$versions
+      ts <- vapply(versions, function(v) as.character(v$timestamp), character(1))
+      selected <- match(selected_ts, ts)
+      show_version_history_modal(selected_version = if (is.na(selected)) NULL else as.character(selected))
     })
 
     # Central dispatcher for all frontend change events
@@ -3872,7 +3930,7 @@ run_model_editor <- function(path = NULL, options = list()) {
       action <- input$model_action
       shiny::req(action$type)
 
-      # Handle batch_edit (clipboard paste) — process sub-edits, single undo step
+      # Handle batch_edit (clipboard paste) - process sub-edits, single undo step
       if (action$type == "batch_edit") {
         tryCatch({
           result <- apply_batch_edit(action)
@@ -3930,7 +3988,7 @@ run_model_editor <- function(path = NULL, options = list()) {
         return()
       }
 
-      # Handle edit_value name field — name sharing and field changes modals
+      # Handle edit_value name field - name sharing and field changes modals
       if (action$type == "edit_value" && identical(action$field, "name")) {
         tryCatch({
           result <- apply_action(action)
@@ -4005,7 +4063,7 @@ run_model_editor <- function(path = NULL, options = list()) {
         return()
       }
 
-      # Handle rename_value_single — catches field changes
+      # Handle rename_value_single - catches field changes
       if (action$type == "rename_value_single") {
         tryCatch({
           result <- apply_action(action)
@@ -4283,9 +4341,7 @@ run_model_editor <- function(path = NULL, options = list()) {
         "\u2699 Manage Overrides"
       )
 
-      session$onFlushed(function() {
-        session$sendCustomMessage("override-rebind", list())
-      }, once = FALSE)
+      register_override_rebind(session)
 
       htmltools::tagList(
         deps,
@@ -5152,7 +5208,7 @@ run_model_editor <- function(path = NULL, options = list()) {
         model(result)
         file_load_counter(file_load_counter() + 1L)
       }, error = function(e) {
-        history$undo(old)
+        history$discard_last()
         model(old)
         shiny::showNotification(
           paste("Failed to create scenario:", conditionMessage(e)),
@@ -5200,7 +5256,7 @@ run_model_editor <- function(path = NULL, options = list()) {
         model(result)
         file_load_counter(file_load_counter() + 1L)
       }, error = function(e) {
-        history$undo(old)
+        history$discard_last()
         model(old)
         shiny::showNotification(
           paste("Failed to edit scenario:", conditionMessage(e)),
@@ -5220,7 +5276,7 @@ run_model_editor <- function(path = NULL, options = list()) {
         model(result)
         file_load_counter(file_load_counter() + 1L)
       }, error = function(e) {
-        history$undo(old)
+        history$discard_last()
         model(old)
         shiny::showNotification(
           paste("Failed to remove scenario:", conditionMessage(e)),
@@ -5523,7 +5579,7 @@ run_model_editor <- function(path = NULL, options = list()) {
         model(result)
         file_load_counter(file_load_counter() + 1L)
       }, error = function(e) {
-        history$undo(old)
+        history$discard_last()
         model(old)
         shiny::showNotification(
           paste("Failed to create TWSA:", conditionMessage(e)),
@@ -6471,7 +6527,7 @@ run_model_editor <- function(path = NULL, options = list()) {
         tags$div(
           class = "settings-container",
 
-          # ── Model section ──
+          # -- Model section --
           tags$div(class = "settings-section-header", "Model"),
           tags$div(class = "settings-grid",
             tags$div(
@@ -6486,11 +6542,11 @@ run_model_editor <- function(path = NULL, options = list()) {
               tags$div(
                 tags$div(class = "label-row",
                   tags$label(class = "control-label", "Half-Cycle Method"),
-                  info_icon("How values are assigned to cycles. Values are calculated (and discounted) at each time point from the start to the end of the model. Start assigns each cycle the amount at its beginning, End the amount at its end, and Life-Table the average of the two. Individual values can override this setting.")
+                  info_icon("When values accrue in each cycle. This also sets when they are discounted. Start: people in each state at the start of the cycle, discounted at the start. End: at the end, discounted at the end. Life-Table: the average of the two, each half discounted at its own time. Transition values are always charged in the cycle they happen; the method only sets when they are discounted. Individual values can override this setting.")
                 ),
                 shiny::selectInput("setting_half_cycle_method", label = NULL,
                                     choices = c("Start" = "start", "End" = "end", "Life-Table" = "life-table"),
-                                    selected = s$half_cycle_method %||% "start")
+                                    selected = setting_display_value(s, "half_cycle_method"))
               )
             }
           ),
@@ -6498,7 +6554,7 @@ run_model_editor <- function(path = NULL, options = list()) {
             "document.getElementById('setting_model_type').setAttribute('disabled', 'disabled');"
           )),
 
-          # ── Time & Cycles section (hidden for decision_tree) ──
+          # -- Time & Cycles section (hidden for decision_tree) --
           if (model_type != "decision_tree") {
             tagList(
               tags$div(class = "settings-section-header", "Time & Cycles"),
@@ -6509,7 +6565,7 @@ run_model_editor <- function(path = NULL, options = list()) {
                     info_icon("Total time horizon for the model simulation.")
                   ),
                   shiny::numericInput("setting_timeframe", label = NULL,
-                                      value = s$timeframe %||% 10, min = 1)
+                                      value = setting_display_value(s, "timeframe"), min = 1)
                 ),
                 tags$div(
                   tags$div(class = "label-row",
@@ -6518,7 +6574,7 @@ run_model_editor <- function(path = NULL, options = list()) {
                   ),
                   shiny::selectInput("setting_timeframe_unit", label = NULL,
                                       choices = c("Years" = "years", "Months" = "months", "Weeks" = "weeks", "Days" = "days", "Cycles" = "cycles"),
-                                      selected = s$timeframe_unit %||% "years")
+                                      selected = setting_display_value(s, "timeframe_unit"))
                 ),
                 tags$div(
                   tags$div(class = "label-row",
@@ -6526,7 +6582,7 @@ run_model_editor <- function(path = NULL, options = list()) {
                     info_icon("Number of days per year used when converting between time units. Use 365.25 to account for leap years.")
                   ),
                   shiny::numericInput("setting_days_per_year", label = NULL,
-                                      value = s$days_per_year %||% 365.25, min = 1)
+                                      value = setting_display_value(s, "days_per_year"), min = 1)
                 ),
                 tags$div(
                   tags$div(class = "label-row",
@@ -6534,7 +6590,7 @@ run_model_editor <- function(path = NULL, options = list()) {
                     info_icon("Duration of each model cycle. Shorter cycles give more precision but increase run time.")
                   ),
                   shiny::numericInput("setting_cycle_length", label = NULL,
-                                      value = s$cycle_length %||% 1, min = 0, step = 0.1)
+                                      value = setting_display_value(s, "cycle_length"), min = 0, step = 0.1)
                 ),
                 tags$div(
                   tags$div(class = "label-row",
@@ -6543,12 +6599,12 @@ run_model_editor <- function(path = NULL, options = list()) {
                   ),
                   shiny::selectInput("setting_cycle_length_unit", label = NULL,
                                       choices = c("Years" = "years", "Months" = "months", "Weeks" = "weeks", "Days" = "days"),
-                                      selected = s$cycle_length_unit %||% "years")
+                                      selected = setting_display_value(s, "cycle_length_unit"))
                 ),
                 if (model_type == "markov") {
                   tags$div(class = "field-checkbox",
                     shiny::checkboxInput("setting_reduce_state_cycle", "Reduce State Cycle",
-                                          value = s$reduce_state_cycle %||% FALSE),
+                                          value = setting_display_value(s, "reduce_state_cycle")),
                     info_icon("Optimizes tunnel states by detecting where transitions and values stop changing with time in state, reducing the number of tunnel states needed.")
                   )
                 }
@@ -6556,37 +6612,37 @@ run_model_editor <- function(path = NULL, options = list()) {
             )
           },
 
-          # ── Discounting section ──
+          # -- Discounting section --
           tags$div(class = "settings-section-header", "Discounting"),
           tags$div(class = "settings-grid",
             tags$div(
               tags$div(class = "label-row",
                 tags$label(class = "control-label", "Costs (%)"),
-                info_icon("Annual discount rate applied to future costs, as a percentage. Values are discounted at each time point and then assigned to cycles with the half-cycle method.")
+                info_icon("Annual discount rate applied to future costs, as a percentage. When each value is discounted follows its half-cycle method: at the start of the cycle (Start), at the end (End), or each half at its own end (Life-Table).")
               ),
               shiny::numericInput("setting_discount_cost", label = NULL,
-                                  value = s$discount_cost %||% 0, min = 0, max = 100, step = 0.5)
+                                  value = setting_display_value(s, "discount_cost"), min = 0, max = 100, step = 0.5)
             ),
             tags$div(
               tags$div(class = "label-row",
                 tags$label(class = "control-label", "Outcomes (%)"),
-                info_icon("Annual discount rate applied to future health outcomes (e.g. QALYs, life years), as a percentage. Values are discounted at each time point and then assigned to cycles with the half-cycle method.")
+                info_icon("Annual discount rate applied to future health outcomes (e.g. QALYs, life years), as a percentage. When each value is discounted follows its half-cycle method: at the start of the cycle (Start), at the end (End), or each half at its own end (Life-Table).")
               ),
               shiny::numericInput("setting_discount_outcomes", label = NULL,
-                                  value = s$discount_outcomes %||% 0, min = 0, max = 100, step = 0.5)
+                                  value = setting_display_value(s, "discount_outcomes"), min = 0, max = 100, step = 0.5)
             ),
             tags$div(
               tags$div(class = "label-row",
                 tags$label(class = "control-label", "Discount Method"),
-                info_icon("By cycle discounts each time point at its exact time. By year rounds each time point down to whole years, so discounting steps once per year.")
+                info_icon("By cycle discounts at the exact time set by the half-cycle method. By year rounds that time down to whole years, so discounting steps once per year.")
               ),
               shiny::selectInput("setting_discount_method", label = NULL,
                                   choices = c("By cycle" = "by_cycle", "By year" = "by_year"),
-                                  selected = s$discount_method %||% "by_cycle")
+                                  selected = setting_display_value(s, "discount_method"))
             )
           ),
 
-          # ── Locale section ──
+          # -- Locale section --
           tags$div(class = "settings-section-header", "Locale"),
           tags$div(class = "settings-grid",
             tags$div(
@@ -6596,7 +6652,7 @@ run_model_editor <- function(path = NULL, options = list()) {
               ),
               shiny::selectInput("setting_country", label = NULL,
                                   choices = country_choices,
-                                  selected = s$country %||% "US")
+                                  selected = setting_display_value(s, "country"))
             ),
             tags$div(
               tags$div(class = "label-row",
@@ -6605,19 +6661,20 @@ run_model_editor <- function(path = NULL, options = list()) {
               ),
               shiny::selectInput("setting_number_country", label = NULL,
                                   choices = c("Same as Country" = "", country_choices),
-                                  selected = s$number_country %||% "")
+                                  selected = setting_display_value(s, "number_country"))
             )
           )
         ), # end settings-container
 
-        # ── Decision Tree section (hidden for decision_tree model type) ──
+        # -- Decision Tree section (hidden for decision_tree model type) --
         if (model_type != "decision_tree") {
           tnames <- openqaly::get_tree_names(m)
           tree_choices <- stats::setNames(tnames, tnames)
           dt_config <- openqaly::get_decision_tree(m)
-          current_tree <- dt_config$tree_name %||% ""
-          current_duration <- dt_config$duration %||% ""
-          current_unit <- dt_config$duration_unit %||% "days"
+          dt_shown <- dt_display_values(dt_config)
+          current_tree <- dt_shown$tree_name
+          current_duration <- dt_shown$duration
+          current_unit <- dt_shown$duration_unit
           tags$div(class = "dt-card",
             tags$div(class = "settings-section-header", style = "margin-top: 0;", "Decision Tree"),
             tags$div(class = "settings-grid",
@@ -6676,29 +6733,29 @@ run_model_editor <- function(path = NULL, options = list()) {
       shiny::freezeReactiveValue(input, "setting_number_country")
 
       shiny::updateNumericInput(session, "setting_timeframe",
-                                value = s$timeframe %||% 10)
+                                value = setting_display_value(s, "timeframe"))
       shiny::updateSelectInput(session, "setting_timeframe_unit",
-                               selected = s$timeframe_unit %||% "years")
+                               selected = setting_display_value(s, "timeframe_unit"))
       shiny::updateNumericInput(session, "setting_cycle_length",
-                                value = s$cycle_length %||% 1)
+                                value = setting_display_value(s, "cycle_length"))
       shiny::updateSelectInput(session, "setting_cycle_length_unit",
-                               selected = s$cycle_length_unit %||% "years")
+                               selected = setting_display_value(s, "cycle_length_unit"))
       shiny::updateNumericInput(session, "setting_discount_cost",
-                                value = s$discount_cost %||% 0)
+                                value = setting_display_value(s, "discount_cost"))
       shiny::updateNumericInput(session, "setting_discount_outcomes",
-                                value = s$discount_outcomes %||% 0)
+                                value = setting_display_value(s, "discount_outcomes"))
       shiny::updateSelectInput(session, "setting_half_cycle_method",
-                               selected = s$half_cycle_method %||% "start")
+                               selected = setting_display_value(s, "half_cycle_method"))
       shiny::updateSelectInput(session, "setting_discount_method",
-                               selected = s$discount_method %||% "by_cycle")
+                               selected = setting_display_value(s, "discount_method"))
       shiny::updateNumericInput(session, "setting_days_per_year",
-                                value = s$days_per_year %||% 365.25)
+                                value = setting_display_value(s, "days_per_year"))
       shiny::updateCheckboxInput(session, "setting_reduce_state_cycle",
-                                 value = s$reduce_state_cycle %||% FALSE)
+                                 value = setting_display_value(s, "reduce_state_cycle"))
       shiny::updateSelectInput(session, "setting_country",
-                               selected = s$country %||% "US")
+                               selected = setting_display_value(s, "country"))
       shiny::updateSelectInput(session, "setting_number_country",
-                               selected = s$number_country %||% "")
+                               selected = setting_display_value(s, "number_country"))
 
       # Sync decision tree inputs (skip for standalone decision_tree models)
       if (openqaly::get_model_type(m) != "decision_tree") {
@@ -6712,11 +6769,11 @@ run_model_editor <- function(path = NULL, options = list()) {
         dt_config <- openqaly::get_decision_tree(m)
         shiny::updateSelectInput(session, "setting_dt_tree",
                                  choices = c("None" = "", tree_choices),
-                                 selected = dt_config$tree_name %||% "")
+                                 selected = dt_display_values(dt_config)$tree_name)
         shiny::updateTextInput(session, "setting_dt_duration",
-                               value = dt_config$duration %||% "")
+                               value = dt_display_values(dt_config)$duration)
         shiny::updateSelectInput(session, "setting_dt_duration_unit",
-                                 selected = dt_config$duration_unit %||% "days")
+                                 selected = dt_display_values(dt_config)$duration_unit)
       }
     })
 
@@ -6724,8 +6781,7 @@ run_model_editor <- function(path = NULL, options = list()) {
     # Idempotency checks prevent feedback loops during undo/redo
     shiny::observeEvent(input$setting_timeframe, {
       new_val <- as.double(input$setting_timeframe)
-      current <- openqaly::get_settings(model())$timeframe
-      if (identical(new_val, current)) return()
+      if (!setting_input_changed(openqaly::get_settings(model()), "timeframe", new_val)) return()
       tryCatch({
         apply_action(list(type = "set_settings", settings = list(timeframe = new_val)))
       }, error = function(e) {
@@ -6735,8 +6791,7 @@ run_model_editor <- function(path = NULL, options = list()) {
 
     shiny::observeEvent(input$setting_timeframe_unit, {
       new_val <- input$setting_timeframe_unit
-      current <- openqaly::get_settings(model())$timeframe_unit
-      if (identical(new_val, current)) return()
+      if (!setting_input_changed(openqaly::get_settings(model()), "timeframe_unit", new_val)) return()
       tryCatch({
         apply_action(list(type = "set_settings", settings = list(timeframe_unit = new_val)))
       }, error = function(e) {
@@ -6746,8 +6801,7 @@ run_model_editor <- function(path = NULL, options = list()) {
 
     shiny::observeEvent(input$setting_cycle_length, {
       new_val <- as.double(input$setting_cycle_length)
-      current <- openqaly::get_settings(model())$cycle_length
-      if (identical(new_val, current)) return()
+      if (!setting_input_changed(openqaly::get_settings(model()), "cycle_length", new_val)) return()
       tryCatch({
         apply_action(list(type = "set_settings", settings = list(cycle_length = new_val)))
       }, error = function(e) {
@@ -6757,8 +6811,7 @@ run_model_editor <- function(path = NULL, options = list()) {
 
     shiny::observeEvent(input$setting_cycle_length_unit, {
       new_val <- input$setting_cycle_length_unit
-      current <- openqaly::get_settings(model())$cycle_length_unit
-      if (identical(new_val, current)) return()
+      if (!setting_input_changed(openqaly::get_settings(model()), "cycle_length_unit", new_val)) return()
       tryCatch({
         apply_action(list(type = "set_settings", settings = list(cycle_length_unit = new_val)))
       }, error = function(e) {
@@ -6768,8 +6821,7 @@ run_model_editor <- function(path = NULL, options = list()) {
 
     shiny::observeEvent(input$setting_discount_cost, {
       new_val <- as.double(input$setting_discount_cost)
-      current <- openqaly::get_settings(model())$discount_cost
-      if (identical(new_val, current)) return()
+      if (!setting_input_changed(openqaly::get_settings(model()), "discount_cost", new_val)) return()
       tryCatch({
         apply_action(list(type = "set_settings", settings = list(discount_cost = new_val)))
       }, error = function(e) {
@@ -6779,8 +6831,7 @@ run_model_editor <- function(path = NULL, options = list()) {
 
     shiny::observeEvent(input$setting_discount_outcomes, {
       new_val <- as.double(input$setting_discount_outcomes)
-      current <- openqaly::get_settings(model())$discount_outcomes
-      if (identical(new_val, current)) return()
+      if (!setting_input_changed(openqaly::get_settings(model()), "discount_outcomes", new_val)) return()
       tryCatch({
         apply_action(list(type = "set_settings", settings = list(discount_outcomes = new_val)))
       }, error = function(e) {
@@ -6790,8 +6841,7 @@ run_model_editor <- function(path = NULL, options = list()) {
 
     shiny::observeEvent(input$setting_half_cycle_method, {
       new_val <- input$setting_half_cycle_method
-      current <- openqaly::get_settings(model())$half_cycle_method
-      if (identical(new_val, current)) return()
+      if (!setting_input_changed(openqaly::get_settings(model()), "half_cycle_method", new_val)) return()
       tryCatch({
         apply_action(list(type = "set_settings", settings = list(half_cycle_method = new_val)))
       }, error = function(e) {
@@ -6801,8 +6851,7 @@ run_model_editor <- function(path = NULL, options = list()) {
 
     shiny::observeEvent(input$setting_discount_method, {
       new_val <- input$setting_discount_method
-      current <- openqaly::get_settings(model())$discount_method %||% "by_cycle"
-      if (identical(new_val, current)) return()
+      if (!setting_input_changed(openqaly::get_settings(model()), "discount_method", new_val)) return()
       tryCatch({
         apply_action(list(type = "set_settings", settings = list(discount_method = new_val)))
       }, error = function(e) {
@@ -6812,8 +6861,7 @@ run_model_editor <- function(path = NULL, options = list()) {
 
     shiny::observeEvent(input$setting_days_per_year, {
       new_val <- as.double(input$setting_days_per_year)
-      current <- openqaly::get_settings(model())$days_per_year
-      if (identical(new_val, current)) return()
+      if (!setting_input_changed(openqaly::get_settings(model()), "days_per_year", new_val)) return()
       tryCatch({
         apply_action(list(type = "set_settings", settings = list(days_per_year = new_val)))
       }, error = function(e) {
@@ -6823,8 +6871,7 @@ run_model_editor <- function(path = NULL, options = list()) {
 
     shiny::observeEvent(input$setting_reduce_state_cycle, {
       new_val <- input$setting_reduce_state_cycle
-      current <- openqaly::get_settings(model())$reduce_state_cycle
-      if (identical(new_val, current)) return()
+      if (!setting_input_changed(openqaly::get_settings(model()), "reduce_state_cycle", new_val)) return()
       tryCatch({
         apply_action(list(type = "set_settings", settings = list(reduce_state_cycle = new_val)))
       }, error = function(e) {
@@ -6834,8 +6881,7 @@ run_model_editor <- function(path = NULL, options = list()) {
 
     shiny::observeEvent(input$setting_country, {
       new_val <- input$setting_country
-      current <- openqaly::get_settings(model())$country
-      if (identical(new_val, current)) return()
+      if (!setting_input_changed(openqaly::get_settings(model()), "country", new_val)) return()
       tryCatch({
         apply_action(list(type = "set_settings", settings = list(country = new_val)))
       }, error = function(e) {
@@ -6845,9 +6891,8 @@ run_model_editor <- function(path = NULL, options = list()) {
 
     shiny::observeEvent(input$setting_number_country, {
       new_val <- input$setting_number_country
-      current <- openqaly::get_settings(model())$number_country
+      if (!setting_input_changed(openqaly::get_settings(model()), "number_country", new_val)) return()
       setting_val <- if (nzchar(new_val)) new_val else NULL
-      if (identical(setting_val, current)) return()
       tryCatch({
         apply_action(list(type = "set_settings", settings = list(number_country = setting_val)))
       }, error = function(e) {
@@ -6860,14 +6905,14 @@ run_model_editor <- function(path = NULL, options = list()) {
       new_val <- input$setting_dt_tree
       m <- model()
       dt_config <- openqaly::get_decision_tree(m)
-      current <- dt_config$tree_name %||% ""
+      current <- dt_display_values(dt_config)$tree_name
       if (identical(new_val, current)) return()
       tryCatch({
         if (!nzchar(new_val)) {
           apply_action(list(type = "remove_decision_tree"))
         } else {
           dur <- dt_config$duration %||% ""
-          dur_unit <- dt_config$duration_unit %||% ""
+          dur_unit <- input$setting_dt_duration_unit %||% dt_display_values(dt_config)$duration_unit
           apply_action(list(
             type = "set_decision_tree",
             tree_name = new_val,
@@ -6885,8 +6930,8 @@ run_model_editor <- function(path = NULL, options = list()) {
       m <- model()
       dt_config <- openqaly::get_decision_tree(m)
       shiny::req(dt_config)
-      current <- dt_config$duration %||% ""
-      if (identical(new_val, current)) return()
+      current <- dt_display_values(dt_config)$duration
+      if (identical(as.character(new_val), current)) return()
       if (!nzchar(new_val)) return()
       tryCatch({
         apply_action(list(type = "edit_decision_tree", duration = new_val))
@@ -6900,7 +6945,7 @@ run_model_editor <- function(path = NULL, options = list()) {
       m <- model()
       dt_config <- openqaly::get_decision_tree(m)
       shiny::req(dt_config)
-      current <- dt_config$duration_unit %||% ""
+      current <- dt_display_values(dt_config)$duration_unit
       if (identical(new_val, current)) return()
       tryCatch({
         apply_action(list(type = "edit_decision_tree", duration_unit = new_val))
@@ -7481,7 +7526,7 @@ run_model_editor <- function(path = NULL, options = list()) {
         has_vars <- length(strat_var_names) > 0
         add_strategy_has_vars(has_vars)
 
-        # Build modal content — CSS grid layout for strategy fields
+        # Build modal content - CSS grid layout for strategy fields
         modal_body <- shiny::tagList(
           shiny::tags$div(
             class = "add-form-grid",
@@ -7651,7 +7696,7 @@ run_model_editor <- function(path = NULL, options = list()) {
         return()
       }
 
-      # No strategy-specific vars — just add the strategy directly
+      # No strategy-specific vars - just add the strategy directly
       tryCatch({
         apply_action(list(
           type = "add_strategy",
@@ -7719,8 +7764,8 @@ run_model_editor <- function(path = NULL, options = list()) {
         file_load_counter(file_load_counter() + 1L)
         shiny::removeModal()
       }, error = function(e) {
-        # Revert on any error — pop the history entry we just pushed
-        history$undo(old)
+        # Revert on any error - pop the history entry we just pushed
+        history$discard_last()
         model(old)
         shiny::showNotification(
           paste("Failed to add strategy:", conditionMessage(e)),
@@ -7818,7 +7863,7 @@ run_model_editor <- function(path = NULL, options = list()) {
         has_vars <- length(grp_var_names) > 0
         add_group_has_vars(has_vars)
 
-        # Build modal content — CSS grid layout for group fields
+        # Build modal content - CSS grid layout for group fields
         modal_body <- shiny::tagList(
           shiny::tags$div(
             class = "add-form-grid",
@@ -7999,7 +8044,7 @@ run_model_editor <- function(path = NULL, options = list()) {
         return()
       }
 
-      # No group-specific vars — just add the group directly
+      # No group-specific vars - just add the group directly
       tryCatch({
         apply_action(list(
           type = "add_group",
@@ -8069,8 +8114,8 @@ run_model_editor <- function(path = NULL, options = list()) {
         file_load_counter(file_load_counter() + 1L)
         shiny::removeModal()
       }, error = function(e) {
-        # Revert on any error — pop the history entry we just pushed
-        history$undo(old)
+        # Revert on any error - pop the history entry we just pushed
+        history$discard_last()
         model(old)
         shiny::showNotification(
           paste("Failed to add group:", conditionMessage(e)),

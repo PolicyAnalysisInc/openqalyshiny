@@ -127,6 +127,9 @@
 
       var currentValue = cell.getValue() || "";
       var committed = false;
+      // Whether the user changed anything in the editor; an untouched value
+      // is committed exactly as it was
+      var userChanged = false;
       var overlay = null;
       var miniEditors = [];
       var onDocMouseDown = null;
@@ -166,6 +169,7 @@
       }
 
       function collectValue() {
+        if (!userChanged) return currentValue;
         var select = overlay ? overlay.querySelector(".psa-dist-select") : null;
         if (!select) return currentValue;
         var type = select.value;
@@ -295,6 +299,7 @@
         container.appendChild(dropdownRow);
 
         select.addEventListener("change", function() {
+          userChanged = true;
           buildParamsSection(container, select.value, null, {});
           if (miniEditors.length > 0) miniEditors[0].focus();
         });
@@ -330,6 +335,7 @@
             radio.value = pk;
             if (pk === parameterization) radio.checked = true;
             radio.addEventListener("change", function() {
+              userChanged = true;
               var currentParams = {};
               miniEditors.forEach(function(ed) {
                 if (ed._paramName) currentParams[ed._paramName] = ed.getValue();
@@ -378,6 +384,11 @@
           });
           ed._paramName = paramNames[i];
           miniEditors.push(ed);
+          if (ed.editor && typeof ed.editor.on === "function") {
+            ed.editor.on("change", function() { userChanged = true; });
+          } else if (ed.element && ed.element.addEventListener) {
+            ed.element.addEventListener("input", function() { userChanged = true; });
+          }
 
           if (ed.editor) {
             (function(editor, last, idx) {

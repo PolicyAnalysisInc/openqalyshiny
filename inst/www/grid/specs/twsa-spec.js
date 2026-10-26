@@ -303,10 +303,10 @@
             width: 60,
             hozAlign: "center",
             headerSort: false,
-            formatter: function(cell) {
+            formatter: OQGrid.utils.textFormatter(function(cell) {
               var val = cell.getValue();
               return val === "x" ? "X" : val === "y" ? "Y" : (val || "").toUpperCase();
-            }
+            })
           },
 
           // Type column (read-only)
@@ -315,12 +315,12 @@
             field: "param_type",
             width: 80,
             headerSort: false,
-            formatter: function(cell) {
+            formatter: OQGrid.utils.textFormatter(function(cell) {
               var val = cell.getValue();
               if (val === "variable") return "Variable";
               if (val === "setting") return "Setting";
               return val || "";
-            }
+            })
           },
 
           // Name column
@@ -363,13 +363,13 @@
                 };
               }
             },
-            formatter: function(cell) {
+            formatter: OQGrid.utils.textFormatter(function(cell) {
               var rowData = cell.getRow().getData();
               if (rowData.param_type === "setting") {
                 return settingsDisplay[cell.getValue()] || cell.getValue() || "";
               }
               return cell.getValue() || "";
-            }
+            })
           },
 
           // Strategy column
@@ -415,7 +415,7 @@
               var t = targeting.getTargeting(choices, rowData.name);
               return t.strategies !== null;
             },
-            formatter: function(cell) {
+            formatter: OQGrid.utils.textFormatter(function(cell) {
               var rowData = cell.getRow().getData();
               if (rowData.param_type === "setting") return "\u2014";
               var t = targeting.getTargeting(choices, rowData.name);
@@ -428,7 +428,7 @@
                 }
               }
               return val;
-            }
+            })
           },
 
           // Group column
@@ -474,7 +474,7 @@
               var t = targeting.getTargeting(choices, rowData.name);
               return t.groups !== null;
             },
-            formatter: function(cell) {
+            formatter: OQGrid.utils.textFormatter(function(cell) {
               var rowData = cell.getRow().getData();
               if (rowData.param_type === "setting") return "\u2014";
               var t = targeting.getTargeting(choices, rowData.name);
@@ -487,7 +487,7 @@
                 }
               }
               return val;
-            }
+            })
           },
 
           // Base Case column (read-only)
@@ -500,7 +500,7 @@
             editor: false,
             headerSort: false,
             clipboard: false,
-            formatter: function(cell) {
+            formatter: OQGrid.utils.textFormatter(function(cell) {
               var rowData = cell.getRow().getData();
               if (rowData.param_type === "setting") {
                 var val = choices.settingValues[rowData.name];
@@ -508,7 +508,7 @@
               }
               var key = OQGrid.helpers.combo.compositeKey(rowData.name, rowData.strategy, rowData.group);
               return choices.variableFormulas[key] || "";
-            }
+            })
           },
 
           // Method column
@@ -525,13 +525,13 @@
                 { label: "Custom", value: "custom" }
               ]
             },
-            formatter: function(cell) {
+            formatter: OQGrid.utils.textFormatter(function(cell) {
               var val = cell.getValue();
               if (val === "range") return "Range";
               if (val === "radius") return "Radius";
               if (val === "custom") return "Custom";
               return val || "";
-            }
+            })
           },
 
           // Values column (popup editor)

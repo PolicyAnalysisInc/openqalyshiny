@@ -56,10 +56,16 @@
     }
   }
 
+  // Formatter results are inserted as HTML, so text is escaped
   function emdashIfEmpty(cell) {
     var val = cell.getValue();
     if (val === null || val === undefined || val === "") return "\u2014";
-    return val;
+    return String(val)
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#39;");
   }
 
   function infoTitle(description) {

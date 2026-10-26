@@ -277,12 +277,12 @@
             title: "Type",
             field: "type",
             width: 100,
-            formatter: function(cell) {
+            formatter: OQGrid.utils.textFormatter(function(cell) {
               var val = cell.getValue();
               if (val === "variable") return "Variable";
               if (val === "setting") return "Setting";
               return val || "";
-            }
+            })
           },
 
           // Name column (list editor with dynamic editorParams)
@@ -324,13 +324,13 @@
                 };
               }
             },
-            formatter: function(cell) {
+            formatter: OQGrid.utils.textFormatter(function(cell) {
               var rowData = cell.getRow().getData();
               if (rowData.type === "setting") {
                 return settingsDisplay[cell.getValue()] || cell.getValue() || "";
               }
               return cell.getValue() || "";
-            }
+            })
           },
 
           // Strategy column (conditional on targeting)
@@ -356,7 +356,7 @@
               var t = targeting.getTargeting(choices, rowData.name);
               return t.strategies !== null;
             },
-            formatter: function(cell) {
+            formatter: OQGrid.utils.textFormatter(function(cell) {
               var rowData = cell.getRow().getData();
               if (rowData.type === "setting") return "\u2014";
               var t = targeting.getTargeting(choices, rowData.name);
@@ -364,7 +364,7 @@
               var val = cell.getValue();
               if (!val || val === "") return "";
               return targeting.strategyLabel(choices, val) || val;
-            }
+            })
           },
 
           // Group column (conditional on targeting)
@@ -390,7 +390,7 @@
               var t = targeting.getTargeting(choices, rowData.name);
               return t.groups !== null;
             },
-            formatter: function(cell) {
+            formatter: OQGrid.utils.textFormatter(function(cell) {
               var rowData = cell.getRow().getData();
               if (rowData.type === "setting") return "\u2014";
               var t = targeting.getTargeting(choices, rowData.name);
@@ -398,7 +398,7 @@
               var val = cell.getValue();
               if (!val || val === "") return "";
               return targeting.groupLabel(choices, val) || val;
-            }
+            })
           },
 
           // Base Case column (computed, read-only)
@@ -411,10 +411,10 @@
             editor: false,
             headerSort: false,
             clipboard: false,
-            formatter: function(cell) {
+            formatter: OQGrid.utils.textFormatter(function(cell) {
               var rowData = cell.getRow().getData();
               return targeting.getBaseCase(choices, rowData);
-            }
+            })
           },
 
           // Value column (single formula, replaces Low/High)

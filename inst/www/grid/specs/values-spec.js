@@ -116,13 +116,13 @@
         }
 
         cols.push({ title: "Formula", field: "formula", widthGrow: 2, minWidth: 450,
-          titleFormatter: OQGrid.utils.infoTitle("Evaluated once per cycle: cycle_lag, year_lag, ... are the start of the cycle and cycle, year, ... its end. Each cycle's value prices the time point at its end (cycle 1's also prices the start of the model), and the half-cycle method assigns those amounts to cycles."),
+          titleFormatter: OQGrid.utils.infoTitle("Evaluated once per cycle: cycle_lag, year_lag, ... are the start of the cycle and cycle, year, ... its end. Cycle k's value applies only to cycle k, to the people counted by the half-cycle method."),
           editor: fEditor, formatter: OQGrid.fmt.formula(data.terms) });
         // Half-cycle method column (not for decision_tree)
         if (data.modelType !== "decision_tree") {
           cols.push({
             title: "Half-Cycle Method", field: "half_cycle_method", minWidth: 130,
-            titleFormatter: OQGrid.utils.infoTitle("Overrides the model's half-cycle method for this value. Leave empty to use the model setting. All rows of a value must use the same setting."),
+            titleFormatter: OQGrid.utils.infoTitle("Overrides the model's half-cycle method for this value, including when it is discounted. Leave empty to use the model setting. For a one-off charged to everyone in the state at the start of a cycle, such as ifelse(cycle == 1, cost, 0), use Start. For an entry cost written with state_cycle == 1, use End. On transition values this only changes when the value is discounted. All rows of a value share one setting."),
             editor: "list", editorParams: { values: halfCycleValues },
             formatter: function(cell) {
               var v = cell.getValue();

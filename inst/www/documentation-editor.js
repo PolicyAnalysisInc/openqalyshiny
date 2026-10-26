@@ -74,9 +74,9 @@
   }
 
   // ── Rendered markdown helpers (marked + katex + hljs) ──
-  // Note: innerHTML is used intentionally for markdown rendering.
-  // Content originates from the user's own model documentation field
-  // and is sanitized through marked's built-in escaping.
+  // Note: innerHTML is used for markdown rendering. marked passes raw HTML in
+  // the markdown through unchanged, so its output is sanitized with DOMPurify
+  // (sanitizeRenderedHtml) before it is inserted.
   var markedLoaded = false;
   var markedLib = null;
   var katexLib = null;
@@ -299,6 +299,20 @@
     });
   }
 
+  // Sanitize rendered HTML: OQGrid.utils.sanitizeHtml when the grid utilities
+  // are loaded, else DOMPurify directly; without DOMPurify, show the text only
+  function sanitizeRenderedHtml(html) {
+    if (window.OQGrid && window.OQGrid.utils && typeof window.OQGrid.utils.sanitizeHtml === "function") {
+      return window.OQGrid.utils.sanitizeHtml(html);
+    }
+    if (window.DOMPurify && typeof window.DOMPurify.sanitize === "function") {
+      return window.DOMPurify.sanitize(html);
+    }
+    var div = document.createElement("div");
+    div.textContent = html;
+    return div.innerHTML;
+  }
+
   function updateRenderedView(renderedView, markdown) {
     if (!markdown || !markdown.trim()) {
       renderedView.textContent = "";
@@ -308,11 +322,11 @@
       renderedView.appendChild(placeholder);
       return;
     }
-    // Rendered HTML from markdown - content is user's own documentation,
-    // processed through marked's built-in sanitization
-    var html = renderMarkdown(markdown);
+    // Rendered HTML from markdown, sanitized before insertion (marked does not
+    // remove raw HTML such as <script> or event handlers)
+    var html = sanitizeRenderedHtml(renderMarkdown(markdown));
     var tempDiv = document.createElement("div");
-    tempDiv.innerHTML = html; // eslint-disable-line -- safe: user-owned markdown via marked
+    tempDiv.innerHTML = html; // eslint-disable-line -- sanitized by sanitizeRenderedHtml
     renderedView.textContent = "";
     while (tempDiv.firstChild) {
       renderedView.appendChild(tempDiv.firstChild);

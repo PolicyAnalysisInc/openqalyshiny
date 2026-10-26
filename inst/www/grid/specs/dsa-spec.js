@@ -60,12 +60,12 @@
             title: "Type",
             field: "type",
             width: 100,
-            formatter: function(cell) {
+            formatter: OQGrid.utils.textFormatter(function(cell) {
               var val = cell.getValue();
               if (val === "variable") return "Variable";
               if (val === "setting") return "Setting";
               return val || "";
-            }
+            })
           },
 
           // Name column (list editor with dynamic editorParams)
@@ -107,13 +107,13 @@
                 };
               }
             },
-            formatter: function(cell) {
+            formatter: OQGrid.utils.textFormatter(function(cell) {
               var rowData = cell.getRow().getData();
               if (rowData.type === "setting") {
                 return settingsDisplay[cell.getValue()] || cell.getValue() || "";
               }
               return cell.getValue() || "";
-            }
+            })
           },
 
           // Strategy column (conditional on targeting)
@@ -139,7 +139,7 @@
               var t = targeting.getTargeting(choices, rowData.name);
               return t.strategies !== null;
             },
-            formatter: function(cell) {
+            formatter: OQGrid.utils.textFormatter(function(cell) {
               var rowData = cell.getRow().getData();
               if (rowData.type === "setting") return "\u2014";
               var t = targeting.getTargeting(choices, rowData.name);
@@ -147,7 +147,7 @@
               var val = cell.getValue();
               if (!val || val === "") return "";
               return targeting.strategyLabel(choices, val) || val;
-            },
+            }),
             cellClick: function(e, cell) {
               var rowData = cell.getRow().getData();
               if (rowData.type === "setting" || !targeting.getTargeting(choices, rowData.name).strategies) {
@@ -180,7 +180,7 @@
               var t = targeting.getTargeting(choices, rowData.name);
               return t.groups !== null;
             },
-            formatter: function(cell) {
+            formatter: OQGrid.utils.textFormatter(function(cell) {
               var rowData = cell.getRow().getData();
               if (rowData.type === "setting") return "\u2014";
               var t = targeting.getTargeting(choices, rowData.name);
@@ -188,7 +188,7 @@
               var val = cell.getValue();
               if (!val || val === "") return "";
               return targeting.groupLabel(choices, val) || val;
-            },
+            }),
             cellClick: function(e, cell) {
               var rowData = cell.getRow().getData();
               if (rowData.type === "setting" || !targeting.getTargeting(choices, rowData.name).groups) {
@@ -208,10 +208,10 @@
             editor: false,
             headerSort: false,
             clipboard: false,
-            formatter: function(cell) {
+            formatter: OQGrid.utils.textFormatter(function(cell) {
               var rowData = cell.getRow().getData();
               return targeting.getBaseCase(choices, rowData);
-            }
+            })
           },
 
           // Low column (formula editor)

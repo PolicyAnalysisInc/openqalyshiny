@@ -2,7 +2,7 @@
 % Please edit documentation in R/model_viewer_psa.r
 \name{encode_psa_parameter_choice}
 \alias{encode_psa_parameter_choice}
-\title{Normalize PSA parameter group filters for tuple choices}
+\title{Encode a PSA parameter tuple as a select input value}
 \usage{
 encode_psa_parameter_choice(variable, strategy = NULL, group = NULL)
 }
@@ -12,21 +12,8 @@ encode_psa_parameter_choice(variable, strategy = NULL, group = NULL)
 \item{strategy}{Strategy name.}
 
 \item{group}{Group name.}
-
-\item{groups_input}{Selected group filter values from the UI.}
-
-\item{metadata}{Optional PSA metadata.}
 }
 \description{
-Normalize PSA parameter group filters for tuple choices
+Encode a PSA parameter tuple as a select input value
 }
-\keyword{Encode}
-\keyword{PSA}
-\keyword{a}
-\keyword{as}
-\keyword{input}
 \keyword{internal}
-\keyword{parameter}
-\keyword{select}
-\keyword{tuple}
-\keyword{value}

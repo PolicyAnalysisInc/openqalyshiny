@@ -712,8 +712,7 @@ get_model_suggestions <- function(model, context, include_r_functions = TRUE,
   )
 }
 
-#' Null-coalescing operator
-#' @keywords internal
+# Null-coalescing operator (internal)
 `%||%` <- function(x, y) {
   if (is.null(x)) y else x
 }

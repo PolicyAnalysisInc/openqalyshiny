@@ -2,46 +2,16 @@
 % Please edit documentation in R/model_viewer_utils.r
 \name{grid_core_dependency}
 \alias{grid_core_dependency}
-\title{DSA Params Table Dependency}
+\title{OQGrid Core Dependency}
 \usage{
 grid_core_dependency()
 }
 \value{
 An htmltools htmlDependency object.
-
-An htmltools htmlDependency object.
 }
 \description{
-Returns the HTML dependency for the DSA parameter table JS and CSS assets.
+Returns the HTML dependency for the shared OQGrid infrastructure.
+Includes all core files, editors, formatters, actions, helpers, and columns.
+Individual grid specs are loaded separately via their own dependency functions.
 }
-\keyword{Core}
-\keyword{Dependency}
-\keyword{HTML}
-\keyword{Includes}
-\keyword{Individual}
-\keyword{OQGrid}
-\keyword{Returns}
-\keyword{actions,}
-\keyword{all}
-\keyword{and}
-\keyword{are}
-\keyword{columns.}
-\keyword{core}
-\keyword{dependency}
-\keyword{editors,}
-\keyword{files,}
-\keyword{for}
-\keyword{formatters,}
-\keyword{functions.}
-\keyword{grid}
-\keyword{helpers,}
-\keyword{infrastructure.}
 \keyword{internal}
-\keyword{loaded}
-\keyword{own}
-\keyword{separately}
-\keyword{shared}
-\keyword{specs}
-\keyword{the}
-\keyword{their}
-\keyword{via}

@@ -1,13 +1,17 @@
 Package: openqalyshiny
 Title: Shiny Components for the Openqalyverse
-Version: 1.0.2
+Version: 1.1.0
 Authors@R: c(
     person("Jordan", "Amdahl", , "jordan.amdahl@avalerehealth.com", role = c("aut", "cre")),
-    person("Avalere Health", role = "cph")
+    person("Avalere Health", role = "cph"),
+    person("Cure53", role = c("ctb", "cph"),
+           comment = "DOMPurify, bundled in inst/www/vendor")
   )
 Maintainer: Jordan Amdahl <jordan.amdahl@avalerehealth.com>
 Description: Provides Shiny UI components for building openqalyverse applications, including formula input editors and override input controls.
 License: GPL-3
+Depends:
+    R (>= 4.1.0)
 Encoding: UTF-8
 Roxygen: list(markdown = TRUE, roclets = c("namespace", "rd", "roxytest::testthat_roclet"))
 RoxygenNote: 7.3.3
@@ -16,20 +20,26 @@ Imports:
     diffobj,
     flextable,
     future,
-    ggplot2,
     htmltools,
+    htmlwidgets,
     jsonlite,
-    openqaly (>= 0.1.3.9000),
+    openqaly (>= 1.0.0),
     promises,
     rhandsontable,
     rlang,
     shiny,
-    shinyFiles
+    shinyFiles,
+    stats,
+    utils
 Suggests:
     covr,
-    testthat (>= 3.0.0)
+    openqalyregimen,
+    rprojroot,
+    testthat (>= 3.0.0),
+    tibble
 Config/testthat/edition: 3
 URL: https://github.com/PolicyAnalysisInc/openqalyshiny
 BugReports: https://github.com/PolicyAnalysisInc/openqalyshiny/issues
 Remotes:
-    PolicyAnalysisInc/openqaly
+    PolicyAnalysisInc/openqaly,
+    PolicyAnalysisInc/openqalyregimen

@@ -9,7 +9,7 @@
   OQGrid.fmt.emdash = function(cell) {
     var val = cell.getValue();
     if (val === null || val === undefined || val === "") return "\u2014";
-    return val;
+    return OQGrid.utils.escapeHtml(val);
   };
 
   // Cycle limit: show ∞ for Inf, em-dash for empty
@@ -17,7 +17,7 @@
     var val = cell.getValue();
     if (val === null || val === undefined || val === "") return "\u2014";
     if (String(val) === "Inf") return "\u221E";
-    return val;
+    return OQGrid.utils.escapeHtml(val);
   };
 
   // Display map reverse-lookup formatter factory
@@ -26,7 +26,7 @@
     return function(cell) {
       var val = cell.getValue();
       if (!val || val === "") return "\u2014";
-      return map[val] || val;
+      return OQGrid.utils.escapeHtml(map[val] || val);
     };
   };
 
@@ -40,7 +40,8 @@
   OQGrid.fmt.capitalize = function(cell) {
     var val = cell.getValue();
     if (!val) return "\u2014";
-    return val.charAt(0).toUpperCase() + val.slice(1);
+    val = String(val);
+    return OQGrid.utils.escapeHtml(val.charAt(0).toUpperCase() + val.slice(1));
   };
 
   // =========================================================================

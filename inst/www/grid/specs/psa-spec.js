@@ -365,7 +365,7 @@
             editable: function(cell) {
               return getTargeting(choices, cell.getRow().getData().name).strategies !== null;
             },
-            formatter: function(cell) {
+            formatter: OQGrid.utils.textFormatter(function(cell) {
               var targeting = getTargeting(choices, cell.getRow().getData().name);
               if (!targeting.strategies) return "\u2014";
               var val = cell.getValue();
@@ -374,7 +374,7 @@
                 if (choices.strategies[strategyKeys[sk]] === val) return strategyKeys[sk];
               }
               return val;
-            }
+            })
           },
 
           // Group column
@@ -411,7 +411,7 @@
             editable: function(cell) {
               return getTargeting(choices, cell.getRow().getData().name).groups !== null;
             },
-            formatter: function(cell) {
+            formatter: OQGrid.utils.textFormatter(function(cell) {
               var targeting = getTargeting(choices, cell.getRow().getData().name);
               if (!targeting.groups) return "\u2014";
               var val = cell.getValue();
@@ -420,7 +420,7 @@
                 if (choices.groups[groupKeys[gk]] === val) return groupKeys[gk];
               }
               return val;
-            }
+            })
           },
 
           // Base Case column (computed, read-only)
@@ -433,9 +433,9 @@
             editor: false,
             headerSort: false,
             clipboard: false,
-            formatter: function(cell) {
+            formatter: OQGrid.utils.textFormatter(function(cell) {
               return getBaseCase(choices, cell.getRow().getData());
-            }
+            })
           },
 
           // Sampling column (distribution editor)
@@ -725,12 +725,12 @@
             widthGrow: 2,
             minWidth: 200,
             editor: OQGrid.editors.tagInput(choices.variables || []),
-            formatter: function(cell) {
+            formatter: OQGrid.utils.textFormatter(function(cell) {
               var val = cell.getValue();
               if (!val || (Array.isArray(val) && val.length === 0)) return "";
               if (Array.isArray(val)) return val.join(", ");
               return String(val);
-            }
+            })
           },
 
           // Strategy column
@@ -741,19 +741,14 @@
             minWidth: 100,
             editor: "list",
             editorParams: {
-              values: [{ label: "(all)", value: "" }].concat(
-                OQGrid.utils.buildDisplayMap(choices.strategies)
-              )
+              values: OQGrid.utils.toListValues(choices.strategies, { emptyLabel: "(all)" })
             },
-            formatter: function(cell) {
+            formatter: OQGrid.utils.textFormatter(function(cell) {
               var val = cell.getValue();
               if (!val) return "";
               var stratDisplay = OQGrid.utils.buildDisplayMap(choices.strategies);
-              for (var i = 0; i < stratDisplay.length; i++) {
-                if (stratDisplay[i].value === val) return stratDisplay[i].label;
-              }
-              return val;
-            }
+              return stratDisplay[val] || val;
+            })
           } : null,
 
           // Group column
@@ -764,19 +759,14 @@
             minWidth: 100,
             editor: "list",
             editorParams: {
-              values: [{ label: "(all)", value: "" }].concat(
-                OQGrid.utils.buildDisplayMap(choices.groups)
-              )
+              values: OQGrid.utils.toListValues(choices.groups, { emptyLabel: "(all)" })
             },
-            formatter: function(cell) {
+            formatter: OQGrid.utils.textFormatter(function(cell) {
               var val = cell.getValue();
               if (!val) return "";
               var grpDisplay = OQGrid.utils.buildDisplayMap(choices.groups);
-              for (var i = 0; i < grpDisplay.length; i++) {
-                if (grpDisplay[i].value === val) return grpDisplay[i].label;
-              }
-              return val;
-            }
+              return grpDisplay[val] || val;
+            })
           } : null,
 
           // Parameters column (custom editor with type selector + type-specific params)

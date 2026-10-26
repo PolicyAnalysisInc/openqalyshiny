@@ -30,10 +30,6 @@ psaResultTabUI <- function(id) {
   )
 }
 
-#' Normalize PSA parameter group filters for tuple choices
-#' @param groups_input Selected group filter values from the UI.
-#' @param metadata Optional PSA metadata.
-#' @keywords internal
 #' Encode a PSA parameter tuple as a select input value
 #' @param variable Variable name.
 #' @param strategy Strategy name.
@@ -377,7 +373,9 @@ psaResultTabServer <- function(id, analysis_type, psa_results, metadata) {
       } else if (analysis_type == "parameters") {
         var_choices <- get_psa_parameter_choices(meta)
         var_values <- unname(var_choices)
-        selected_values <- intersect(input$variables %||% character(0), var_values)
+        # isolate(): reading the selection must not re-render these controls
+        # each time it changes (that would reset the selector while in use)
+        selected_values <- intersect(shiny::isolate(input$variables) %||% character(0), var_values)
         inputs <- c(inputs, list(
           shiny::selectInput(ns("variables"), "Variables",
             choices = var_choices,
@@ -543,10 +541,7 @@ psaResultTabServer <- function(id, analysis_type, psa_results, metadata) {
           args <- build_psa_parameter_args(res, input$variables, input$groups)
           do.call(openqaly::psa_parameter_scatter_matrix, args)
         }
-      }, error = function(e) {
-        error_msg(conditionMessage(e))
-        NULL
-      })
+      }, error = function(e) viewer_error_handler(e, error_msg))
     }, res = 72 * scale)
     })
 
@@ -623,10 +618,7 @@ psaResultTabServer <- function(id, analysis_type, psa_results, metadata) {
         }
 
         render_flextable_html(ft)
-      }, error = function(e) {
-        error_msg(conditionMessage(e))
-        NULL
-      })
+      }, error = function(e) viewer_error_handler(e, error_msg))
     })
 
     # ---- Error display ----

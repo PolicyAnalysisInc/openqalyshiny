@@ -227,14 +227,14 @@ run_model_formula_demo <- function() {
       age = c(50, 60, 70, 80),
       rate = c(0.01, 0.02, 0.04, 0.08)
     )) |>
-    openqaly::add_transition("healthy", "sick", p_disease) |>
-    openqaly::add_transition("healthy", "dead", p_death_healthy) |>
-    openqaly::add_transition("sick", "dead", p_death_sick) |>
-    openqaly::add_value("qalys", utility_healthy, state = "healthy",
+    openqaly::add_transition("healthy", "sick", "p_disease") |>
+    openqaly::add_transition("healthy", "dead", "p_death_healthy") |>
+    openqaly::add_transition("sick", "dead", "p_death_sick") |>
+    openqaly::add_value("qalys", "utility_healthy", state = "healthy",
                         type = "outcome") |>
-    openqaly::add_value("qalys", utility_sick, state = "sick",
+    openqaly::add_value("qalys", "utility_sick", state = "sick",
                         type = "outcome") |>
-    openqaly::add_value("total_cost", base_cost + drug_cost, type = "cost")
+    openqaly::add_value("total_cost", "base_cost + drug_cost", type = "cost")
 
   # Context descriptions for the info panel
   context_descriptions <- list(

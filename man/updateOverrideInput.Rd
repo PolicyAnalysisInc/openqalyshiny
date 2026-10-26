@@ -21,6 +21,10 @@ updateOverrideInput(
 \item{override_name}{The name of the specific override to update.}
 
 \item{value}{The new value for the override.}
+
+\item{strategy, group}{Strategy and group the override targets (empty
+strings, the default, for an override that is not strategy- or
+group-specific).}
 }
 \description{
 Update the value of a specific override within an override input container.

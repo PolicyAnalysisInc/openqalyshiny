@@ -64,7 +64,7 @@ get_r_function_suggestions <- function(packages = NULL, include_internal = FALSE
         return(NULL)
       }
 
-      # Batch-fetch descriptions via aliases + fetchRdDB
+      # Batch-fetch descriptions via aliases + the package Rd database
       descriptions <- .extract_descriptions_batch(fn_names, pkg)
 
       # Build signatures in a vectorized vapply
@@ -130,7 +130,8 @@ get_r_function_suggestions <- function(packages = NULL, include_internal = FALSE
 #' Batch-extract descriptions for multiple functions from a package
 #'
 #' Uses aliases.rds to map function names to help topics, then fetches
-#' only unique Rd objects via tools:::fetchRdDB for efficiency.
+#' only the Rd objects of those topics from the package's Rd database
+#' (`tools::Rd_db()`).
 #'
 #' @param fn_names Character vector of function names
 #' @param pkg Package name
@@ -157,9 +158,11 @@ get_r_function_suggestions <- function(packages = NULL, include_internal = FALSE
 
   # Fetch Rd for unique topics only
   unique_topics <- unique(topics[has_topic])
+  rd_db <- tryCatch(tools::Rd_db(pkg), error = function(e) list())
   topic_descs <- vapply(unique_topics, function(topic) {
     tryCatch({
-      Rd <- tools:::fetchRdDB(RdDB, topic)
+      Rd <- rd_db[[paste0(topic, ".Rd")]]
+      if (is.null(Rd)) return(NA_character_)
       desc_tags <- Rd[vapply(Rd, function(x) {
         attr(x, "Rd_tag") == "\\description"
       }, logical(1))]

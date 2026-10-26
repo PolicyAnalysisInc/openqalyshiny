@@ -5,7 +5,7 @@
 
 <!-- badges: start -->
 
-[![CircleCI](https://dl.circleci.com/status-badge/img/gh/PolicyAnalysisInc/openqalyshiny/tree/main.svg?style=svg)](https://dl.circleci.com/status-badge/redirect/gh/PolicyAnalysisInc/openqalyshiny/tree/main)
+[![CircleCI](https://dl.circleci.com/status-badge/img/gh/PolicyAnalysisInc/openqalyshiny/tree/main.svg?style=svg)](https://app.circleci.com/pipelines/github/PolicyAnalysisInc/openqalyshiny?branch=main)
 [![Codecov test
 coverage](https://codecov.io/gh/PolicyAnalysisInc/openqalyshiny/graph/badge.svg)](https://app.codecov.io/gh/PolicyAnalysisInc/openqalyshiny)
 <!-- badges: end -->
@@ -42,3 +42,13 @@ pak::pak("PolicyAnalysisInc/openqalyshiny")
 library(openqalyshiny)
 run_model_editor()
 ```
+
+## License
+
+Copyright (C) 2026 Avalere Health. Licensed under the GNU General Public
+License v3.0; see `LICENSE.md`.
+
+Bundled third-party JavaScript in `inst/www` keeps its own copyright and
+licence: DOMPurify (`inst/www/vendor`) is copyright Cure53 and contributors
+(Apache 2.0 or MPL 2.0; see `inst/www/vendor/DOMPurify-LICENSE`), and the
+Milkdown bundle (`milkdown-crepe.bundle.*`) belongs to its authors.

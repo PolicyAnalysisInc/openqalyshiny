@@ -20,6 +20,42 @@
   })();
 
   // =========================================================================
+  // Escape text for insertion as HTML (formatter return values are inserted
+  // as HTML by Tabulator, so user-entered text must be escaped)
+  // =========================================================================
+  OQGrid.utils.escapeHtml = function(value) {
+    if (value === null || value === undefined) return "";
+    return String(value)
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#39;");
+  };
+
+  // =========================================================================
+  // Wrap a formatter that returns plain text so its string results are
+  // escaped (non-string results, such as DOM elements, pass through)
+  // =========================================================================
+  OQGrid.utils.textFormatter = function(fn) {
+    return function() {
+      var out = fn.apply(this, arguments);
+      return typeof out === "string" ? OQGrid.utils.escapeHtml(out) : out;
+    };
+  };
+
+  // =========================================================================
+  // Sanitize HTML before insertion as markup: DOMPurify when it is loaded,
+  // otherwise escape everything so no markup is rendered
+  // =========================================================================
+  OQGrid.utils.sanitizeHtml = function(html) {
+    var text = html === null || html === undefined ? "" : String(html);
+    var purify = window.DOMPurify;
+    if (purify && typeof purify.sanitize === "function") return purify.sanitize(text);
+    return OQGrid.utils.escapeHtml(text);
+  };
+
+  // =========================================================================
   // Reverse-lookup map: value -> display name
   // e.g. {"Drug A": "drug_a"} → {"drug_a": "Drug A"}
   // =========================================================================

@@ -381,10 +381,7 @@ twsaResultTabServer <- function(id, analysis_type, twsa_results, metadata) {
           if (!is.null(input$groups)) args$groups <- input$groups
           do.call(openqaly::twsa_vbp_plot, args)
         }
-      }, error = function(e) {
-        error_msg(conditionMessage(e))
-        NULL
-      })
+      }, error = function(e) viewer_error_handler(e, error_msg))
     }, res = 72 * scale)
     })
 
@@ -464,10 +461,7 @@ twsaResultTabServer <- function(id, analysis_type, twsa_results, metadata) {
         }
 
         render_flextable_html(ft)
-      }, error = function(e) {
-        error_msg(conditionMessage(e))
-        NULL
-      })
+      }, error = function(e) viewer_error_handler(e, error_msg))
     })
 
     # ---- Error display ----

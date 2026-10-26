@@ -2,16 +2,18 @@
 % Please edit documentation in R/model_editor.r
 \name{create_history_manager}
 \alias{create_history_manager}
-\title{Model Editor UI}
+\title{Undo/Redo History of Model Edits}
 \usage{
 create_history_manager(max_size = 5)
 }
 \arguments{
-\item{path}{Optional path to a model file (.json, .yml, .yaml) to load on
-startup. If \code{NULL} (default), no model is loaded until the user
-opens one via the UI.}
+\item{max_size}{Number of past models kept for undo.}
+}
+\value{
+A list of functions: \code{push}, \code{undo}, \code{redo}, \code{discard_last},
+\code{can_undo}, \code{can_redo} and \code{clear}.
 }
 \description{
-A Shiny application for editing openqaly models.
+Undo/Redo History of Model Edits
 }
 \keyword{internal}

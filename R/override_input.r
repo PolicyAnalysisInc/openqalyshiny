@@ -107,6 +107,9 @@ overrideInput <- function(inputId, model, width = NULL) {
 #' @param inputId The base input ID used when creating the override input.
 #' @param override_name The name of the specific override to update.
 #' @param value The new value for the override.
+#' @param strategy,group Strategy and group the override targets (empty
+#'   strings, the default, for an override that is not strategy- or
+#'   group-specific).
 #'
 #' @examples
 #' \dontrun{

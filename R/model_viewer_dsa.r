@@ -362,10 +362,7 @@ dsaResultTabServer <- function(id, analysis_type, dsa_results, metadata) {
           if (!is.null(input$show_parameter_values)) args$show_parameter_values <- input$show_parameter_values
           do.call(openqaly::dsa_vbp_plot, args)
         }
-      }, error = function(e) {
-        error_msg(conditionMessage(e))
-        NULL
-      })
+      }, error = function(e) viewer_error_handler(e, error_msg))
     }, res = 72 * scale)
     })
 
@@ -436,10 +433,7 @@ dsaResultTabServer <- function(id, analysis_type, dsa_results, metadata) {
         }
 
         render_flextable_html(ft)
-      }, error = function(e) {
-        error_msg(conditionMessage(e))
-        NULL
-      })
+      }, error = function(e) viewer_error_handler(e, error_msg))
     })
 
     # ---- Error display ----

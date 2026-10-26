@@ -55,6 +55,18 @@
     }
   }
 
+  // The builder's current value (an object from collectMvBuilderValue, or a
+  // distribution string) in the parsed { type, parameterization, params } form
+  function mvValueToParsed(value) {
+    if (!value) return null;
+    if (typeof value === "string") return parseDistributionString(value);
+    var params = {};
+    Object.keys(value).forEach(function(k) {
+      if (k !== "type") params[k] = value[k];
+    });
+    return { type: value.type, parameterization: null, params: params };
+  }
+
   function collectMvBuilderValue(state) {
     var container = state && state.container;
     var select = container ? container.querySelector(".psa-mv-dist-select") : null;
@@ -440,7 +452,7 @@
   function setMvDistributionBuilderVariables(state, variables) {
     if (!state) return;
     state.variables = variables || [];
-    var parsed = parseDistributionString(collectMvBuilderValue(state));
+    var parsed = mvValueToParsed(collectMvBuilderValue(state));
     buildMvDistributionBuilder(
       state,
       parsed ? parsed.type : (state.fixedType || ""),
@@ -452,7 +464,7 @@
   function setMvDistributionBuilderType(state, type) {
     if (!state) return;
     state.fixedType = type || null;
-    var parsed = parseDistributionString(collectMvBuilderValue(state));
+    var parsed = mvValueToParsed(collectMvBuilderValue(state));
     buildMvDistributionBuilder(
       state,
       type || (parsed ? parsed.type : ""),
